@@ -12,7 +12,6 @@ import Test.Tasty.QuickCheck
 import Debug.RecoverRTTI
 
 import Test.RecoverRTTI.Arbitrary
-import Test.RecoverRTTI.Util
 
 tests :: TestTree
 tests = testGroup "Test.RecoverRTTI.Show" [
@@ -58,9 +57,4 @@ prop_arbitraryNF v@(Value _ x) = rnf x `seq` compareShow v
 --
 -- The tests in this module differ only in how the produce the 'Value's.
 compareShow :: Value -> Property
-compareShow (Value _ x) =
-    case classified x of
-      c@(Classified i _) ->
-          counterexample ("classifier: " ++ show i)
-        $ counterexample ("blackholes: " ++ show (containsBlackholes x))
-        $ show x === show c
+compareShow (Value _ x) = show x === showAnything x

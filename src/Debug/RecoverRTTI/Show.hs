@@ -8,6 +8,7 @@
 
 module Debug.RecoverRTTI.Show (
     canShowClassified
+  , showAnything
   ) where
 
 import Data.SOP
@@ -41,3 +42,6 @@ instance KnownConstr c => Show (UserDefined c) where
       . fromUserDefined
     where
       ConstrInfo{constrName} = knownConstr (Proxy @c)
+
+showAnything :: a -> String
+showAnything = show . classified

@@ -35,7 +35,6 @@ test-suite recover-rtti-tests
     other-modules:    Test.RecoverRTTI.Arbitrary
                       Test.RecoverRTTI.Classify
                       Test.RecoverRTTI.Show
-                      Test.RecoverRTTI.Util
     build-depends:    base >= 4.13
                     , recover-rtti
 
