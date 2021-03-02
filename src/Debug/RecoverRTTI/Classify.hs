@@ -12,6 +12,7 @@
 module Debug.RecoverRTTI.Classify (
     -- * Recover RTTI
     Classifier(..)
+  , MaybeEmpty(..)
   , Classifiers(..)
   , classify
     -- * Bundle value with its classifier
@@ -19,21 +20,24 @@ module Debug.RecoverRTTI.Classify (
   , classified
     -- * User-defined types
   , UserDefined -- opaque
+  , unsafeCoerceUserDefined
   , fromUserDefined
   ) where
 
+import Data.Int
 import Data.Kind
-import Data.Proxy
 import Data.SOP
-import Data.SOP.Dict
 import Data.Void
+import Data.Word
 import GHC.Exts
 import GHC.Exts.Heap
 import GHC.TypeLits
 import System.IO.Unsafe (unsafePerformIO)
 import Unsafe.Coerce (unsafeCoerce)
 
-import Debug.RecoverRTTI.ConstrInfo
+import Debug.RecoverRTTI.Constr
+import Debug.RecoverRTTI.Util
+import Debug.RecoverRTTI.Util.TypeLevel
 
 {-------------------------------------------------------------------------------
   Classifier
@@ -42,32 +46,36 @@ import Debug.RecoverRTTI.ConstrInfo
 data Classifier (a :: Type) :: Type where
   -- Primitive types
 
-  C_Void   :: Classifier Void
-  C_Unit   :: Classifier ()
-  C_Bool   :: Classifier Bool
-  C_Int    :: Classifier Int
-  C_Char   :: Classifier Char
-  C_Double :: Classifier Double
+  C_Bool     :: Classifier Bool
+  C_Char     :: Classifier Char
+  C_Double   :: Classifier Double
+  C_Float    :: Classifier Float
+  C_Int      :: Classifier Int
+  C_Int16    :: Classifier Int16
+  C_Int8     :: Classifier Int8
+  C_Int32    :: Classifier Int32
+  C_Int64    :: Classifier Int64
+  C_Ordering :: Classifier Ordering
+  C_Unit     :: Classifier ()
+  C_Word     :: Classifier Word
+  C_Word8    :: Classifier Word8
+  C_Word16   :: Classifier Word16
+  C_Word32   :: Classifier Word32
+  C_Word64   :: Classifier Word64
 
   -- Compound
 
-  C_List   :: Classifier a -> Classifier [a]
+  C_List :: MaybeEmpty Classified a -> Classifier [a]
 
   -- User-defined
 
-  C_Custom :: ProxyKnownConstr n -> Classifier (UserDefined n)
+  C_Custom :: Sing c -> Classifier (UserDefined c)
+
+data MaybeEmpty f a where
+  Empty    :: MaybeEmpty f Void
+  NonEmpty :: f a -> MaybeEmpty f a
 
 newtype Classifiers xs = Classifiers (NP Classifier xs)
-
-instance SListI xs => Show (Classifiers xs) where
-  show (Classifiers xs) = go (hpure Dict)
-    where
-      go :: NP (Dict (Compose Show Classifier)) xs -> String
-      go dicts =
-          case all_NP dicts of
-            Dict -> "(" ++ show xs ++ ")"
-
-deriving instance Show (Classifier a)
 
 {-------------------------------------------------------------------------------
   Classification
@@ -94,33 +102,59 @@ classifyIO x = do
 
       -- Primitive (ghc-prim)
 
-      ConstrClosure {pkg = "ghc-prim", modl = "GHC.Tuple", name = "()"} ->
-        mustBe C_Unit
       ConstrClosure {pkg = "ghc-prim", modl = "GHC.Types", name = "True"} ->
         mustBe C_Bool
       ConstrClosure {pkg = "ghc-prim", modl = "GHC.Types", name = "False"} ->
         mustBe C_Bool
-      ConstrClosure {pkg = "ghc-prim", modl = "GHC.Types", name = "I#"} ->
-        mustBe C_Int
       ConstrClosure {pkg = "ghc-prim", modl = "GHC.Types", name = "C#"} ->
         mustBe C_Char
       ConstrClosure {pkg = "ghc-prim", modl = "GHC.Types", name = "D#"} ->
         mustBe C_Double
+      ConstrClosure {pkg = "ghc-prim", modl = "GHC.Types", name = "F#"} ->
+        mustBe C_Float
+      ConstrClosure {pkg = "ghc-prim", modl = "GHC.Types", name = "I#"} ->
+        mustBe C_Int
+      ConstrClosure {pkg = "base", modl = "GHC.Int", name = "I8#"} ->
+        mustBe C_Int8
+      ConstrClosure {pkg = "base", modl = "GHC.Int", name = "I16#"} ->
+        mustBe C_Int16
+      ConstrClosure {pkg = "base", modl = "GHC.Int", name = "I32#"} ->
+        mustBe C_Int32
+      ConstrClosure {pkg = "base", modl = "GHC.Int", name = "I64#"} ->
+        mustBe C_Int64
+      ConstrClosure {pkg = "ghc-prim", modl = "GHC.Types", name = "LT"} ->
+        mustBe C_Ordering
+      ConstrClosure {pkg = "ghc-prim", modl = "GHC.Types", name = "GT"} ->
+        mustBe C_Ordering
+      ConstrClosure {pkg = "ghc-prim", modl = "GHC.Types", name = "EQ"} ->
+        mustBe C_Ordering
+      ConstrClosure {pkg = "ghc-prim", modl = "GHC.Tuple", name = "()"} ->
+        mustBe C_Unit
+      ConstrClosure {pkg = "ghc-prim", modl = "GHC.Types", name = "W#"} ->
+        mustBe C_Word
+      ConstrClosure {pkg = "base", modl = "GHC.Word", name = "W8#"} ->
+        mustBe C_Word8
+      ConstrClosure {pkg = "base", modl = "GHC.Word", name = "W16#"} ->
+        mustBe C_Word16
+      ConstrClosure {pkg = "base", modl = "GHC.Word", name = "W32#"} ->
+        mustBe C_Word32
+      ConstrClosure {pkg = "base", modl = "GHC.Word", name = "W64#"} ->
+        mustBe C_Word64
 
       -- Compound (ghc-prim)
       --
       -- NOTE: We use 'Void' for the type of elements of empty containers.
 
       ConstrClosure {pkg = "ghc-prim", modl = "GHC.Types", name = "[]", ptrArgs = []} -> do
-        mustBe $ C_List C_Void
+        mustBe   $ C_List Empty
       ConstrClosure {pkg = "ghc-prim", modl = "GHC.Types", name = ":", ptrArgs = [Box x', _xs]} -> do
         c <- classifyIO x'
-        mustBe $ C_List c
+        mustBe $ C_List (NonEmpty (Classified c x'))
 
       -- User defined
 
       ConstrClosure {pkg, modl, name} ->
-        elimKnownConstr (ConstrInfo pkg modl name) $ \p ->
+        elimKnownConstr (Constr pkg modl name) $ \p ->
         mustBe $ C_Custom p
 
       _otherwise ->
@@ -137,12 +171,9 @@ classify = unsafePerformIO . classifyIO
 -------------------------------------------------------------------------------}
 
 -- | A value along with its classifier
---
--- This is similar to 'Data.Dynamic.Dynamic'.
-data Classified where
-    Classified :: Classifier a -> a -> Classified
+data Classified a = Classified (Classifier a) a
 
-classified :: a -> Classified
+classified :: a -> Classified a
 classified x = Classified (classify x) x
 
 {-------------------------------------------------------------------------------
@@ -172,25 +203,30 @@ classified x = Classified (classify x) x
 --
 -- Detecting recursion is undecidable (that's why Haskell uses isorecursive
 -- rather than equirecursive types), so instead we defer.
-newtype UserDefined (c :: ConstrInfo Symbol) = UserDefined Any
+newtype UserDefined (c :: Constr Symbol) = UserDefined Any
 
 {-------------------------------------------------------------------------------
   Conversion
 -------------------------------------------------------------------------------}
 
-fromUserDefined :: forall c. KnownConstr c => UserDefined c -> [Classified]
+unsafeCoerceUserDefined :: forall a c. ConstrOf a c => UserDefined c -> a
+unsafeCoerceUserDefined = unsafeCoerce
+  where
+    _ = keepRedundantConstraint (Proxy @(ConstrOf a c))
+
+fromUserDefined :: forall c. KnownConstr c => UserDefined c -> [Some Classified]
 fromUserDefined = \(UserDefined x) -> unsafePerformIO $ go x
   where
-    go :: x -> IO [Classified]
+    go :: x -> IO [Some Classified]
     go x = do
         closure <- getBoxedClosureData (asBox x)
         case closure of
           BlackholeClosure _ (Box x') ->
             go x'
           ConstrClosure {pkg, modl, name, ptrArgs} ->
-            let expected, actual :: ConstrInfo String
-                expected = knownConstr (Proxy @c)
-                actual   = ConstrInfo pkg modl name
+            let expected, actual :: Constr String
+                expected = knownConstr (sing @_ @c)
+                actual   = Constr pkg modl name
             in if expected == actual
                  then goArgs [] ptrArgs
                  else error $ "elimUserDefined: unexpected constructor: "
@@ -199,8 +235,8 @@ fromUserDefined = \(UserDefined x) -> unsafePerformIO $ go x
             error $ "elimUserDefined: unexpected closure: "
                  ++ show closure
 
-    goArgs :: [Classified] -> [Box] -> IO [Classified]
+    goArgs :: [Some Classified] -> [Box] -> IO [Some Classified]
     goArgs acc []         = return (reverse acc)
     goArgs acc (Box b:bs) = do
         c <- classifyIO b
-        goArgs (Classified c (unsafeCoerce b) : acc) bs
+        goArgs (Exists (Classified c (unsafeCoerce b)) : acc) bs

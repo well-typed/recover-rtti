@@ -16,18 +16,20 @@ extra-source-files:
 
 library
     exposed-modules:  Debug.RecoverRTTI
-    other-modules:    Debug.RecoverRTTI.Classify
-                      Debug.RecoverRTTI.ConstrInfo
-                      Debug.RecoverRTTI.Show
                       Debug.RecoverRTTI.Util
+                      Debug.RecoverRTTI.Util.TypeLevel
+    other-modules:    Debug.RecoverRTTI.Classify
+                      Debug.RecoverRTTI.Constr
+                      Debug.RecoverRTTI.Show
     build-depends:    base >= 4.13
                     , ghc-heap
                     , sop-core
     hs-source-dirs:   src
     default-language: Haskell2010
     ghc-options:      -Wall
+                      -Wredundant-constraints
 
-test-suite recover-rtti-tests
+test-suite test-recover-rtti
     default-language: Haskell2010
     type:             exitcode-stdio-1.0
     hs-source-dirs:   tests
@@ -35,6 +37,7 @@ test-suite recover-rtti-tests
     other-modules:    Test.RecoverRTTI.Arbitrary
                       Test.RecoverRTTI.Classify
                       Test.RecoverRTTI.Show
+                      Test.RecoverRTTI.Staged
     build-depends:    base >= 4.13
                     , recover-rtti
 
