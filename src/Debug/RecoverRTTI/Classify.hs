@@ -137,6 +137,7 @@ classifyIO x = do
       -- Primitive (ghc-prim)
       --
 
+      -- GHC.Types
       (inKnownModule GhcTypes -> Just "True")  -> mustBe C_Bool
       (inKnownModule GhcTypes -> Just "False") -> mustBe C_Bool
       (inKnownModule GhcTypes -> Just "C#")    -> mustBe C_Char
@@ -148,13 +149,16 @@ classifyIO x = do
       (inKnownModule GhcTypes -> Just "EQ")    -> mustBe C_Ordering
       (inKnownModule GhcTypes -> Just "W#")    -> mustBe C_Word
 
+      -- GHC.Tuple
       (inKnownModule GhcTuple -> Just "()") -> mustBe C_Unit
 
+      -- GHC.Int
       (inKnownModule GhcInt -> Just "I8#")  -> mustBe C_Int8
       (inKnownModule GhcInt -> Just "I16#") -> mustBe C_Int16
       (inKnownModule GhcInt -> Just "I32#") -> mustBe C_Int32
       (inKnownModule GhcInt -> Just "I64#") -> mustBe C_Int64
 
+      -- GHC.Word
       (inKnownModule GhcWord -> Just "W8#")  -> mustBe C_Word8
       (inKnownModule GhcWord -> Just "W16#") -> mustBe C_Word16
       (inKnownModule GhcWord -> Just "W32#") -> mustBe C_Word32
@@ -164,11 +168,13 @@ classifyIO x = do
       -- String types
       --
 
+      -- bytestring
       (inKnownModule DataByteStringInternal      -> Just "PS")    -> mustBe C_BS_Strict
       (inKnownModule DataByteStringLazyInternal  -> Just "Empty") -> mustBe C_BS_Lazy
       (inKnownModule DataByteStringLazyInternal  -> Just "Chunk") -> mustBe C_BS_Lazy
       (inKnownModule DataByteStringShortInternal -> Just "SBS")   -> mustBe C_BS_Short
 
+      -- text
       (inKnownModule DataTextInternal     -> Just "Text")  -> mustBe C_Text_Strict
       (inKnownModule DataTextInternalLazy -> Just "Chunk") -> mustBe C_Text_Lazy
       (inKnownModule DataTextInternalLazy -> Just "Empty") -> mustBe C_Text_Lazy
