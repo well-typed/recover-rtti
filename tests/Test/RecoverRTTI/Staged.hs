@@ -98,6 +98,11 @@ reclassify = \(Classified c x) ->
           reclassifyF CC_User_NonRec s x
         , reclassifyF CC_User_Rec    s x
         ]
+
+
+      -- Classification failed
+
+      C_Unknown -> Nothing
   where
     cc_list :: Reclassified a -> Reclassified [a]
     cc_list (Reclassified c f) = Reclassified (CC_List (NonEmpty c)) (map f)

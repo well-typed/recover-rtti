@@ -22,6 +22,8 @@ module Debug.RecoverRTTI.Classify (
   , UserDefined -- opaque
   , unsafeCoerceUserDefined
   , fromUserDefined
+    -- * Values of an unknown type (failed classification)
+  , Unknown(..)
   ) where
 
 import Data.Int
@@ -70,6 +72,10 @@ data Classifier (a :: Type) :: Type where
   -- User-defined
 
   C_Custom :: Sing c -> Classifier (UserDefined c)
+
+  -- Classification failed
+
+  C_Unknown :: Classifier Unknown
 
 data MaybeEmpty f a where
   Empty    :: MaybeEmpty f Void
@@ -158,7 +164,7 @@ classifyIO x = do
         mustBe $ C_Custom p
 
       _otherwise ->
-        error $ "Unexpected closure: " ++ show closure
+        mustBe $ C_Unknown
   where
     mustBe :: Classifier b -> IO (Classifier a)
     mustBe = return . unsafeCoerce
@@ -204,6 +210,13 @@ classified x = Classified (classify x) x
 -- Detecting recursion is undecidable (that's why Haskell uses isorecursive
 -- rather than equirecursive types), so instead we defer.
 newtype UserDefined (c :: Constr Symbol) = UserDefined Any
+
+{-------------------------------------------------------------------------------
+  Unknown values
+-------------------------------------------------------------------------------}
+
+-- | We classify unknown values as 'Unknown'
+newtype Unknown = Unknown Any
 
 {-------------------------------------------------------------------------------
   Conversion

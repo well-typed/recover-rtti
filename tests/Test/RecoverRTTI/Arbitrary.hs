@@ -180,6 +180,10 @@ arbitraryClassifier k = oneof [
 
          C_Custom{} -> ()
 
+         -- We don't generate values that we cannot classify
+
+         C_Unknown -> ()
+
 {-------------------------------------------------------------------------------
   Equality
 -------------------------------------------------------------------------------}

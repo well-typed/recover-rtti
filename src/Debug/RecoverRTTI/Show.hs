@@ -17,6 +17,8 @@ module Debug.RecoverRTTI.Show (
 
 import Data.SOP
 import Data.SOP.Dict
+import GHC.Exts.Heap
+import System.IO.Unsafe (unsafePerformIO)
 
 import Debug.RecoverRTTI.Classify
 import Debug.RecoverRTTI.Constr
@@ -56,6 +58,10 @@ canShowClassified = \case
 
     C_Custom SConstr -> Dict
 
+    -- Classification failed
+
+    C_Unknown -> Dict
+
 instance SListI xs => Show (Classifiers xs) where
   show (Classifiers xs) = go (hpure Dict)
     where
@@ -83,6 +89,11 @@ instance KnownConstr c => Show (UserDefined c) where
             $ xs
     where
       Constr{constrName} = knownConstr (sing @_ @c)
+
+instance Show Unknown where
+  showsPrec p (Unknown x) = unsafePerformIO $ do
+      closure <- getBoxedClosureData (asBox x)
+      return $ showsPrec p closure
 
 deriving instance Show (Some Classified)
 
