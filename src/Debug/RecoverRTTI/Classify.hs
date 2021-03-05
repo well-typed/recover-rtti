@@ -7,7 +7,9 @@
 {-# LANGUAGE ScopedTypeVariables  #-}
 {-# LANGUAGE StandaloneDeriving   #-}
 {-# LANGUAGE TypeApplications     #-}
+{-# LANGUAGE TypeFamilies         #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE ViewPatterns         #-}
 
 module Debug.RecoverRTTI.Classify (
     -- * Recover RTTI
@@ -34,6 +36,7 @@ module Debug.RecoverRTTI.Classify (
 
 import Control.Concurrent.MVar (MVar)
 import Control.Concurrent.STM (TVar)
+import Control.Monad (guard)
 import Data.Int
 import Data.Kind
 import Data.List (isPrefixOf)
@@ -134,49 +137,50 @@ classifyIO x = do
       -- Primitive (ghc-prim)
       --
 
-      ConstrClosure {pkg = "ghc-prim", modl = "GHC.Types", name = "True"}  -> mustBe C_Bool
-      ConstrClosure {pkg = "ghc-prim", modl = "GHC.Types", name = "False"} -> mustBe C_Bool
-      ConstrClosure {pkg = "ghc-prim", modl = "GHC.Types", name = "C#"}    -> mustBe C_Char
-      ConstrClosure {pkg = "ghc-prim", modl = "GHC.Types", name = "D#"}    -> mustBe C_Double
-      ConstrClosure {pkg = "ghc-prim", modl = "GHC.Types", name = "F#"}    -> mustBe C_Float
-      ConstrClosure {pkg = "ghc-prim", modl = "GHC.Types", name = "I#"}    -> mustBe C_Int
-      ConstrClosure {pkg = "ghc-prim", modl = "GHC.Types", name = "LT"}    -> mustBe C_Ordering
-      ConstrClosure {pkg = "ghc-prim", modl = "GHC.Types", name = "GT"}    -> mustBe C_Ordering
-      ConstrClosure {pkg = "ghc-prim", modl = "GHC.Types", name = "EQ"}    -> mustBe C_Ordering
-      ConstrClosure {pkg = "ghc-prim", modl = "GHC.Tuple", name = "()"}    -> mustBe C_Unit
-      ConstrClosure {pkg = "ghc-prim", modl = "GHC.Types", name = "W#"}    -> mustBe C_Word
+      (inKnownModule GhcTypes -> Just "True")  -> mustBe C_Bool
+      (inKnownModule GhcTypes -> Just "False") -> mustBe C_Bool
+      (inKnownModule GhcTypes -> Just "C#")    -> mustBe C_Char
+      (inKnownModule GhcTypes -> Just "D#")    -> mustBe C_Double
+      (inKnownModule GhcTypes -> Just "F#")    -> mustBe C_Float
+      (inKnownModule GhcTypes -> Just "I#")    -> mustBe C_Int
+      (inKnownModule GhcTypes -> Just "LT")    -> mustBe C_Ordering
+      (inKnownModule GhcTypes -> Just "GT")    -> mustBe C_Ordering
+      (inKnownModule GhcTypes -> Just "EQ")    -> mustBe C_Ordering
+      (inKnownModule GhcTypes -> Just "W#")    -> mustBe C_Word
 
-      ConstrClosure {pkg = "base", modl = "GHC.Int", name = "I8#"}  -> mustBe C_Int8
-      ConstrClosure {pkg = "base", modl = "GHC.Int", name = "I16#"} -> mustBe C_Int16
-      ConstrClosure {pkg = "base", modl = "GHC.Int", name = "I32#"} -> mustBe C_Int32
-      ConstrClosure {pkg = "base", modl = "GHC.Int", name = "I64#"} -> mustBe C_Int64
+      (inKnownModule GhcTuple -> Just "()") -> mustBe C_Unit
 
-      ConstrClosure {pkg = "base", modl = "GHC.Word", name = "W8#"}  -> mustBe C_Word8
-      ConstrClosure {pkg = "base", modl = "GHC.Word", name = "W16#"} -> mustBe C_Word16
-      ConstrClosure {pkg = "base", modl = "GHC.Word", name = "W32#"} -> mustBe C_Word32
-      ConstrClosure {pkg = "base", modl = "GHC.Word", name = "W64#"} -> mustBe C_Word64
+      (inKnownModule GhcInt -> Just "I8#")  -> mustBe C_Int8
+      (inKnownModule GhcInt -> Just "I16#") -> mustBe C_Int16
+      (inKnownModule GhcInt -> Just "I32#") -> mustBe C_Int32
+      (inKnownModule GhcInt -> Just "I64#") -> mustBe C_Int64
+
+      (inKnownModule GhcWord -> Just "W8#")  -> mustBe C_Word8
+      (inKnownModule GhcWord -> Just "W16#") -> mustBe C_Word16
+      (inKnownModule GhcWord -> Just "W32#") -> mustBe C_Word32
+      (inKnownModule GhcWord -> Just "W64#") -> mustBe C_Word64
 
       --
       -- String types
       --
 
-      ConstrClosure {pkg, modl = "Data.ByteString.Internal",       name = "PS"}    | "bytestring" `isPrefixOf` pkg -> mustBe C_BS_Strict
-      ConstrClosure {pkg, modl = "Data.ByteString.Lazy.Internal",  name = "Empty"} | "bytestring" `isPrefixOf` pkg -> mustBe C_BS_Lazy
-      ConstrClosure {pkg, modl = "Data.ByteString.Lazy.Internal",  name = "Chunk"} | "bytestring" `isPrefixOf` pkg -> mustBe C_BS_Lazy
-      ConstrClosure {pkg, modl = "Data.ByteString.Short.Internal", name = "SBS"}   | "bytestring" `isPrefixOf` pkg -> mustBe C_BS_Short
+      (inKnownModule DataByteStringInternal      -> Just "PS")    -> mustBe C_BS_Strict
+      (inKnownModule DataByteStringLazyInternal  -> Just "Empty") -> mustBe C_BS_Lazy
+      (inKnownModule DataByteStringLazyInternal  -> Just "Chunk") -> mustBe C_BS_Lazy
+      (inKnownModule DataByteStringShortInternal -> Just "SBS")   -> mustBe C_BS_Short
 
-      ConstrClosure {pkg, modl = "Data.Text.Internal",      name = "Text"}  | "text" `isPrefixOf` pkg -> mustBe C_Text_Strict
-      ConstrClosure {pkg, modl = "Data.Text.Internal.Lazy", name = "Chunk"} | "text" `isPrefixOf` pkg -> mustBe C_Text_Lazy
-      ConstrClosure {pkg, modl = "Data.Text.Internal.Lazy", name = "Empty"} | "text" `isPrefixOf` pkg -> mustBe C_Text_Lazy
+      (inKnownModule DataTextInternal     -> Just "Text")  -> mustBe C_Text_Strict
+      (inKnownModule DataTextInternalLazy -> Just "Chunk") -> mustBe C_Text_Lazy
+      (inKnownModule DataTextInternalLazy -> Just "Empty") -> mustBe C_Text_Lazy
 
       --
       -- Compound (ghc-prim)
       --
 
       -- Lists (this includes the 'String' case)
-      ConstrClosure {pkg = "ghc-prim", modl = "GHC.Types", name = "[]", ptrArgs = []} ->
+      (inKnownModuleNested GhcTypes -> Just ("[]", [])) ->
         mustBe $ C_List Empty
-      ConstrClosure {pkg = "ghc-prim", modl = "GHC.Types", name = ":", ptrArgs = [Box x', _xs]} -> do
+      (inKnownModuleNested GhcTypes -> Just (":", [Box x', _xs])) -> do
         c <- classifyIO x'
         case c of
           C_Char     -> mustBe $ C_String
@@ -186,9 +190,9 @@ classifyIO x = do
       -- Reference cells
       --
 
-      ConstrClosure {pkg = "base", modl = "GHC.STRef",     name = "STRef"} -> mustBe C_STRef
-      ConstrClosure {pkg = "base", modl = "GHC.MVar",      name = "MVar"}  -> mustBe C_MVar
-      ConstrClosure {pkg = "base", modl = "GHC.Conc.Sync", name = "TVar"}  -> mustBe C_TVar
+      (inKnownModule GhcSTRef    -> Just "STRef") -> mustBe C_STRef
+      (inKnownModule GhcMVar     -> Just "MVar")  -> mustBe C_MVar
+      (inKnownModule GhcConcSync -> Just "TVar")  -> mustBe C_TVar
 
       --
       -- Functions
@@ -217,6 +221,88 @@ classifyIO x = do
 
 classify :: a -> Classifier a
 classify = unsafePerformIO . classifyIO
+
+{-------------------------------------------------------------------------------
+  Modules we classify types from
+-------------------------------------------------------------------------------}
+
+data family KnownModule (pkg :: KnownPkg)
+
+data KnownPkg =
+    PkgGhcPrim
+  | PkgBase
+  | PkgByteString
+  | PkgText
+
+data instance Sing (pkg :: KnownPkg) where
+  SGhcPrim    :: Sing 'PkgGhcPrim
+  SBase       :: Sing 'PkgBase
+  SByteString :: Sing 'PkgByteString
+  SText       :: Sing 'PkgText
+
+instance SingI 'PkgGhcPrim    where sing = SGhcPrim
+instance SingI 'PkgBase       where sing = SBase
+instance SingI 'PkgByteString where sing = SByteString
+instance SingI 'PkgText       where sing = SText
+
+data instance KnownModule 'PkgGhcPrim =
+    GhcTypes
+  | GhcTuple
+
+data instance KnownModule 'PkgBase =
+    GhcInt
+  | GhcWord
+  | GhcSTRef
+  | GhcMVar
+  | GhcConcSync
+
+data instance KnownModule 'PkgByteString =
+    DataByteStringInternal
+  | DataByteStringLazyInternal
+  | DataByteStringShortInternal
+
+data instance KnownModule 'PkgText =
+    DataTextInternal
+  | DataTextInternalLazy
+
+-- | Check if the given closure is from a known package/module
+inKnownModule :: SingI pkg
+  => KnownModule pkg
+  -> FlatClosure -> Maybe String
+inKnownModule modl = fmap fst . inKnownModuleNested modl
+
+-- | Generalization of 'inKnownModule' that additionally returns nested pointers
+inKnownModuleNested :: SingI pkg
+  => KnownModule pkg
+  -> FlatClosure -> Maybe (String, [Box])
+inKnownModuleNested = go sing
+  where
+    go :: Sing pkg -> KnownModule pkg -> FlatClosure -> Maybe (String, [Box])
+    go knownPkg knownModl ConstrClosure{pkg, modl, name, ptrArgs} = do
+        guard (namePkg knownPkg `isPrefixOf` pkg) -- ignore the version number
+        guard (modl == nameModl knownPkg knownModl)
+        return (name, ptrArgs)
+    go _ _ _otherClosure = Nothing
+
+    namePkg :: Sing (pkg :: KnownPkg) -> String
+    namePkg SGhcPrim    = "ghc-prim"
+    namePkg SBase       = "base"
+    namePkg SByteString = "bytestring"
+    namePkg SText       = "text"
+
+    nameModl :: Sing (pkg :: KnownPkg) -> KnownModule pkg -> String
+    nameModl SGhcPrim    GhcTypes                    = "GHC.Types"
+    nameModl SGhcPrim    GhcTuple                    = "GHC.Tuple"
+    nameModl SBase       GhcInt                      = "GHC.Int"
+    nameModl SBase       GhcWord                     = "GHC.Word"
+    nameModl SBase       GhcSTRef                    = "GHC.STRef"
+    nameModl SBase       GhcMVar                     = "GHC.MVar"
+    nameModl SBase       GhcConcSync                 = "GHC.Conc.Sync"
+    nameModl SByteString DataByteStringInternal      = "Data.ByteString.Internal"
+    nameModl SByteString DataByteStringLazyInternal  = "Data.ByteString.Lazy.Internal"
+    nameModl SByteString DataByteStringShortInternal = "Data.ByteString.Short.Internal"
+    nameModl SText       DataTextInternal            = "Data.Text.Internal"
+    nameModl SText       DataTextInternalLazy        = "Data.Text.Internal.Lazy"
 
 {-------------------------------------------------------------------------------
   Classified values
