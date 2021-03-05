@@ -40,6 +40,7 @@ getBoxedClosureData b@(Box x) =
         -- Force unforced thunks
 
         H.ThunkClosure {} -> x `seq` getBoxedClosureData b
+        H.APClosure    {} -> x `seq` getBoxedClosureData b
 
         -- Indirections
         --
