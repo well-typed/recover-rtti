@@ -14,11 +14,11 @@ module Debug.RecoverRTTI.Show (showAnything) where
 
 import Data.SOP
 import Data.SOP.Dict
-import GHC.Exts.Heap
 import System.IO.Unsafe (unsafePerformIO)
 
 import Debug.RecoverRTTI.Classify
 import Debug.RecoverRTTI.Constr
+import Debug.RecoverRTTI.FlatClosure
 import Debug.RecoverRTTI.Util
 import Debug.RecoverRTTI.Util.TypeLevel
 
@@ -97,6 +97,13 @@ instance Show SomeTVar where
   show _ = "<TVar>"
 
 {-------------------------------------------------------------------------------
+  Functions
+-------------------------------------------------------------------------------}
+
+instance Show SomeFun where
+  show _ = "<Fun>"
+
+{-------------------------------------------------------------------------------
   Internal auxiliary
 -------------------------------------------------------------------------------}
 
@@ -137,6 +144,10 @@ canShowClassified = \case
     C_STRef -> Dict
     C_TVar  -> Dict
     C_MVar  -> Dict
+
+    -- Functions
+
+    C_Fun -> Dict
 
     -- User-defined
 

@@ -17,6 +17,7 @@ import Debug.RecoverRTTI.Util
 
 import Test.RecoverRTTI.Arbitrary
 import Test.RecoverRTTI.Staged
+import Test.RecoverRTTI.Orphans ()
 
 tests :: TestTree
 tests = testGroup "Test.RecoverRTTI.Classify" [
@@ -66,6 +67,10 @@ prop_constants = withMaxSuccess 1 $ conjoin [
     , compareClassifier $ Value CC_MVar  exampleMVar
     , compareClassifier $ Value CC_TVar  exampleTVar
 
+      -- Functions
+
+    , compareClassifier $ Value CC_Fun (SomeFun id)
+
       -- User defined
 
     , compareClassifier $ Value (CC_User_NonRec Empty)              (NR1 1234)
@@ -97,7 +102,11 @@ prop_constants = withMaxSuccess 1 $ conjoin [
 
         -- Compound
 
-        CC_List _ -> ()
+        CC_List{} -> ()
+
+        -- Functions
+
+        CC_Fun{} -> ()
 
         -- Reference cells
 
@@ -107,8 +116,8 @@ prop_constants = withMaxSuccess 1 $ conjoin [
 
         -- User-defined
 
-        CC_User_NonRec _ -> ()
-        CC_User_Rec    _ -> ()
+        CC_User_NonRec{} -> ()
+        CC_User_Rec{} -> ()
 
 -- | Test using arbitrary values
 prop_arbitrary :: Some Value -> Property

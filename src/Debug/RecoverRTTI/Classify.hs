@@ -26,6 +26,8 @@ module Debug.RecoverRTTI.Classify (
   , SomeSTRef(..)
   , SomeMVar(..)
   , SomeTVar(..)
+    -- * Functions
+  , SomeFun(..)
     -- * Values of an unknown type (failed classification)
   , Unknown(..)
   ) where
@@ -39,12 +41,12 @@ import Data.STRef (STRef)
 import Data.Void
 import Data.Word
 import GHC.Exts
-import GHC.Exts.Heap
 import GHC.TypeLits
 import System.IO.Unsafe (unsafePerformIO)
 import Unsafe.Coerce (unsafeCoerce)
 
 import Debug.RecoverRTTI.Constr
+import Debug.RecoverRTTI.FlatClosure
 import Debug.RecoverRTTI.Util
 import Debug.RecoverRTTI.Util.TypeLevel
 
@@ -82,6 +84,10 @@ data Classifier (a :: Type) :: Type where
   C_TVar  :: Classifier SomeTVar
   C_MVar  :: Classifier SomeMVar
 
+  -- Functions
+
+  C_Fun :: Classifier SomeFun
+
   -- User-defined
 
   C_Custom :: Sing c -> Classifier (UserDefined c)
@@ -104,63 +110,29 @@ classifyIO :: a -> IO (Classifier a)
 classifyIO x = do
     closure <- getBoxedClosureData (asBox x)
     case closure of
-      -- Thunk
-
-      ThunkClosure {} ->
-        x `seq` classifyIO x
-
-      -- Indirections
-      --
-      -- For background on black holes, see "Implementing Lazy Functional
-      -- Languages on Stock Hardware: The Spineless Tagless G-machine", Simon
-      -- Peyton Jones, Journal of Functional Programming, July 1992, section
-      -- 9.3.3 "Black holes".
-
-      BlackholeClosure _ (Box x') ->
-        unsafeCoerce <$> classifyIO x'
-      IndClosure _ (Box x') ->
-        unsafeCoerce <$> classifyIO x'
-
       -- Primitive (ghc-prim)
 
-      ConstrClosure {pkg = "ghc-prim", modl = "GHC.Types", name = "True"} ->
-        mustBe C_Bool
-      ConstrClosure {pkg = "ghc-prim", modl = "GHC.Types", name = "False"} ->
-        mustBe C_Bool
-      ConstrClosure {pkg = "ghc-prim", modl = "GHC.Types", name = "C#"} ->
-        mustBe C_Char
-      ConstrClosure {pkg = "ghc-prim", modl = "GHC.Types", name = "D#"} ->
-        mustBe C_Double
-      ConstrClosure {pkg = "ghc-prim", modl = "GHC.Types", name = "F#"} ->
-        mustBe C_Float
-      ConstrClosure {pkg = "ghc-prim", modl = "GHC.Types", name = "I#"} ->
-        mustBe C_Int
-      ConstrClosure {pkg = "base", modl = "GHC.Int", name = "I8#"} ->
-        mustBe C_Int8
-      ConstrClosure {pkg = "base", modl = "GHC.Int", name = "I16#"} ->
-        mustBe C_Int16
-      ConstrClosure {pkg = "base", modl = "GHC.Int", name = "I32#"} ->
-        mustBe C_Int32
-      ConstrClosure {pkg = "base", modl = "GHC.Int", name = "I64#"} ->
-        mustBe C_Int64
-      ConstrClosure {pkg = "ghc-prim", modl = "GHC.Types", name = "LT"} ->
-        mustBe C_Ordering
-      ConstrClosure {pkg = "ghc-prim", modl = "GHC.Types", name = "GT"} ->
-        mustBe C_Ordering
-      ConstrClosure {pkg = "ghc-prim", modl = "GHC.Types", name = "EQ"} ->
-        mustBe C_Ordering
-      ConstrClosure {pkg = "ghc-prim", modl = "GHC.Tuple", name = "()"} ->
-        mustBe C_Unit
-      ConstrClosure {pkg = "ghc-prim", modl = "GHC.Types", name = "W#"} ->
-        mustBe C_Word
-      ConstrClosure {pkg = "base", modl = "GHC.Word", name = "W8#"} ->
-        mustBe C_Word8
-      ConstrClosure {pkg = "base", modl = "GHC.Word", name = "W16#"} ->
-        mustBe C_Word16
-      ConstrClosure {pkg = "base", modl = "GHC.Word", name = "W32#"} ->
-        mustBe C_Word32
-      ConstrClosure {pkg = "base", modl = "GHC.Word", name = "W64#"} ->
-        mustBe C_Word64
+      ConstrClosure {pkg = "ghc-prim", modl = "GHC.Types", name = "True"}  -> mustBe C_Bool
+      ConstrClosure {pkg = "ghc-prim", modl = "GHC.Types", name = "False"} -> mustBe C_Bool
+      ConstrClosure {pkg = "ghc-prim", modl = "GHC.Types", name = "C#"}    -> mustBe C_Char
+      ConstrClosure {pkg = "ghc-prim", modl = "GHC.Types", name = "D#"}    -> mustBe C_Double
+      ConstrClosure {pkg = "ghc-prim", modl = "GHC.Types", name = "F#"}    -> mustBe C_Float
+      ConstrClosure {pkg = "ghc-prim", modl = "GHC.Types", name = "I#"}    -> mustBe C_Int
+      ConstrClosure {pkg = "ghc-prim", modl = "GHC.Types", name = "LT"}    -> mustBe C_Ordering
+      ConstrClosure {pkg = "ghc-prim", modl = "GHC.Types", name = "GT"}    -> mustBe C_Ordering
+      ConstrClosure {pkg = "ghc-prim", modl = "GHC.Types", name = "EQ"}    -> mustBe C_Ordering
+      ConstrClosure {pkg = "ghc-prim", modl = "GHC.Tuple", name = "()"}    -> mustBe C_Unit
+      ConstrClosure {pkg = "ghc-prim", modl = "GHC.Types", name = "W#"}    -> mustBe C_Word
+
+      ConstrClosure {pkg = "base", modl = "GHC.Int", name = "I8#"}  -> mustBe C_Int8
+      ConstrClosure {pkg = "base", modl = "GHC.Int", name = "I16#"} -> mustBe C_Int16
+      ConstrClosure {pkg = "base", modl = "GHC.Int", name = "I32#"} -> mustBe C_Int32
+      ConstrClosure {pkg = "base", modl = "GHC.Int", name = "I64#"} -> mustBe C_Int64
+
+      ConstrClosure {pkg = "base", modl = "GHC.Word", name = "W8#"}  -> mustBe C_Word8
+      ConstrClosure {pkg = "base", modl = "GHC.Word", name = "W16#"} -> mustBe C_Word16
+      ConstrClosure {pkg = "base", modl = "GHC.Word", name = "W32#"} -> mustBe C_Word32
+      ConstrClosure {pkg = "base", modl = "GHC.Word", name = "W64#"} -> mustBe C_Word64
 
       -- Compound (ghc-prim)
 
@@ -172,12 +144,14 @@ classifyIO x = do
 
       -- Reference cells
 
-      ConstrClosure {pkg = "base", modl = "GHC.STRef", name = "STRef"} ->
-        mustBe C_STRef
-      ConstrClosure {pkg = "base", modl = "GHC.MVar", name = "MVar"} ->
-        mustBe C_MVar
-      ConstrClosure {pkg = "base", modl = "GHC.Conc.Sync", name = "TVar"} ->
-        mustBe C_TVar
+      ConstrClosure {pkg = "base", modl = "GHC.STRef",     name = "STRef"} -> mustBe C_STRef
+      ConstrClosure {pkg = "base", modl = "GHC.MVar",      name = "MVar"}  -> mustBe C_MVar
+      ConstrClosure {pkg = "base", modl = "GHC.Conc.Sync", name = "TVar"}  -> mustBe C_TVar
+
+      -- Functions
+
+      FunClosure {} -> mustBe C_Fun
+      PAPClosure {} -> mustBe C_Fun
 
       -- User defined
 
@@ -185,7 +159,7 @@ classifyIO x = do
         elimKnownConstr (Constr pkg modl name) $ \p ->
         mustBe $ C_Custom p
 
-      _otherwise ->
+      OtherClosure _ ->
         mustBe $ C_Unknown
   where
     mustBe :: Classifier b -> IO (Classifier a)
@@ -250,6 +224,15 @@ newtype SomeTVar = SomeTVar (TVar Any)
   deriving (Eq)
 
 {-------------------------------------------------------------------------------
+  Functions
+-------------------------------------------------------------------------------}
+
+-- | Functions
+--
+-- We do not try to infer the domain or codomain of the function.
+newtype SomeFun = SomeFun (Any -> Any)
+
+{-------------------------------------------------------------------------------
   Unknown values
 -------------------------------------------------------------------------------}
 
@@ -272,10 +255,6 @@ fromUserDefined = \(UserDefined x) -> unsafePerformIO $ go x
     go x = do
         closure <- getBoxedClosureData (asBox x)
         case closure of
-          BlackholeClosure _ (Box x') ->
-            go x'
-          IndClosure _ (Box x') ->
-            go x'
           ConstrClosure {pkg, modl, name, ptrArgs} ->
             let expected, actual :: Constr String
                 expected = knownConstr (sing @_ @c)

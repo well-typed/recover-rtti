@@ -97,7 +97,11 @@ reclassify = \(Classified c x) ->
 
       C_STRef -> return $ Reclassified CC_STRef id
       C_TVar  -> return $ Reclassified CC_TVar  id
-      C_MVar  -> return $ Reclassified CC_MVar  id 
+      C_MVar  -> return $ Reclassified CC_MVar  id
+
+      -- Functions
+
+      C_Fun -> return $ Reclassified CC_Fun id
 
       -- User-defined
 

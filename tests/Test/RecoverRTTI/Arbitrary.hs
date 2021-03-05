@@ -44,6 +44,8 @@ import Test.QuickCheck hiding (classify, NonEmpty)
 import Debug.RecoverRTTI
 import Debug.RecoverRTTI.Util
 
+import Test.RecoverRTTI.Orphans ()
+
 {-------------------------------------------------------------------------------
   Concrete classifier
 
@@ -81,6 +83,10 @@ data ConcreteClassifier (a :: Type) :: Type where
     -- Compound
 
     CC_List :: MaybeEmpty ConcreteClassifier a -> ConcreteClassifier [a]
+
+    -- Functions
+
+    CC_Fun :: ConcreteClassifier SomeFun
 
     -- Reference cells
 
@@ -133,6 +139,21 @@ arbitraryClassifier k = oneof [
     , k CC_STRef (pure exampleIORef)
     , k CC_MVar  (pure exampleMVar)
     , k CC_TVar  (pure exampleTVar)
+
+      -- Functions
+      --
+      -- For functions we don't currently try to be clever and /generate/
+      -- functions. Instead, we just try a few different categories.
+
+      -- Parametrically polymorphic function
+    , k CC_Fun (pure (unsafeCoerce (id    :: Int -> Int)))
+    , k CC_Fun (pure (unsafeCoerce (const :: Int -> Bool -> Int)))
+      -- Ad-hoc polymorphic function
+    , k CC_Fun (pure (unsafeCoerce (negate :: Int -> Int)))
+    , k CC_Fun (pure (unsafeCoerce ((+)    :: Int -> Int -> Int)))
+      -- Partial application
+    , k CC_Fun (pure (unsafeCoerce (const 1 :: Bool -> Int)))
+    , k CC_Fun (pure (unsafeCoerce ((+)   1 :: Int -> Int)))
 
       -- User-defined
 
@@ -201,6 +222,10 @@ arbitraryClassifier k = oneof [
          C_TVar  -> ()
          C_MVar  -> ()
 
+         -- Functions
+
+         C_Fun -> ()
+
          -- User-defined
 
          C_Custom{} -> ()
@@ -253,6 +278,10 @@ sameConcreteClassifier = go
     go CC_TVar  CC_TVar  = Just Refl
     go CC_MVar  CC_MVar  = Just Refl
 
+    -- Functions
+
+    go CC_Fun CC_Fun = Just Refl
+
     -- User-defined
 
     go (CC_User_NonRec c) (CC_User_NonRec c') = goF c c'
@@ -300,6 +329,10 @@ sameConcreteClassifier = go
         CC_STRef -> ()
         CC_TVar  -> ()
         CC_MVar  -> ()
+
+        -- Functions
+
+        CC_Fun -> ()
 
         -- User-defined
 
