@@ -26,9 +26,11 @@ library
                       Debug.RecoverRTTI.Constr
                       Debug.RecoverRTTI.Show
     build-depends:    base >= 4.13
+                    , bytestring
                     , ghc-heap
                     , sop-core
                     , stm
+                    , text
     hs-source-dirs:   src
     default-language: Haskell2010
     ghc-options:      -Wall
@@ -47,6 +49,7 @@ test-suite test-recover-rtti
     build-depends:    base >= 4.13
                     , recover-rtti
 
+                    , bytestring
                     , ghc-heap
                     , mtl
                     , QuickCheck
@@ -54,4 +57,5 @@ test-suite test-recover-rtti
                     , stm
                     , tasty
                     , tasty-quickcheck
+                    , text
     ghc-options:      -Wall

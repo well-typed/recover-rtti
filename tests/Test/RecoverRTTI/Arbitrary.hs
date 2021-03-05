@@ -39,6 +39,12 @@ import GHC.Generics
 import System.IO.Unsafe (unsafePerformIO)
 import Unsafe.Coerce (unsafeCoerce)
 
+import qualified Data.ByteString       as BS.Strict
+import qualified Data.ByteString.Lazy  as BS.Lazy
+import qualified Data.ByteString.Short as BS.Short
+import qualified Data.Text             as Text.Strict
+import qualified Data.Text.Lazy        as Text.Lazy
+
 import Test.QuickCheck hiding (classify, NonEmpty)
 
 import Debug.RecoverRTTI
@@ -79,6 +85,15 @@ data ConcreteClassifier (a :: Type) :: Type where
     CC_Word16   :: ConcreteClassifier Word16
     CC_Word32   :: ConcreteClassifier Word32
     CC_Word64   :: ConcreteClassifier Word64
+
+    -- Text types
+
+    CC_String      :: ConcreteClassifier String
+    CC_BS_Strict   :: ConcreteClassifier BS.Strict.ByteString
+    CC_BS_Lazy     :: ConcreteClassifier BS.Lazy.ByteString
+    CC_BS_Short    :: ConcreteClassifier BS.Short.ShortByteString
+    CC_Text_Strict :: ConcreteClassifier Text.Strict.Text
+    CC_Text_Lazy   :: ConcreteClassifier Text.Lazy.Text
 
     -- Compound
 
@@ -124,6 +139,15 @@ arbitraryClassifier k = oneof [
     , k CC_Word16   arbitrary
     , k CC_Word32   arbitrary
     , k CC_Word64   arbitrary
+
+      -- Strings
+
+    , k CC_String      (arbitrary `suchThat` (not . null))
+    , k CC_BS_Strict   (BS.Strict.pack   <$> arbitrary)
+    , k CC_BS_Lazy     (BS.Lazy.pack     <$> arbitrary)
+    , k CC_BS_Short    (BS.Short.pack    <$> arbitrary)
+    , k CC_Text_Strict (Text.Strict.pack <$> arbitrary)
+    , k CC_Text_Lazy   (Text.Lazy.pack   <$> arbitrary)
 
       -- Compound
 
@@ -212,6 +236,15 @@ arbitraryClassifier k = oneof [
          C_Word32   -> ()
          C_Word64   -> ()
 
+         -- String types
+
+         C_String      -> ()
+         C_BS_Strict   -> ()
+         C_BS_Lazy     -> ()
+         C_BS_Short    -> ()
+         C_Text_Strict -> ()
+         C_Text_Lazy   -> ()
+
          -- Compound
 
          C_List{} -> ()
@@ -268,6 +301,15 @@ sameConcreteClassifier = go
     go CC_Word32   CC_Word32   = Just Refl
     go CC_Word64   CC_Word64   = Just Refl
 
+    -- String types
+
+    go CC_String      CC_String      = Just Refl
+    go CC_BS_Strict   CC_BS_Strict   = Just Refl
+    go CC_BS_Lazy     CC_BS_Lazy     = Just Refl
+    go CC_BS_Short    CC_BS_Short    = Just Refl
+    go CC_Text_Strict CC_Text_Strict = Just Refl
+    go CC_Text_Lazy   CC_Text_Lazy   = Just Refl
+
     -- Compound
 
     go (CC_List c) (CC_List c') = goF c c'
@@ -319,6 +361,15 @@ sameConcreteClassifier = go
         CC_Word16   -> ()
         CC_Word32   -> ()
         CC_Word64   -> ()
+
+        -- String types
+
+        CC_String      -> ()
+        CC_BS_Strict   -> ()
+        CC_BS_Lazy     -> ()
+        CC_BS_Short    -> ()
+        CC_Text_Strict -> ()
+        CC_Text_Lazy   -> ()
 
         -- Compound
 

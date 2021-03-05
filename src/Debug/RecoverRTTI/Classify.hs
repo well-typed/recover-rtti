@@ -36,6 +36,7 @@ import Control.Concurrent.MVar (MVar)
 import Control.Concurrent.STM (TVar)
 import Data.Int
 import Data.Kind
+import Data.List (isPrefixOf)
 import Data.SOP
 import Data.STRef (STRef)
 import Data.Void
@@ -44,6 +45,12 @@ import GHC.Exts
 import GHC.TypeLits
 import System.IO.Unsafe (unsafePerformIO)
 import Unsafe.Coerce (unsafeCoerce)
+
+import qualified Data.ByteString       as BS.Strict
+import qualified Data.ByteString.Lazy  as BS.Lazy
+import qualified Data.ByteString.Short as BS.Short
+import qualified Data.Text             as Text.Strict
+import qualified Data.Text.Lazy        as Text.Lazy
 
 import Debug.RecoverRTTI.Constr
 import Debug.RecoverRTTI.FlatClosure
@@ -73,6 +80,19 @@ data Classifier (a :: Type) :: Type where
   C_Word16   :: Classifier Word16
   C_Word32   :: Classifier Word32
   C_Word64   :: Classifier Word64
+
+  -- String types
+  --
+  -- We list @String@ separately, so that we show them properly (rather than
+  -- as a list of characters). Of course, empty strings will be inferred as
+  -- empty lists instead.
+
+  C_String      :: Classifier String
+  C_BS_Strict   :: Classifier BS.Strict.ByteString
+  C_BS_Lazy     :: Classifier BS.Lazy.ByteString
+  C_BS_Short    :: Classifier BS.Short.ShortByteString
+  C_Text_Strict :: Classifier Text.Strict.Text
+  C_Text_Lazy   :: Classifier Text.Lazy.Text
 
   -- Compound
 
@@ -110,7 +130,9 @@ classifyIO :: a -> IO (Classifier a)
 classifyIO x = do
     closure <- getBoxedClosureData (asBox x)
     case closure of
+      --
       -- Primitive (ghc-prim)
+      --
 
       ConstrClosure {pkg = "ghc-prim", modl = "GHC.Types", name = "True"}  -> mustBe C_Bool
       ConstrClosure {pkg = "ghc-prim", modl = "GHC.Types", name = "False"} -> mustBe C_Bool
@@ -134,30 +156,58 @@ classifyIO x = do
       ConstrClosure {pkg = "base", modl = "GHC.Word", name = "W32#"} -> mustBe C_Word32
       ConstrClosure {pkg = "base", modl = "GHC.Word", name = "W64#"} -> mustBe C_Word64
 
-      -- Compound (ghc-prim)
+      --
+      -- String types
+      --
 
+      ConstrClosure {pkg, modl = "Data.ByteString.Internal",       name = "PS"}    | "bytestring" `isPrefixOf` pkg -> mustBe C_BS_Strict
+      ConstrClosure {pkg, modl = "Data.ByteString.Lazy.Internal",  name = "Empty"} | "bytestring" `isPrefixOf` pkg -> mustBe C_BS_Lazy
+      ConstrClosure {pkg, modl = "Data.ByteString.Lazy.Internal",  name = "Chunk"} | "bytestring" `isPrefixOf` pkg -> mustBe C_BS_Lazy
+      ConstrClosure {pkg, modl = "Data.ByteString.Short.Internal", name = "SBS"}   | "bytestring" `isPrefixOf` pkg -> mustBe C_BS_Short
+
+      ConstrClosure {pkg, modl = "Data.Text.Internal",      name = "Text"}  | "text" `isPrefixOf` pkg -> mustBe C_Text_Strict
+      ConstrClosure {pkg, modl = "Data.Text.Internal.Lazy", name = "Chunk"} | "text" `isPrefixOf` pkg -> mustBe C_Text_Lazy
+      ConstrClosure {pkg, modl = "Data.Text.Internal.Lazy", name = "Empty"} | "text" `isPrefixOf` pkg -> mustBe C_Text_Lazy
+
+      --
+      -- Compound (ghc-prim)
+      --
+
+      -- Lists (this includes the 'String' case)
       ConstrClosure {pkg = "ghc-prim", modl = "GHC.Types", name = "[]", ptrArgs = []} ->
         mustBe $ C_List Empty
       ConstrClosure {pkg = "ghc-prim", modl = "GHC.Types", name = ":", ptrArgs = [Box x', _xs]} -> do
         c <- classifyIO x'
-        mustBe $ C_List (NonEmpty (Classified c x'))
+        case c of
+          C_Char     -> mustBe $ C_String
+          _otherwise -> mustBe $ C_List (NonEmpty (Classified c x'))
 
+      --
       -- Reference cells
+      --
 
       ConstrClosure {pkg = "base", modl = "GHC.STRef",     name = "STRef"} -> mustBe C_STRef
       ConstrClosure {pkg = "base", modl = "GHC.MVar",      name = "MVar"}  -> mustBe C_MVar
       ConstrClosure {pkg = "base", modl = "GHC.Conc.Sync", name = "TVar"}  -> mustBe C_TVar
 
+      --
       -- Functions
+      --
 
       FunClosure {} -> mustBe C_Fun
       PAPClosure {} -> mustBe C_Fun
 
+      --
       -- User defined
+      --
 
       ConstrClosure {pkg, modl, name} ->
         elimKnownConstr (Constr pkg modl name) $ \p ->
         mustBe $ C_Custom p
+
+      --
+      -- Unsupported
+      --
 
       OtherClosure _ ->
         mustBe $ C_Unknown

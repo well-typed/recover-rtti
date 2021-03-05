@@ -134,6 +134,15 @@ canShowClassified = \case
     C_Word32   -> Dict
     C_Word64   -> Dict
 
+    -- String types
+
+    C_String      -> Dict
+    C_BS_Strict   -> Dict
+    C_BS_Lazy     -> Dict
+    C_BS_Short    -> Dict
+    C_Text_Strict -> Dict
+    C_Text_Lazy   -> Dict
+
     -- Compound
 
     C_List Empty -> Dict

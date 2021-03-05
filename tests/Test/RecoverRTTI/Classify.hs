@@ -1,5 +1,6 @@
-{-# LANGUAGE LambdaCase          #-}
 {-# LANGUAGE GADTs               #-}
+{-# LANGUAGE LambdaCase          #-}
+{-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications    #-}
 
@@ -55,6 +56,22 @@ prop_constants = withMaxSuccess 1 $ conjoin [
     , compareClassifier $ Value CC_Word32   1234
     , compareClassifier $ Value CC_Word64   1234
 
+      -- String types
+      --
+      -- We skip the empty string, because we infer that as @CC_List Empty@
+
+    , compareClassifier $ Value CC_String      "abcdefg"
+    , compareClassifier $ Value CC_BS_Strict   ""
+    , compareClassifier $ Value CC_BS_Strict   "abcdefg"
+    , compareClassifier $ Value CC_BS_Lazy     ""
+    , compareClassifier $ Value CC_BS_Lazy     "abcdefg"
+    , compareClassifier $ Value CC_BS_Short    ""
+    , compareClassifier $ Value CC_BS_Short    "abcdefg"
+    , compareClassifier $ Value CC_Text_Strict ""
+    , compareClassifier $ Value CC_Text_Strict "abcdefg"
+    , compareClassifier $ Value CC_Text_Lazy   ""
+    , compareClassifier $ Value CC_Text_Lazy   "abcdefg"
+
       -- Compound
 
     , compareClassifier $ Value (CC_List Empty) []
@@ -99,6 +116,15 @@ prop_constants = withMaxSuccess 1 $ conjoin [
         CC_Word16   -> ()
         CC_Word32   -> ()
         CC_Word64   -> ()
+
+        -- String types
+
+        CC_String      -> ()
+        CC_BS_Strict   -> ()
+        CC_BS_Lazy     -> ()
+        CC_BS_Short    -> ()
+        CC_Text_Strict -> ()
+        CC_Text_Lazy   -> ()
 
         -- Compound
 

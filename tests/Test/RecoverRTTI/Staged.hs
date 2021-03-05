@@ -88,6 +88,15 @@ reclassify = \(Classified c x) ->
       C_Word32   -> return $ Reclassified CC_Word32   id
       C_Word64   -> return $ Reclassified CC_Word64   id
 
+      -- String types
+
+      C_String      -> return $ Reclassified CC_String      id
+      C_BS_Strict   -> return $ Reclassified CC_BS_Strict   id
+      C_BS_Lazy     -> return $ Reclassified CC_BS_Lazy     id
+      C_BS_Short    -> return $ Reclassified CC_BS_Short    id
+      C_Text_Strict -> return $ Reclassified CC_Text_Strict id
+      C_Text_Lazy   -> return $ Reclassified CC_Text_Lazy   id
+
       -- Compound
 
       C_List Empty -> return $ Reclassified (CC_List Empty) id
