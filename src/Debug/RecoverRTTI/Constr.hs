@@ -21,6 +21,7 @@ module Debug.RecoverRTTI.Constr (
     Constr(..)
   , KnownConstr
   , knownConstr
+  , prettyKnownConstr
   , elimKnownConstr
     -- | Compute all known constructors
   , Constrs
@@ -33,6 +34,7 @@ module Debug.RecoverRTTI.Constr (
   ) where
 
 import Data.Kind
+import Data.List (intercalate)
 import Data.SOP
 import Data.Type.Equality
 import GHC.Generics
@@ -76,6 +78,11 @@ knownConstr SConstr = Constr {
     , constrModl = symbolVal (Proxy @(ConstrModl c))
     , constrName = symbolVal (Proxy @(ConstrName c))
     }
+
+prettyKnownConstr :: Sing (c :: Constr Symbol) -> String
+prettyKnownConstr s = intercalate "." [constrPkg, constrModl, constrName]
+  where
+    Constr{constrPkg, constrModl, constrName} = knownConstr s
 
 elimKnownConstr :: forall r.
      Constr String

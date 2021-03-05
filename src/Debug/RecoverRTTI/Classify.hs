@@ -22,13 +22,20 @@ module Debug.RecoverRTTI.Classify (
   , UserDefined -- opaque
   , unsafeCoerceUserDefined
   , fromUserDefined
+    -- * Reference cells
+  , SomeSTRef(..)
+  , SomeMVar(..)
+  , SomeTVar(..)
     -- * Values of an unknown type (failed classification)
   , Unknown(..)
   ) where
 
+import Control.Concurrent.MVar (MVar)
+import Control.Concurrent.STM (TVar)
 import Data.Int
 import Data.Kind
 import Data.SOP
+import Data.STRef (STRef)
 import Data.Void
 import Data.Word
 import GHC.Exts
@@ -69,6 +76,12 @@ data Classifier (a :: Type) :: Type where
 
   C_List :: MaybeEmpty Classified a -> Classifier [a]
 
+  -- Reference cells
+
+  C_STRef :: Classifier SomeSTRef
+  C_TVar  :: Classifier SomeTVar
+  C_MVar  :: Classifier SomeMVar
+
   -- User-defined
 
   C_Custom :: Sing c -> Classifier (UserDefined c)
@@ -96,7 +109,7 @@ classifyIO x = do
       ThunkClosure {} ->
         x `seq` classifyIO x
 
-      -- Black holes
+      -- Indirections
       --
       -- For background on black holes, see "Implementing Lazy Functional
       -- Languages on Stock Hardware: The Spineless Tagless G-machine", Simon
@@ -104,6 +117,8 @@ classifyIO x = do
       -- 9.3.3 "Black holes".
 
       BlackholeClosure _ (Box x') ->
+        unsafeCoerce <$> classifyIO x'
+      IndClosure _ (Box x') ->
         unsafeCoerce <$> classifyIO x'
 
       -- Primitive (ghc-prim)
@@ -148,14 +163,21 @@ classifyIO x = do
         mustBe C_Word64
 
       -- Compound (ghc-prim)
-      --
-      -- NOTE: We use 'Void' for the type of elements of empty containers.
 
-      ConstrClosure {pkg = "ghc-prim", modl = "GHC.Types", name = "[]", ptrArgs = []} -> do
-        mustBe   $ C_List Empty
+      ConstrClosure {pkg = "ghc-prim", modl = "GHC.Types", name = "[]", ptrArgs = []} ->
+        mustBe $ C_List Empty
       ConstrClosure {pkg = "ghc-prim", modl = "GHC.Types", name = ":", ptrArgs = [Box x', _xs]} -> do
         c <- classifyIO x'
         mustBe $ C_List (NonEmpty (Classified c x'))
+
+      -- Reference cells
+
+      ConstrClosure {pkg = "base", modl = "GHC.STRef", name = "STRef"} ->
+        mustBe C_STRef
+      ConstrClosure {pkg = "base", modl = "GHC.MVar", name = "MVar"} ->
+        mustBe C_MVar
+      ConstrClosure {pkg = "base", modl = "GHC.Conc.Sync", name = "TVar"} ->
+        mustBe C_TVar
 
       -- User defined
 
@@ -212,6 +234,22 @@ classified x = Classified (classify x) x
 newtype UserDefined (c :: Constr Symbol) = UserDefined Any
 
 {-------------------------------------------------------------------------------
+  Reference cells
+
+  We do not try to look inside these variables to figure out the type of their
+  elements; the show instance merely shows an address.
+-------------------------------------------------------------------------------}
+
+newtype SomeSTRef = SomeSTRef (STRef Any Any)
+  deriving (Eq)
+
+newtype SomeMVar = SomeMVar (MVar Any)
+  deriving (Eq)
+
+newtype SomeTVar = SomeTVar (TVar Any)
+  deriving (Eq)
+
+{-------------------------------------------------------------------------------
   Unknown values
 -------------------------------------------------------------------------------}
 
@@ -235,6 +273,8 @@ fromUserDefined = \(UserDefined x) -> unsafePerformIO $ go x
         closure <- getBoxedClosureData (asBox x)
         case closure of
           BlackholeClosure _ (Box x') ->
+            go x'
+          IndClosure _ (Box x') ->
             go x'
           ConstrClosure {pkg, modl, name, ptrArgs} ->
             let expected, actual :: Constr String

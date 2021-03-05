@@ -18,15 +18,26 @@ module Test.RecoverRTTI.Arbitrary (
     -- * Examples of user-defined types
   , NonRecursive(..)
   , Recursive(..)
+    -- * Example values of reference cells
+  , exampleIORef
+  , exampleSTRef
+  , exampleMVar
+  , exampleTVar
   ) where
 
-import Control.DeepSeq
+import Control.Concurrent.MVar (newEmptyMVar)
+import Control.Concurrent.STM (newTVarIO)
+import Control.Monad.ST.Unsafe (unsafeSTToIO)
 import Data.Int
+import Data.IORef (newIORef)
 import Data.Kind
+import Data.STRef (newSTRef)
 import Data.Type.Equality
 import Data.Void
 import Data.Word
 import GHC.Generics
+import System.IO.Unsafe (unsafePerformIO)
+import Unsafe.Coerce (unsafeCoerce)
 
 import Test.QuickCheck hiding (classify, NonEmpty)
 
@@ -71,6 +82,12 @@ data ConcreteClassifier (a :: Type) :: Type where
 
     CC_List :: MaybeEmpty ConcreteClassifier a -> ConcreteClassifier [a]
 
+    -- Reference cells
+
+    CC_STRef :: ConcreteClassifier SomeSTRef
+    CC_TVar  :: ConcreteClassifier SomeTVar
+    CC_MVar  :: ConcreteClassifier SomeMVar
+
     -- User-defined
 
     CC_User_NonRec :: MaybeEmpty ConcreteClassifier a -> ConcreteClassifier (NonRecursive a)
@@ -80,13 +97,10 @@ deriving instance Show (ConcreteClassifier a)
 deriving instance Show (MaybeEmpty ConcreteClassifier a)
 
 arbitraryClassifier :: forall r.
-     (forall a.
-             (Show a, Eq a, NFData a)
-          => ConcreteClassifier a -> Gen a -> Gen r
-        )
+     (forall a. (Show a, Eq a) => ConcreteClassifier a -> Gen a -> Gen r)
   -> Gen r
 arbitraryClassifier k = oneof [
-    -- Primitive types
+      -- Primitive types
 
       k CC_Bool     arbitrary
     , k CC_Char     arbitrary
@@ -105,13 +119,20 @@ arbitraryClassifier k = oneof [
     , k CC_Word32   arbitrary
     , k CC_Word64   arbitrary
 
-    -- Compound
+      -- Compound
 
     , arbitraryClassifier $
         genMaybeEmpty
           CC_List
           (return [])
           (\gen -> (:) <$> gen <*> listOf gen)
+
+      -- Reference cells
+
+    , k CC_STRef (pure exampleSTRef)
+    , k CC_STRef (pure exampleIORef)
+    , k CC_MVar  (pure exampleMVar)
+    , k CC_TVar  (pure exampleTVar)
 
       -- User-defined
 
@@ -128,12 +149,10 @@ arbitraryClassifier k = oneof [
     ]
   where
     genMaybeEmpty ::
-         ( forall x. Show   x => Show   (f x)
-         , forall x. Eq     x => Eq     (f x)
-         , forall x. NFData x => NFData (f x)
-         , Show   a
-         , Eq     a
-         , NFData a
+         ( forall x. Show x => Show (f x)
+         , forall x. Eq   x => Eq   (f x)
+         , Show a
+         , Eq   a
          )
       => (forall x. MaybeEmpty ConcreteClassifier x -> ConcreteClassifier (f x))
       -> Gen (f Void)
@@ -175,6 +194,12 @@ arbitraryClassifier k = oneof [
          -- Compound
 
          C_List{} -> ()
+
+         -- Reference cells
+
+         C_STRef -> ()
+         C_TVar  -> ()
+         C_MVar  -> ()
 
          -- User-defined
 
@@ -218,9 +243,15 @@ sameConcreteClassifier = go
     go CC_Word32   CC_Word32   = Just Refl
     go CC_Word64   CC_Word64   = Just Refl
 
-    ---- Compound
+    -- Compound
 
     go (CC_List c) (CC_List c') = goF c c'
+
+    -- Reference cells
+
+    go CC_STRef CC_STRef = Just Refl
+    go CC_TVar  CC_TVar  = Just Refl
+    go CC_MVar  CC_MVar  = Just Refl
 
     -- User-defined
 
@@ -238,6 +269,44 @@ sameConcreteClassifier = go
     goF (NonEmpty c) (NonEmpty c') = (\Refl -> Refl) <$> go c c'
     goF _            _             = Nothing
 
+    -- Make sure we get a warning if we add another constructor
+    _checkAllCases :: ConcreteClassifier a -> ()
+    _checkAllCases = \case
+        -- Primitive types
+
+        CC_Bool     -> ()
+        CC_Char     -> ()
+        CC_Double   -> ()
+        CC_Float    -> ()
+        CC_Int      -> ()
+        CC_Int8     -> ()
+        CC_Int16    -> ()
+        CC_Int32    -> ()
+        CC_Int64    -> ()
+        CC_Ordering -> ()
+        CC_Unit     -> ()
+        CC_Word     -> ()
+        CC_Word8    -> ()
+        CC_Word16   -> ()
+        CC_Word32   -> ()
+        CC_Word64   -> ()
+
+        -- Compound
+
+        CC_List{} -> ()
+
+        -- Reference cells
+
+        CC_STRef -> ()
+        CC_TVar  -> ()
+        CC_MVar  -> ()
+
+        -- User-defined
+
+        CC_User_NonRec{} -> ()
+        CC_User_Rec{}    -> ()
+
+
 {-------------------------------------------------------------------------------
   Values
 -------------------------------------------------------------------------------}
@@ -247,7 +316,7 @@ sameConcreteClassifier = go
 -- For convenience, we also include some constraints here, even though they
 -- are in fact derivable from the classifier
 data Value a where
-   Value :: (Show a, Eq a, NFData a) => ConcreteClassifier a -> a -> Value a
+   Value :: (Show a, Eq a) => ConcreteClassifier a -> a -> Value a
 
 deriving instance Show (Value a)
 deriving instance Show (Some Value)
@@ -261,11 +330,35 @@ instance Arbitrary (Some Value) where
 
 -- | Example of a non-recursive user-defined type
 data NonRecursive a = NR1 Int | NR2 a Bool
-  deriving (Show, Eq, Generic, NFData, Functor, Foldable, Traversable)
+  deriving (Show, Eq, Generic, Functor, Foldable, Traversable)
 
 -- | Example of a recursive user-defined type
 data Recursive a = RNil | RCons a (Recursive a)
-  deriving (Show, Eq, Generic, NFData, Functor, Foldable, Traversable)
+  deriving (Show, Eq, Generic, Functor, Foldable, Traversable)
 
 recursiveFromList :: [a] -> Recursive a
 recursiveFromList = foldr RCons RNil
+
+{-------------------------------------------------------------------------------
+  Some global variables, which we use only as input to the tests
+-------------------------------------------------------------------------------}
+
+exampleIORef :: SomeSTRef
+{-# NOINLINE exampleIORef #-}
+exampleIORef = unsafePerformIO $
+    -- IORef is indistinguishable from STRef on the heap
+    unsafeCoerce <$> newIORef (unsafeCoerce ())
+
+exampleSTRef :: SomeSTRef
+exampleSTRef = unsafePerformIO $ unsafeSTToIO $
+    unsafeCoerce <$> newSTRef (unsafeCoerce ())
+
+exampleMVar :: SomeMVar
+{-# NOINLINE exampleMVar #-}
+exampleMVar = unsafePerformIO $
+    SomeMVar <$> newEmptyMVar
+
+exampleTVar :: SomeTVar
+{-# NOINLINE exampleTVar #-}
+exampleTVar = unsafePerformIO $
+    SomeTVar <$> newTVarIO (unsafeCoerce ())

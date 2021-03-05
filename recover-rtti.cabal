@@ -24,6 +24,7 @@ library
     build-depends:    base >= 4.13
                     , ghc-heap
                     , sop-core
+                    , stm
     hs-source-dirs:   src
     default-language: Haskell2010
     ghc-options:      -Wall
@@ -41,10 +42,11 @@ test-suite test-recover-rtti
     build-depends:    base >= 4.13
                     , recover-rtti
 
-                    , deepseq
                     , ghc-heap
+                    , mtl
                     , QuickCheck
                     , sop-core
+                    , stm
                     , tasty
                     , tasty-quickcheck
     ghc-options:      -Wall

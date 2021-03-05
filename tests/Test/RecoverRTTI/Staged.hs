@@ -31,8 +31,9 @@ module Test.RecoverRTTI.Staged (
   , reclassify
   ) where
 
-import Data.Foldable (asum)
+import Control.Monad.Except
 import Data.Kind
+import Data.Typeable
 import GHC.Exts (Any)
 import GHC.TypeLits
 
@@ -65,44 +66,50 @@ data Reclassified a where
 -- | Reclassify values
 --
 -- See detailed description in 'Reclassified'.
-reclassify :: Classified a -> Maybe (Reclassified a)
+reclassify :: Classified a -> Except String (Reclassified a)
 reclassify = \(Classified c x) ->
     case c of
       -- Primitive types
 
-      C_Bool     -> Just $ Reclassified CC_Bool     id
-      C_Char     -> Just $ Reclassified CC_Char     id
-      C_Double   -> Just $ Reclassified CC_Double   id
-      C_Float    -> Just $ Reclassified CC_Float    id
-      C_Int      -> Just $ Reclassified CC_Int      id
-      C_Int8     -> Just $ Reclassified CC_Int8     id
-      C_Int16    -> Just $ Reclassified CC_Int16    id
-      C_Int32    -> Just $ Reclassified CC_Int32    id
-      C_Int64    -> Just $ Reclassified CC_Int64    id
-      C_Ordering -> Just $ Reclassified CC_Ordering id
-      C_Unit     -> Just $ Reclassified CC_Unit     id
-      C_Word     -> Just $ Reclassified CC_Word     id
-      C_Word8    -> Just $ Reclassified CC_Word8    id
-      C_Word16   -> Just $ Reclassified CC_Word16   id
-      C_Word32   -> Just $ Reclassified CC_Word32   id
-      C_Word64   -> Just $ Reclassified CC_Word64   id
+      C_Bool     -> return $ Reclassified CC_Bool     id
+      C_Char     -> return $ Reclassified CC_Char     id
+      C_Double   -> return $ Reclassified CC_Double   id
+      C_Float    -> return $ Reclassified CC_Float    id
+      C_Int      -> return $ Reclassified CC_Int      id
+      C_Int8     -> return $ Reclassified CC_Int8     id
+      C_Int16    -> return $ Reclassified CC_Int16    id
+      C_Int32    -> return $ Reclassified CC_Int32    id
+      C_Int64    -> return $ Reclassified CC_Int64    id
+      C_Ordering -> return $ Reclassified CC_Ordering id
+      C_Unit     -> return $ Reclassified CC_Unit     id
+      C_Word     -> return $ Reclassified CC_Word     id
+      C_Word8    -> return $ Reclassified CC_Word8    id
+      C_Word16   -> return $ Reclassified CC_Word16   id
+      C_Word32   -> return $ Reclassified CC_Word32   id
+      C_Word64   -> return $ Reclassified CC_Word64   id
 
       -- Compound
 
-      C_List Empty -> Just $ Reclassified (CC_List Empty) id
+      C_List Empty -> return $ Reclassified (CC_List Empty) id
       C_List (NonEmpty x') -> cc_list <$> reclassify x'
+
+      -- Reference cells
+
+      C_STRef -> return $ Reclassified CC_STRef id
+      C_TVar  -> return $ Reclassified CC_TVar  id
+      C_MVar  -> return $ Reclassified CC_MVar  id 
 
       -- User-defined
 
-      C_Custom (s :: Sing c) -> asum [
-          reclassifyF CC_User_NonRec s x
-        , reclassifyF CC_User_Rec    s x
-        ]
-
+      C_Custom s ->
+        firstMatch ("Unknown constructor: " ++ prettyKnownConstr s) [
+            reclassifyF CC_User_NonRec s x
+          , reclassifyF CC_User_Rec    s x
+          ]
 
       -- Classification failed
 
-      C_Unknown -> Nothing
+      C_Unknown -> throwError $ "Unknown closure: " ++ show x
   where
     cc_list :: Reclassified a -> Reclassified [a]
     cc_list (Reclassified c f) = Reclassified (CC_List (NonEmpty c)) (map f)
@@ -135,16 +142,22 @@ reclassifyF ::
          Phantom (ConstrOfF f c)
        , SingI (Constrs (f Any))
        , Traversable f
+       , Typeable f
        )
   => (forall a. MaybeEmpty ConcreteClassifier a -> ConcreteClassifier (f a))
   -> Sing (c :: Constr Symbol)
   -> UserDefined c
-  -> Maybe (Reclassified (UserDefined c))
-reclassifyF cc = \c x -> do
-    constrOfF <- checkConstrOfF @f c
-    case checkEmptyTraversable (unsafeCoerceF constrOfF x) of
-      Right _ -> return $ Reclassified (cc Empty) (unsafeCoerceF constrOfF)
-      Left x' -> aux constrOfF <$> reclassify (classified x')
+  -> Except String (Maybe (Reclassified (UserDefined c)))
+reclassifyF cc = \c x ->
+    case checkConstrOfF @f c of
+      Nothing ->
+        return Nothing
+      Just constrOfF ->
+        case checkEmptyTraversable (unsafeCoerceF constrOfF x) of
+          Right _ ->
+            return . Just $ Reclassified (cc Empty) (unsafeCoerceF constrOfF)
+          Left x' ->
+            Just . aux constrOfF <$> reclassify (classified x')
   where
     aux :: Poly (ConstrOfF f c)
         -> Reclassified a               -- Classification of the elements
@@ -170,3 +183,14 @@ instance Phantom (ConstrOfF NonRecursive c) where
 
 instance Phantom (ConstrOfF Recursive c) where
   phantom (ConstrOfF IsConstrOf) = ConstrOfF IsConstrOf
+
+{-------------------------------------------------------------------------------
+  Auxiliary
+-------------------------------------------------------------------------------}
+
+firstMatch :: forall e a. e -> [Except e (Maybe a)] -> Except e a
+firstMatch err = go
+  where
+    go :: [Except e (Maybe a)] -> Except e a
+    go []     = throwError err
+    go (x:xs) = x >>= maybe (go xs) return

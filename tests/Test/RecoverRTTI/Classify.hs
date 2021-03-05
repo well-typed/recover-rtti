@@ -6,7 +6,7 @@
 -- | Verify we infer the right classifier
 module Test.RecoverRTTI.Classify (tests) where
 
-import Control.DeepSeq
+import Control.Monad.Except
 import Data.Type.Equality
 
 import Test.Tasty
@@ -20,9 +20,8 @@ import Test.RecoverRTTI.Staged
 
 tests :: TestTree
 tests = testGroup "Test.RecoverRTTI.Classify" [
-      testProperty "constants"   prop_constants
-    , testProperty "arbitraryNF" prop_arbitraryNF
-    , testProperty "arbitrary"   prop_arbitrary
+      testProperty "constants" prop_constants
+    , testProperty "arbitrary" prop_arbitrary
     ]
 
 -- | Test using manually specified examples
@@ -60,6 +59,13 @@ prop_constants = withMaxSuccess 1 $ conjoin [
     , compareClassifier $ Value (CC_List Empty) []
     , compareClassifier $ Value (CC_List (NonEmpty CC_Int)) [1, 2, 3]
 
+      -- Reference cells
+
+    , compareClassifier $ Value CC_STRef exampleIORef
+    , compareClassifier $ Value CC_STRef exampleSTRef
+    , compareClassifier $ Value CC_MVar  exampleMVar
+    , compareClassifier $ Value CC_TVar  exampleTVar
+
       -- User defined
 
     , compareClassifier $ Value (CC_User_NonRec Empty)              (NR1 1234)
@@ -93,16 +99,18 @@ prop_constants = withMaxSuccess 1 $ conjoin [
 
         CC_List _ -> ()
 
+        -- Reference cells
+
+        CC_STRef -> ()
+        CC_TVar  -> ()
+        CC_MVar  -> ()
+
         -- User-defined
 
         CC_User_NonRec _ -> ()
         CC_User_Rec    _ -> ()
 
--- | Test using arbitrary values, but force them to NF before classifying them.
-prop_arbitraryNF :: Some Value -> Property
-prop_arbitraryNF (Exists v@(Value _ x)) = rnf x `seq` compareClassifier v
-
--- | Test using arbitrary values (NF or not)
+-- | Test using arbitrary values
 prop_arbitrary :: Some Value -> Property
 prop_arbitrary (Exists v) = compareClassifier v
 
@@ -112,10 +120,11 @@ prop_arbitrary (Exists v) = compareClassifier v
 compareClassifier :: Value a -> Property
 compareClassifier = \(Value cc x) ->
       counterexample ("Generated classifier: " ++ show cc)
-    $ case reclassify (classified x) of
-        Nothing  ->
-          counterexample "Failed to reclassify" $ property False
-        Just (Reclassified cc' f) ->
+    $ case runExcept $ reclassify (classified x) of
+        Left err  ->
+            counterexample ("Failed to reclassify. Error: " ++ err)
+          $ property False
+        Right (Reclassified cc' f) ->
           case sameConcreteClassifier cc cc' of
             Nothing ->
                 counterexample ("Inferred different classifier: " ++ show cc')
