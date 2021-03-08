@@ -22,9 +22,12 @@ library
                       Debug.RecoverRTTI.Util
                       Debug.RecoverRTTI.Util.TypeLevel
 
-    other-modules:    Debug.RecoverRTTI.Classify
+    other-modules:    Debug.RecoverRTTI.Classifier
+                      Debug.RecoverRTTI.Classify
                       Debug.RecoverRTTI.Constr
                       Debug.RecoverRTTI.Show
+                      Debug.RecoverRTTI.UserDefined
+                      Debug.RecoverRTTI.Wrappers
     build-depends:    base >= 4.13
                     , bytestring
                     , ghc-heap

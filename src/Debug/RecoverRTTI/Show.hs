@@ -16,11 +16,14 @@ import Data.SOP
 import Data.SOP.Dict
 import System.IO.Unsafe (unsafePerformIO)
 
+import Debug.RecoverRTTI.Classifier
 import Debug.RecoverRTTI.Classify
 import Debug.RecoverRTTI.Constr
 import Debug.RecoverRTTI.FlatClosure
 import Debug.RecoverRTTI.Util
 import Debug.RecoverRTTI.Util.TypeLevel
+import Debug.RecoverRTTI.UserDefined
+import Debug.RecoverRTTI.Wrappers
 
 {-------------------------------------------------------------------------------
   User-facing API
