@@ -151,9 +151,14 @@ arbitraryClassifier k = oneof [
 
       -- Compound
 
+      -- Lists
+      --
+      -- We have to be careful not to generate @[Char]@, because this is
+      -- inferred as @String@
     , arbitraryClassifier $
         genMaybeEmpty
-          CC_List
+          (\case NonEmpty CC_Char -> CC_String
+                 c                -> CC_List c)
           (return [])
           (\gen -> (:) <$> gen <*> listOf gen)
 
