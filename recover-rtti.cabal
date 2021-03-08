@@ -24,8 +24,11 @@ library
 
     other-modules:    Debug.RecoverRTTI.Classifier
                       Debug.RecoverRTTI.Classify
+                      Debug.RecoverRTTI.ClosureTree
                       Debug.RecoverRTTI.Constr
-                      Debug.RecoverRTTI.Show
+                      Debug.RecoverRTTI.Tuple
+                      Debug.RecoverRTTI.Tuple.Recursive
+                      Debug.RecoverRTTI.Tuple.Size
                       Debug.RecoverRTTI.UserDefined
                       Debug.RecoverRTTI.Wrappers
     build-depends:    base >= 4.13
@@ -46,9 +49,12 @@ test-suite test-recover-rtti
     main-is:          RecoverRttiTests.hs
     other-modules:    Test.RecoverRTTI.Arbitrary
                       Test.RecoverRTTI.Classify
+                      Test.RecoverRTTI.ConcreteClassifier
                       Test.RecoverRTTI.Orphans
                       Test.RecoverRTTI.Show
+                      Test.RecoverRTTI.Sanity
                       Test.RecoverRTTI.Staged
+                      Test.RecoverRTTI.UserDefined
     build-depends:    base >= 4.13
                     , recover-rtti
 
@@ -62,3 +68,4 @@ test-suite test-recover-rtti
                     , tasty-quickcheck
                     , text
     ghc-options:      -Wall
+                      -Wno-orphans

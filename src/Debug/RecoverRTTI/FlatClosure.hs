@@ -1,3 +1,4 @@
+{-# LANGUAGE BangPatterns    #-}
 {-# LANGUAGE LambdaCase      #-}
 {-# LANGUAGE NamedFieldPuns  #-}
 {-# LANGUAGE RecordWildCards #-}
@@ -32,16 +33,11 @@ data FlatClosure =
   deriving (Show)
 
 getBoxedClosureData :: Box -> IO FlatClosure
-getBoxedClosureData b@(Box x) =
+getBoxedClosureData b@(Box !_) =
     fromClosure =<< H.getBoxedClosureData b
   where
     fromClosure :: H.Closure -> IO FlatClosure
     fromClosure = \case
-        -- Force unforced thunks
-
-        H.ThunkClosure {} -> x `seq` getBoxedClosureData b
-        H.APClosure    {} -> x `seq` getBoxedClosureData b
-
         -- Indirections
         --
         -- For background on black holes, see "Implementing Lazy Functional
@@ -51,6 +47,7 @@ getBoxedClosureData b@(Box x) =
 
         H.BlackholeClosure _ x' -> getBoxedClosureData x'
         H.IndClosure       _ x' -> getBoxedClosureData x'
+        H.SelectorClosure  _ x' -> getBoxedClosureData x'
 
         -- Cases we're actually interested in
 

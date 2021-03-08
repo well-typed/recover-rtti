@@ -1,5 +1,3 @@
-{-# OPTIONS_GHC -Wno-orphans #-}
-
 module Test.RecoverRTTI.Orphans () where
 
 import Debug.RecoverRTTI

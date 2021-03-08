@@ -26,6 +26,8 @@ import Control.Concurrent.MVar (MVar)
 import Control.Concurrent.STM (TVar)
 import Data.STRef (STRef)
 import GHC.Exts
+import GHC.Exts.Heap
+import System.IO.Unsafe (unsafePerformIO)
 
 {-------------------------------------------------------------------------------
   Functions
@@ -58,3 +60,28 @@ newtype SomeTVar = SomeTVar (TVar Any)
 
 -- | Value for which type inference failed
 newtype Unknown = Unknown Any
+
+{-------------------------------------------------------------------------------
+  Show instances
+
+  Unfortunately reference cells are moved by GC, so we can't do much here;
+  showing the address of the variable isn't particularly helpful.
+-------------------------------------------------------------------------------}
+
+instance Show SomeSTRef where
+  show _ = "<STRef/IORef>" -- they look the same on the heap
+
+instance Show SomeMVar where
+  show _ = "<MVar>"
+
+instance Show SomeTVar where
+  show _ = "<TVar>"
+
+instance Show SomeFun where
+  show _ = "<Fun>"
+
+-- | If classification failed, we show the closure itself
+instance Show Unknown where
+  showsPrec p (Unknown x) = unsafePerformIO $ do
+      closure <- getBoxedClosureData (asBox x)
+      return $ showsPrec p closure

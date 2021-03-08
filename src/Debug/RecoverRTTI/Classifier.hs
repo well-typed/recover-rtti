@@ -1,9 +1,11 @@
-{-# LANGUAGE GADTs               #-}
-{-# LANGUAGE KindSignatures      #-}
+{-# LANGUAGE FlexibleContexts   #-}
+{-# LANGUAGE GADTs              #-}
+{-# LANGUAGE KindSignatures     #-}
+{-# LANGUAGE StandaloneDeriving #-}
 
 module Debug.RecoverRTTI.Classifier (
     Classifier(..)
-  , MaybeEmpty(..)  
+  , MaybeEmpty(..)
   , Classifiers(..)
   , Classified(..)
   ) where
@@ -21,15 +23,20 @@ import qualified Data.Text             as Text.Strict
 import qualified Data.Text.Lazy        as Text.Lazy
 
 import Debug.RecoverRTTI.Constr
+import Debug.RecoverRTTI.Tuple
 import Debug.RecoverRTTI.UserDefined
 import Debug.RecoverRTTI.Wrappers
+import Debug.RecoverRTTI.Util.TypeLevel
 
 {-------------------------------------------------------------------------------
   Classifier
 -------------------------------------------------------------------------------}
 
 -- | A value along with its classifier
-data Classified a = Classified (Classifier a) a
+data Classified a = Classified {
+      classifiedType  :: Classifier a
+    , classifiedValue :: a
+    }
 
 -- | Classifier
 --
@@ -74,6 +81,10 @@ data Classifier (a :: Type) :: Type where
 
   C_List :: MaybeEmpty Classified a -> Classifier [a]
 
+  C_Tuple ::
+       (SListI xs, IsValidSize (Length xs))
+    => Classifiers xs -> Classifier (WrappedTuple xs)
+
   -- Reference cells
 
   C_STRef :: Classifier SomeSTRef
@@ -96,4 +107,4 @@ data MaybeEmpty f a where
   Empty    :: MaybeEmpty f Void
   NonEmpty :: f a -> MaybeEmpty f a
 
-newtype Classifiers xs = Classifiers (NP Classifier xs)
+newtype Classifiers xs = Classifiers (NP Classified xs)

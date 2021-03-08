@@ -9,6 +9,7 @@ module Test.RecoverRTTI.Classify (tests) where
 
 import Control.Monad.Except
 import Data.Type.Equality
+import Data.SOP
 
 import Test.Tasty
 import Test.Tasty.QuickCheck hiding (classify, NonEmpty)
@@ -17,8 +18,10 @@ import Debug.RecoverRTTI
 import Debug.RecoverRTTI.Util
 
 import Test.RecoverRTTI.Arbitrary
-import Test.RecoverRTTI.Staged
+import Test.RecoverRTTI.ConcreteClassifier
 import Test.RecoverRTTI.Orphans ()
+import Test.RecoverRTTI.Staged
+import Test.RecoverRTTI.UserDefined
 
 tests :: TestTree
 tests = testGroup "Test.RecoverRTTI.Classify" [
@@ -77,6 +80,9 @@ prop_constants = withMaxSuccess 1 $ conjoin [
     , compareClassifier $ Value (CC_List Empty) []
     , compareClassifier $ Value (CC_List (NonEmpty CC_Int)) [1, 2, 3]
 
+    , compareClassifier $ Value (CC_Tuple (ConcreteClassifiers (CC_Int :* CC_Char :* Nil))) (WrappedTuple (4, 'a'))
+    , compareClassifier $ Value (CC_Tuple (ConcreteClassifiers (CC_Int :* CC_Char :* CC_Bool :* Nil))) (WrappedTuple (4, 'a', True))
+
       -- Reference cells
 
     , compareClassifier $ Value CC_STRef exampleIORef
@@ -129,6 +135,7 @@ prop_constants = withMaxSuccess 1 $ conjoin [
         -- Compound
 
         CC_List{} -> ()
+        CC_Tuple{} -> ()
 
         -- Functions
 
@@ -147,7 +154,7 @@ prop_constants = withMaxSuccess 1 $ conjoin [
 
 -- | Test using arbitrary values
 prop_arbitrary :: Some Value -> Property
-prop_arbitrary (Exists v) = compareClassifier v
+prop_arbitrary (Some v) = compareClassifier v
 
 -- | Compare given to inferred classifier
 --

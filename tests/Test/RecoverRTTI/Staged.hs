@@ -6,6 +6,7 @@
 {-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications    #-}
+{-# LANGUAGE TypeOperators       #-}
 
 -- | Staged inference
 --
@@ -33,6 +34,7 @@ module Test.RecoverRTTI.Staged (
 
 import Control.Monad.Except
 import Data.Kind
+import Data.SOP hiding (NS(..))
 import Data.Typeable
 import GHC.Exts (Any)
 import GHC.TypeLits
@@ -41,7 +43,8 @@ import Debug.RecoverRTTI
 import Debug.RecoverRTTI.Util
 import Debug.RecoverRTTI.Util.TypeLevel
 
-import Test.RecoverRTTI.Arbitrary
+import Test.RecoverRTTI.ConcreteClassifier
+import Test.RecoverRTTI.UserDefined
 
 {-------------------------------------------------------------------------------
   Reclassified values
@@ -99,8 +102,13 @@ reclassify = \(Classified c x) ->
 
       -- Compound
 
-      C_List Empty -> return $ Reclassified (CC_List Empty) id
-      C_List (NonEmpty x') -> cc_list <$> reclassify x'
+      C_List Empty ->
+        return $ Reclassified (CC_List Empty) id
+      C_List (NonEmpty x') ->
+        cc_list <$> reclassify x'
+
+      C_Tuple (Classifiers cs) ->
+        reclassifyTuple <$> (hsequence' (hmap (Comp . reclassify) cs))
 
       -- Reference cells
 
@@ -126,6 +134,40 @@ reclassify = \(Classified c x) ->
   where
     cc_list :: Reclassified a -> Reclassified [a]
     cc_list (Reclassified c f) = Reclassified (CC_List (NonEmpty c)) (map f)
+
+reclassifyTuple ::
+     (SListI xs, IsValidSize (Length xs))
+  => NP Reclassified xs -> Reclassified (WrappedTuple xs)
+reclassifyTuple = \cs ->
+    go isValidSize cs $ \cs' f ->
+      Reclassified (CC_Tuple (ConcreteClassifiers cs')) f
+  where
+    go :: SListI xs
+      => ValidSize (Length xs)
+      -> NP Reclassified xs
+      -> (forall ys.
+               (SListI ys, Length ys ~ Length xs)
+            => NP ConcreteClassifier ys
+            -> (WrappedTuple xs -> WrappedTuple ys)
+            -> r
+         )
+      -> r
+    go _     Nil       k = k Nil id
+    go valid (x :* xs) k = go (smallerIsValid valid) xs $ \np f_np ->
+        case x of
+          Reclassified y f_y ->
+            k (y :* np) (liftWrapped valid f_y f_np)
+
+    liftWrapped :: forall a as b bs.
+         (SListI as, SListI bs, Length as ~ Length bs)
+      => ValidSize ('S (Length as))
+      -> (a -> b)
+      -> (WrappedTuple as -> WrappedTuple bs)
+      -> WrappedTuple (a ': as)
+      -> WrappedTuple (b ': bs)
+    liftWrapped valid f_a f_as (WrappedTuple tuple) =
+        let (a :: a, as) = uncons (Proxy @as) valid tuple
+        in WrappedTuple $ cons (Proxy @bs) valid (f_a a, getWrappedTuple (f_as (WrappedTuple as)))
 
 {-------------------------------------------------------------------------------
   When we reclassify values of user-defined types with type arguments, we need

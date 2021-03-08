@@ -1,6 +1,5 @@
-{-# LANGUAGE DeriveAnyClass        #-}
-{-# LANGUAGE DeriveGeneric         #-}
-{-# LANGUAGE DeriveTraversable     #-}
+{-# LANGUAGE DataKinds             #-}
+{-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE GADTs                 #-}
 {-# LANGUAGE KindSignatures        #-}
@@ -8,16 +7,10 @@
 {-# LANGUAGE QuantifiedConstraints #-}
 {-# LANGUAGE RankNTypes            #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
-{-# LANGUAGE StandaloneDeriving    #-}
-{-# LANGUAGE TypeOperators         #-}
 
 module Test.RecoverRTTI.Arbitrary (
-    ConcreteClassifier(..)
-  , Value(..)
-  , sameConcreteClassifier
-    -- * Examples of user-defined types
-  , NonRecursive(..)
-  , Recursive(..)
+    ClassifiedGen(..)
+  , arbitraryClassifiedGen
     -- * Example values of reference cells
   , exampleIORef
   , exampleSTRef
@@ -27,15 +20,14 @@ module Test.RecoverRTTI.Arbitrary (
 
 import Control.Concurrent.MVar (newEmptyMVar)
 import Control.Concurrent.STM (newTVarIO)
+import Control.Monad
 import Control.Monad.ST.Unsafe (unsafeSTToIO)
-import Data.Int
 import Data.IORef (newIORef)
-import Data.Kind
+import Data.Maybe (catMaybes)
+import Data.SOP
+import Data.SOP.Dict
 import Data.STRef (newSTRef)
-import Data.Type.Equality
 import Data.Void
-import Data.Word
-import GHC.Generics
 import System.IO.Unsafe (unsafePerformIO)
 import Unsafe.Coerce (unsafeCoerce)
 
@@ -49,174 +41,208 @@ import Test.QuickCheck hiding (classify, NonEmpty)
 
 import Debug.RecoverRTTI
 import Debug.RecoverRTTI.Util
+import Debug.RecoverRTTI.Util.TypeLevel
 
+import Test.RecoverRTTI.ConcreteClassifier
 import Test.RecoverRTTI.Orphans ()
+import Test.RecoverRTTI.UserDefined
 
 {-------------------------------------------------------------------------------
-  Concrete classifier
-
-  The difference between the " concrete " classifier and the 'Classifier' from
-  the main library is that the former has explicit cases for user-defined types,
-  and the latter doesn't (merely classifying them as 'UserDefined').
-
-  In "Test.RecoverRRTI.Staged" we show that we can do staged inference,
-  using 'classify' repeatedly to recover /all/ (concrete) type information
-  from the type information returned by 'classify' (/if/ we have full
-  information about which user-defined types we're interested in).
+  Generic auxiliary
 -------------------------------------------------------------------------------}
 
--- | Like 'Classifier', but with no guess-work and concrete types
-data ConcreteClassifier (a :: Type) :: Type where
-    -- Primitive types
+newtype SizedGen a = SizedGen (Int -> Gen a)
 
-    CC_Bool     :: ConcreteClassifier Bool
-    CC_Char     :: ConcreteClassifier Char
-    CC_Double   :: ConcreteClassifier Double
-    CC_Float    :: ConcreteClassifier Float
-    CC_Int      :: ConcreteClassifier Int
-    CC_Int8     :: ConcreteClassifier Int8
-    CC_Int16    :: ConcreteClassifier Int16
-    CC_Int32    :: ConcreteClassifier Int32
-    CC_Int64    :: ConcreteClassifier Int64
-    CC_Ordering :: ConcreteClassifier Ordering
-    CC_Unit     :: ConcreteClassifier ()
-    CC_Word     :: ConcreteClassifier Word
-    CC_Word8    :: ConcreteClassifier Word8
-    CC_Word16   :: ConcreteClassifier Word16
-    CC_Word32   :: ConcreteClassifier Word32
-    CC_Word64   :: ConcreteClassifier Word64
+runSized :: Int -> SizedGen a -> Gen a
+runSized n (SizedGen gen) = gen n
 
-    -- Text types
+ignoreSize :: Gen a -> SizedGen a
+ignoreSize gen = SizedGen $ \_sz -> gen
 
-    CC_String      :: ConcreteClassifier String
-    CC_BS_Strict   :: ConcreteClassifier BS.Strict.ByteString
-    CC_BS_Lazy     :: ConcreteClassifier BS.Lazy.ByteString
-    CC_BS_Short    :: ConcreteClassifier BS.Short.ShortByteString
-    CC_Text_Strict :: ConcreteClassifier Text.Strict.Text
-    CC_Text_Lazy   :: ConcreteClassifier Text.Lazy.Text
+{-------------------------------------------------------------------------------
+  Arbitrary instance
+-------------------------------------------------------------------------------}
+
+-- | Quickcheck generator along with a classifier
+data ClassifiedGen a where
+  ClassifiedGen ::
+       (Show a, Eq a)
+    => { -- | The classifier for the generator
+         genClassifier :: ConcreteClassifier a
+
+         -- | The classified generator itself
+         --
+         -- The size argument determines the maximum size of the /value/
+         -- (as opposed to the maximum size of the /type/)
+       , classifiedGen :: SizedGen a
+       }
+    -> ClassifiedGen a
+
+canShowClassifiedGen :: ClassifiedGen a -> Dict Show a
+canShowClassifiedGen ClassifiedGen{} = Dict
+
+canEqClassifiedGen :: ClassifiedGen a -> Dict Eq a
+canEqClassifiedGen ClassifiedGen{} = Dict
+
+defaultClassifiedGen ::
+     (Arbitrary a, Show a, Eq a)
+  => ConcreteClassifier a
+  -> ClassifiedGen a
+defaultClassifiedGen cc = ClassifiedGen cc $ ignoreSize arbitrary
+
+-- | Generated arbitrary classifier along with a generator for that value
+--
+-- NOTE: The @sz@ parameter limits the size of the /type tree/ (i.e., the number
+-- of recursive calls to arbitraryClassifiedGen), /not/ the size of the
+-- generated /values/.
+arbitraryClassifiedGen :: Int -> Gen (Some ClassifiedGen)
+arbitraryClassifiedGen typSz
+  | typSz <  0 = error "arbitraryClassifiedGen: uhoh.. bug"
+  | typSz == 0 = elements leaves
+  | otherwise  = oneof (elements leaves : catMaybes compound)
+  where
+    -- Leaves of the tree (values with no recursion)
+    --
+    -- Since there are the leaves, we don't need to check the size
+    leaves :: [Some ClassifiedGen]
+    leaves = concat [
+          -- Primitive types
+          [ Some $ defaultClassifiedGen CC_Bool
+          , Some $ defaultClassifiedGen CC_Char
+          , Some $ defaultClassifiedGen CC_Double
+          , Some $ defaultClassifiedGen CC_Float
+          , Some $ defaultClassifiedGen CC_Int
+          , Some $ defaultClassifiedGen CC_Int16
+          , Some $ defaultClassifiedGen CC_Int8
+          , Some $ defaultClassifiedGen CC_Int32
+          , Some $ defaultClassifiedGen CC_Int64
+          , Some $ defaultClassifiedGen CC_Ordering
+          , Some $ defaultClassifiedGen CC_Unit
+          , Some $ defaultClassifiedGen CC_Word
+          , Some $ defaultClassifiedGen CC_Word8
+          , Some $ defaultClassifiedGen CC_Word16
+          , Some $ defaultClassifiedGen CC_Word32
+          , Some $ defaultClassifiedGen CC_Word64
+         ]
+
+          -- Strings
+          --
+          -- Avoid generating the empty string (recognized as @[Void]@)
+        , let mapList :: Arbitrary a => Int -> ([a] -> b) -> SizedGen b
+              mapList minSize f = SizedGen $ \valSz -> do
+                  n <- choose (minSize, max minSize valSz) -- maybe valSz == 0
+                  f <$> vector n
+          in [
+             Some $ ClassifiedGen CC_String      (mapList 1 id)
+           , Some $ ClassifiedGen CC_BS_Strict   (mapList 0 BS.Strict.pack)
+           , Some $ ClassifiedGen CC_BS_Lazy     (mapList 0 BS.Lazy.pack)
+           , Some $ ClassifiedGen CC_BS_Short    (mapList 0 BS.Short.pack)
+           , Some $ ClassifiedGen CC_Text_Strict (mapList 0 Text.Strict.pack)
+           , Some $ ClassifiedGen CC_Text_Lazy   (mapList 0 Text.Lazy.pack)
+          ]
+
+          -- Reference cells
+        , [ Some $ ClassifiedGen CC_STRef (ignoreSize $ pure exampleSTRef)
+          , Some $ ClassifiedGen CC_STRef (ignoreSize $ pure exampleIORef)
+          , Some $ ClassifiedGen CC_MVar  (ignoreSize $ pure exampleMVar)
+          , Some $ ClassifiedGen CC_TVar  (ignoreSize $ pure exampleTVar)
+          ]
+
+          -- Functions
+          --
+          -- For functions we don't currently try to be clever and /generate/
+          -- functions. Instead, we just try a few different categories.
+        , map (\f -> Some $ ClassifiedGen CC_Fun (ignoreSize $ pure f)) [
+              -- Parametrically polymorphic function
+              unsafeCoerce (id    :: Int -> Int)
+            , unsafeCoerce (const :: Int -> Bool -> Int)
+              -- Ad-hoc polymorphic function
+            , unsafeCoerce (negate :: Int -> Int)
+            , unsafeCoerce ((+)    :: Int -> Int -> Int)
+              -- Partial application
+            , unsafeCoerce (const 1 :: Bool -> Int)
+            , unsafeCoerce ((+)   1 :: Int -> Int)
+            ]
+        ]
 
     -- Compound
+    --
+    -- These are only used if @sz > 0@.
+    compound :: [Maybe (Gen (Some ClassifiedGen))]
+    compound = [
+          -- Lists
+          --
+          -- We have to be careful not to generate @[Char]@, because this is
+          -- inferred as @String@
+          guard (typSz >= 1) >> (return $
+              arbitraryClassifiedGen (typSz - 1) >>=
+              genMaybeEmpty
+                (\case NonEmpty CC_Char -> CC_String
+                       c                -> CC_List c)
+                (return [])
+                (\gen -> SizedGen $ \valSz -> do
+                   -- Pick number of list elements (don't generate empty list)
+                   n <- choose (1, 5)
 
-    CC_List :: MaybeEmpty ConcreteClassifier a -> ConcreteClassifier [a]
+                   -- Then divide total size of each list element
+                   vectorOf n (runSized (valSz `div` n) gen)
+                )
+            )
 
-    -- Functions
+            -- User-defined
+        , guard (typSz >= 1) >> (return $
+              arbitraryClassifiedGen (typSz - 1) >>=
+              genMaybeEmpty
+                CC_User_NonRec
+                (NR1 <$> arbitrary)
+                (\gen -> SizedGen $ \valSz ->
+                    NR2 <$> runSized valSz gen <*> arbitrary
+                )
+            )
 
-    CC_Fun :: ConcreteClassifier SomeFun
+        , guard (typSz >= 1) >> (return $
+              arbitraryClassifiedGen (typSz - 1) >>=
+              genMaybeEmpty
+                CC_User_Rec
+                (return RNil)
+                (\gen -> SizedGen $ \valSz -> do
+                  -- Similar strategy as for lists
+                  n <- choose (1, 5)
+                  recursiveFromList <$> vectorOf n (runSized (valSz `div` n) gen)
+                )
+            )
 
-    -- Reference cells
+          -- Tuples
+        , guard (typSz >= 2) >> (return $
+              arbitraryTuple typSz $ \np ->
+              case ( all_NP (hmap canShowClassifiedGen np)
+                   , all_NP (hmap canEqClassifiedGen   np)
+                   ) of
+                (Dict, Dict) ->
+                  return . Some $ ClassifiedGen {
+                      genClassifier =
+                        CC_Tuple (ConcreteClassifiers (hmap genClassifier np))
+                    , classifiedGen = SizedGen $ \valSz -> do
+                        let valSz' = valSz `div` lengthSList np
+                        WrappedTuple . tupleFromNP <$>
+                          hsequence(hmap (runSized valSz' . classifiedGen) np)
+                    }
+            )
+        ]
 
-    CC_STRef :: ConcreteClassifier SomeSTRef
-    CC_TVar  :: ConcreteClassifier SomeTVar
-    CC_MVar  :: ConcreteClassifier SomeMVar
-
-    -- User-defined
-
-    CC_User_NonRec :: MaybeEmpty ConcreteClassifier a -> ConcreteClassifier (NonRecursive a)
-    CC_User_Rec    :: MaybeEmpty ConcreteClassifier a -> ConcreteClassifier (Recursive    a)
-
-deriving instance Show (ConcreteClassifier a)
-deriving instance Show (MaybeEmpty ConcreteClassifier a)
-
-arbitraryClassifier :: forall r.
-     (forall a. (Show a, Eq a) => ConcreteClassifier a -> Gen a -> Gen r)
-  -> Gen r
-arbitraryClassifier k = oneof [
-      -- Primitive types
-
-      k CC_Bool     arbitrary
-    , k CC_Char     arbitrary
-    , k CC_Double   arbitrary
-    , k CC_Float    arbitrary
-    , k CC_Int      arbitrary
-    , k CC_Int16    arbitrary
-    , k CC_Int8     arbitrary
-    , k CC_Int32    arbitrary
-    , k CC_Int64    arbitrary
-    , k CC_Ordering arbitrary
-    , k CC_Unit     arbitrary
-    , k CC_Word     arbitrary
-    , k CC_Word8    arbitrary
-    , k CC_Word16   arbitrary
-    , k CC_Word32   arbitrary
-    , k CC_Word64   arbitrary
-
-      -- Strings
-
-    , k CC_String      (arbitrary `suchThat` (not . null))
-    , k CC_BS_Strict   (BS.Strict.pack   <$> arbitrary)
-    , k CC_BS_Lazy     (BS.Lazy.pack     <$> arbitrary)
-    , k CC_BS_Short    (BS.Short.pack    <$> arbitrary)
-    , k CC_Text_Strict (Text.Strict.pack <$> arbitrary)
-    , k CC_Text_Lazy   (Text.Lazy.pack   <$> arbitrary)
-
-      -- Compound
-
-      -- Lists
-      --
-      -- We have to be careful not to generate @[Char]@, because this is
-      -- inferred as @String@
-    , arbitraryClassifier $
-        genMaybeEmpty
-          (\case NonEmpty CC_Char -> CC_String
-                 c                -> CC_List c)
-          (return [])
-          (\gen -> (:) <$> gen <*> listOf gen)
-
-      -- Reference cells
-
-    , k CC_STRef (pure exampleSTRef)
-    , k CC_STRef (pure exampleIORef)
-    , k CC_MVar  (pure exampleMVar)
-    , k CC_TVar  (pure exampleTVar)
-
-      -- Functions
-      --
-      -- For functions we don't currently try to be clever and /generate/
-      -- functions. Instead, we just try a few different categories.
-
-      -- Parametrically polymorphic function
-    , k CC_Fun (pure (unsafeCoerce (id    :: Int -> Int)))
-    , k CC_Fun (pure (unsafeCoerce (const :: Int -> Bool -> Int)))
-      -- Ad-hoc polymorphic function
-    , k CC_Fun (pure (unsafeCoerce (negate :: Int -> Int)))
-    , k CC_Fun (pure (unsafeCoerce ((+)    :: Int -> Int -> Int)))
-      -- Partial application
-    , k CC_Fun (pure (unsafeCoerce (const 1 :: Bool -> Int)))
-    , k CC_Fun (pure (unsafeCoerce ((+)   1 :: Int -> Int)))
-
-      -- User-defined
-
-    , arbitraryClassifier $
-        genMaybeEmpty
-          CC_User_NonRec
-          (NR1 <$> arbitrary)
-          (\gen -> NR2 <$> gen <*> arbitrary)
-    , arbitraryClassifier $
-        genMaybeEmpty
-          CC_User_Rec
-          (return RNil)
-          (\gen -> RCons <$> gen <*> (recursiveFromList <$> listOf gen))
-    ]
-  where
     genMaybeEmpty ::
          ( forall x. Show x => Show (f x)
          , forall x. Eq   x => Eq   (f x)
-         , Show a
-         , Eq   a
          )
       => (forall x. MaybeEmpty ConcreteClassifier x -> ConcreteClassifier (f x))
       -> Gen (f Void)
-      -> (forall x. Gen x -> Gen (f x))
-      -> ConcreteClassifier a
-      -> Gen a
-      -> Gen r
-    genMaybeEmpty cc genEmpty genNonEmpty c genA = oneof [
-          k (cc Empty)         genEmpty
-        , k (cc (NonEmpty c)) (genNonEmpty genA)
-        ]
-
-    -- ConcreteClassifier a -> Gen a -> Gen r
-
+      -> (forall x. SizedGen x -> SizedGen (f x))
+      -> Some ClassifiedGen -> Gen (Some ClassifiedGen)
+    genMaybeEmpty cc genEmpty genNonEmpty (Some (ClassifiedGen c genA)) =
+        elements [
+            Some $ ClassifiedGen (cc Empty)        (ignoreSize $ genEmpty)
+          , Some $ ClassifiedGen (cc (NonEmpty c)) (genNonEmpty genA)
+          ]
     -- We check that we cover all cases of 'Classifier' rather than
     -- 'ConcreteClassifier': it is important that we generate test cases for
     -- everything we classify in the main library.
@@ -252,7 +278,8 @@ arbitraryClassifier k = oneof [
 
          -- Compound
 
-         C_List{} -> ()
+         C_List{}  -> ()
+         C_Tuple{} -> ()
 
          -- Reference cells
 
@@ -272,161 +299,45 @@ arbitraryClassifier k = oneof [
 
          C_Unknown -> ()
 
-{-------------------------------------------------------------------------------
-  Equality
--------------------------------------------------------------------------------}
-
--- | Check that two classifiers are the same
---
--- If they are the same, additionally return a proof that that means the
--- /types/ they classify must be equal (note that equality on the classifiers
--- is strictly stronger than equality on the types: for example, non-empty
--- and empty lists have different classifiers, but classify the same type).
-sameConcreteClassifier ::
-     ConcreteClassifier a
-  -> ConcreteClassifier b
-  -> Maybe (a :~: b)
-sameConcreteClassifier = go
+-- | Generate arbitrary tuple size
+arbitraryTuple :: forall r.
+     Int -- ^ Maximum type size (should be at least 2)
+  -> (forall xs.
+           (SListI xs, IsValidSize (Length xs))
+        => NP ClassifiedGen xs -> Gen r
+     )
+  -> Gen r
+arbitraryTuple = \typSz k -> do
+    tupleSz <- choose (2, min typSz 62)
+    let typSz' = typSz `div` tupleSz
+    case toValidSize tupleSz of
+      Nothing ->
+        error "arbitraryTuple: impossible, this is a valid tuple size"
+      Just (Some valid@(ValidSize n _)) ->
+        go typSz' n $ \(np :: NP ClassifiedGen xs) ->
+           case liftValidSize (valid :: ValidSize (Length xs))
+             of Dict -> k np
   where
-    go :: ConcreteClassifier a -> ConcreteClassifier b -> Maybe (a :~: b)
-    go CC_Bool     CC_Bool     = Just Refl
-    go CC_Char     CC_Char     = Just Refl
-    go CC_Double   CC_Double   = Just Refl
-    go CC_Float    CC_Float    = Just Refl
-    go CC_Int      CC_Int      = Just Refl
-    go CC_Int8     CC_Int8     = Just Refl
-    go CC_Int16    CC_Int16    = Just Refl
-    go CC_Int32    CC_Int32    = Just Refl
-    go CC_Int64    CC_Int64    = Just Refl
-    go CC_Ordering CC_Ordering = Just Refl
-    go CC_Unit     CC_Unit     = Just Refl
-    go CC_Word     CC_Word     = Just Refl
-    go CC_Word8    CC_Word8    = Just Refl
-    go CC_Word16   CC_Word16   = Just Refl
-    go CC_Word32   CC_Word32   = Just Refl
-    go CC_Word64   CC_Word64   = Just Refl
-
-    -- String types
-
-    go CC_String      CC_String      = Just Refl
-    go CC_BS_Strict   CC_BS_Strict   = Just Refl
-    go CC_BS_Lazy     CC_BS_Lazy     = Just Refl
-    go CC_BS_Short    CC_BS_Short    = Just Refl
-    go CC_Text_Strict CC_Text_Strict = Just Refl
-    go CC_Text_Lazy   CC_Text_Lazy   = Just Refl
-
-    -- Compound
-
-    go (CC_List c) (CC_List c') = goF c c'
-
-    -- Reference cells
-
-    go CC_STRef CC_STRef = Just Refl
-    go CC_TVar  CC_TVar  = Just Refl
-    go CC_MVar  CC_MVar  = Just Refl
-
-    -- Functions
-
-    go CC_Fun CC_Fun = Just Refl
-
-    -- User-defined
-
-    go (CC_User_NonRec c) (CC_User_NonRec c') = goF c c'
-    go (CC_User_Rec    c) (CC_User_Rec    c') = goF c c'
-
-    -- Otherwise, not equal
-
-    go _ _ = Nothing
-
-    goF :: MaybeEmpty ConcreteClassifier a
-        -> MaybeEmpty ConcreteClassifier b
-        -> Maybe (f a :~: f b)
-    goF Empty        Empty         = Just Refl
-    goF (NonEmpty c) (NonEmpty c') = (\Refl -> Refl) <$> go c c'
-    goF _            _             = Nothing
-
-    -- Make sure we get a warning if we add another constructor
-    _checkAllCases :: ConcreteClassifier a -> ()
-    _checkAllCases = \case
-        -- Primitive types
-
-        CC_Bool     -> ()
-        CC_Char     -> ()
-        CC_Double   -> ()
-        CC_Float    -> ()
-        CC_Int      -> ()
-        CC_Int8     -> ()
-        CC_Int16    -> ()
-        CC_Int32    -> ()
-        CC_Int64    -> ()
-        CC_Ordering -> ()
-        CC_Unit     -> ()
-        CC_Word     -> ()
-        CC_Word8    -> ()
-        CC_Word16   -> ()
-        CC_Word32   -> ()
-        CC_Word64   -> ()
-
-        -- String types
-
-        CC_String      -> ()
-        CC_BS_Strict   -> ()
-        CC_BS_Lazy     -> ()
-        CC_BS_Short    -> ()
-        CC_Text_Strict -> ()
-        CC_Text_Lazy   -> ()
-
-        -- Compound
-
-        CC_List{} -> ()
-
-        -- Reference cells
-
-        CC_STRef -> ()
-        CC_TVar  -> ()
-        CC_MVar  -> ()
-
-        -- Functions
-
-        CC_Fun -> ()
-
-        -- User-defined
-
-        CC_User_NonRec{} -> ()
-        CC_User_Rec{}    -> ()
-
-
-{-------------------------------------------------------------------------------
-  Values
--------------------------------------------------------------------------------}
-
--- | Like 'Classified', but using 'ConcreteClassifier'
---
--- For convenience, we also include some constraints here, even though they
--- are in fact derivable from the classifier
-data Value a where
-   Value :: (Show a, Eq a) => ConcreteClassifier a -> a -> Value a
-
-deriving instance Show (Value a)
-deriving instance Show (Some Value)
+    go :: Int
+       -> Sing (n :: Nat)
+       -> (forall xs.
+                (SListI xs, Length xs ~ n)
+             => NP ClassifiedGen xs -> Gen r
+          )
+       -> Gen r
+    go _      SZ     k = k Nil
+    go typSz' (SS n) k = do
+        Some c <- arbitraryClassifiedGen typSz'
+        go typSz' n $ \cs -> k (c :* cs)
 
 instance Arbitrary (Some Value) where
-  arbitrary = arbitraryClassifier $ \cc gen -> Exists . Value cc <$> gen
+  arbitrary = sized $ \sz -> do
+      -- @sz@ will range from 0..100, but we don't want to generate types that
+      -- large
+      Some (ClassifiedGen cc gen) <- arbitraryClassifiedGen (sz `div` 10)
 
-{-------------------------------------------------------------------------------
-  User-defined datatypes
--------------------------------------------------------------------------------}
-
--- | Example of a non-recursive user-defined type
-data NonRecursive a = NR1 Int | NR2 a Bool
-  deriving (Show, Eq, Generic, Functor, Foldable, Traversable)
-
--- | Example of a recursive user-defined type
-data Recursive a = RNil | RCons a (Recursive a)
-  deriving (Show, Eq, Generic, Functor, Foldable, Traversable)
-
-recursiveFromList :: [a] -> Recursive a
-recursiveFromList = foldr RCons RNil
+      -- For the values however we want to be able to generate larger trees
+      Some . Value cc <$> runSized sz gen
 
 {-------------------------------------------------------------------------------
   Some global variables, which we use only as input to the tests

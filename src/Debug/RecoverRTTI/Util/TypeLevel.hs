@@ -13,6 +13,10 @@ module Debug.RecoverRTTI.Util.TypeLevel (
     Sing(..)
   , SingI(..)
   , DecidableEquality(..)
+    -- ** Natural numbers
+  , Nat(..)
+  , knownNat
+  , Length
     -- * General purpose type level functions
   , Or
   , Equal
@@ -31,7 +35,7 @@ import Data.Kind
 import Data.Proxy
 import Data.Void
 import Data.Type.Equality
-import GHC.TypeLits
+import GHC.TypeLits (ErrorMessage, Symbol, KnownSymbol, TypeError, sameSymbol)
 
 {-------------------------------------------------------------------------------
   Singletons
@@ -56,6 +60,29 @@ instance SingI (a :: Type) where
   sing = SProxy
 
 {-------------------------------------------------------------------------------
+  Natural numbers
+
+  Unlike @ghc@'s, these are inductively defined.
+-------------------------------------------------------------------------------}
+
+data Nat = Z | S Nat
+
+data instance Sing (n :: Nat) where
+  SZ :: Sing 'Z
+  SS :: Sing n -> Sing ('S n)
+
+instance            SingI 'Z     where sing = SZ
+instance SingI n => SingI ('S n) where sing = SS sing
+
+knownNat :: Sing (n :: Nat) -> Int
+knownNat SZ     = 0
+knownNat (SS n) = knownNat n + 1
+
+type family Length (xs :: [k]) :: Nat where
+  Length '[]       = 'Z
+  Length (_ ': xs) = 'S (Length xs)
+
+{-------------------------------------------------------------------------------
   Singleton instance for type-level symbols
 -------------------------------------------------------------------------------}
 
@@ -73,11 +100,11 @@ instance DecidableEquality Symbol where
 -------------------------------------------------------------------------------}
 
 data instance Sing (xs :: [k]) where
-  SNil  :: Sing '[]
-  SCons :: Sing x -> Sing xs -> Sing (x ': xs)
+  SN :: Sing '[]
+  SC :: Sing x -> Sing xs -> Sing (x ': xs)
 
-instance                        SingI '[]       where sing = SNil
-instance (SingI x, SingI xs) => SingI (x ': xs) where sing = SCons sing sing
+instance                        SingI '[]       where sing = SN
+instance (SingI x, SingI xs) => SingI (x ': xs) where sing = SC sing sing
 
 {-------------------------------------------------------------------------------
   General purpose type level functions
@@ -118,10 +145,10 @@ shiftIsElem IsElem = IsElem
 checkIsElem ::
      DecidableEquality k
   => Sing (x :: k) -> Sing (xs :: [k]) -> Maybe (IsElem x xs)
-checkIsElem _ SNil         = Nothing
-checkIsElem x (SCons y ys) = case decideEquality x y of
-                               Just Refl -> Just IsElem
-                               Nothing   -> shiftIsElem <$> checkIsElem x ys
+checkIsElem _ SN         = Nothing
+checkIsElem x (SC y ys) = case decideEquality x y of
+                            Just Refl -> Just IsElem
+                            Nothing   -> shiftIsElem <$> checkIsElem x ys
 
 {-------------------------------------------------------------------------------
   Phantom type parameters
