@@ -37,6 +37,7 @@ library
                     , bytestring
                     , containers
                     , ghc-heap
+                    , mtl
                     , sop-core
                     , stm
                     , text
@@ -65,6 +66,7 @@ test-suite test-recover-rtti
                     , bytestring
                     , containers
                     , ghc-heap
+                    , ghc-prim
                     , mtl
                     , QuickCheck
                     , sop-core

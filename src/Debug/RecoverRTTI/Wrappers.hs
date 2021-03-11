@@ -18,16 +18,12 @@ module Debug.RecoverRTTI.Wrappers (
   , SomeSTRef(..)
   , SomeMVar(..)
   , SomeTVar(..)
-    -- * Values of an unknown type (failed classification)
-  , Unknown(..)
   ) where
 
 import Control.Concurrent.MVar (MVar)
 import Control.Concurrent.STM (TVar)
 import Data.STRef (STRef)
 import GHC.Exts
-import GHC.Exts.Heap
-import System.IO.Unsafe (unsafePerformIO)
 
 {-------------------------------------------------------------------------------
   Functions
@@ -55,13 +51,6 @@ newtype SomeTVar = SomeTVar (TVar Any)
   deriving (Eq)
 
 {-------------------------------------------------------------------------------
-  Unknown values
--------------------------------------------------------------------------------}
-
--- | Value for which type inference failed
-newtype Unknown = Unknown Any
-
-{-------------------------------------------------------------------------------
   Show instances
 
   Unfortunately reference cells are moved by GC, so we can't do much here;
@@ -79,9 +68,3 @@ instance Show SomeTVar where
 
 instance Show SomeFun where
   show _ = "<Fun>"
-
--- | If classification failed, we show the closure itself
-instance Show Unknown where
-  showsPrec p (Unknown x) = unsafePerformIO $ do
-      closure <- getBoxedClosureData (asBox x)
-      return $ showsPrec p closure

@@ -22,7 +22,7 @@ module Debug.RecoverRTTI.Classify (
   , canShowClassified
   ) where
 
-import Control.Monad (guard)
+import Control.Monad.Except
 import Data.IntMap (IntMap)
 import Data.Map (Map)
 import Data.Sequence (Seq)
@@ -32,6 +32,7 @@ import Data.SOP.Dict
 import Data.Tree (Tree)
 import GHC.Real
 import GHC.Stack
+import GHC.Exts.Heap (Closure)
 import System.IO.Unsafe (unsafePerformIO)
 import Unsafe.Coerce (unsafeCoerce)
 
@@ -54,9 +55,18 @@ import Debug.RecoverRTTI.Util.TypeLevel
   Classification
 -------------------------------------------------------------------------------}
 
-classifyIO :: a -> IO (Classifier a)
+-- | Classify a value
+--
+-- Given a value of some unknown type @a@ and a classifier @Classifier a@,
+-- it should be sound to coerce the value to the type indicated by the
+-- classifier.
+--
+-- This is also the reason not all values can be classified; in particular,
+-- we cannot classify values of unlifted types, as for these types coercion
+-- does not work (this would result in a ghc runtime crash).
+classifyIO :: a -> ExceptT Closure IO (Classifier a)
 classifyIO x = do
-    closure <- getBoxedClosureData (asBox x)
+    closure <- lift $ getBoxedClosureData (asBox x)
     case closure of
       --
       -- Primitive (ghc-prim)
@@ -217,23 +227,22 @@ classifyIO x = do
         return $ mustBe (C_Custom p)
 
       --
-      -- Unsupported
+      -- Classification failed
       --
 
-      OtherClosure _ ->
-        return $ mustBe C_Unknown
+      OtherClosure other -> ExceptT $ return (Left other)
 
 mustBe :: Classifier b -> Classifier a
 mustBe = unsafeCoerce
 
-classify :: a -> Classifier a
-classify = unsafePerformIO . classifyIO
+classify :: a -> Either Closure (Classifier a)
+classify = unsafePerformIO . runExceptT . classifyIO
 
 {-------------------------------------------------------------------------------
   Classification for compound types
 -------------------------------------------------------------------------------}
 
-classifyMaybe :: Maybe a -> IO (Classifier (Maybe a))
+classifyMaybe :: Maybe a -> ExceptT Closure IO (Classifier (Maybe a))
 classifyMaybe x =
     case x of
       Nothing -> return $ mustBe $ C_Maybe FNothing
@@ -241,7 +250,7 @@ classifyMaybe x =
         cx <- classifyIO x'
         return $ mustBe $ C_Maybe (FJust (Classified cx x'))
 
-classifyEither :: Either a b -> IO (Classifier (Either a b))
+classifyEither :: Either a b -> ExceptT Closure IO (Classifier (Either a b))
 classifyEither x =
     case x of
       Left x' -> do
@@ -251,7 +260,7 @@ classifyEither x =
         cy <- classifyIO y'
         return $ mustBe $ C_Either (FRight (Classified cy y'))
 
-classifyList :: [a] -> IO (Classifier [a])
+classifyList :: [a] -> ExceptT Closure IO (Classifier [a])
 classifyList x =
     case x of
       []   -> return $ mustBe $ C_List FNothing
@@ -261,12 +270,12 @@ classifyList x =
           C_Char     -> mustBe $ C_String
           _otherwise -> mustBe $ C_List (FJust (Classified cx x'))
 
-classifyRatio :: Ratio a -> IO (Classifier (Ratio a))
+classifyRatio :: Ratio a -> ExceptT Closure IO (Classifier (Ratio a))
 classifyRatio (x' :% _) = do
     cx <- classifyIO x'
     return $ mustBe $ C_Ratio (Classified cx x')
 
-classifySet :: Set a -> IO (Classifier (Set a))
+classifySet :: Set a -> ExceptT Closure IO (Classifier (Set a))
 classifySet x =
     case Set.lookupMin x of
       Nothing -> return $ mustBe $ C_Set FNothing
@@ -274,7 +283,7 @@ classifySet x =
         cx <- classifyIO x'
         return $ mustBe $ C_Set (FJust (Classified cx x'))
 
-classifyMap :: Map a b -> IO (Classifier (Map a b))
+classifyMap :: Map a b -> ExceptT Closure IO (Classifier (Map a b))
 classifyMap x =
    case Map.lookupMin x of
      Nothing       -> return $ mustBe $ C_Map FNothingPair
@@ -283,7 +292,7 @@ classifyMap x =
        cy <- classifyIO y'
        return $ mustBe $ C_Map (FJustPair (Classified cx x') (Classified cy y'))
 
-classifyIntMap :: IntMap a -> IO (Classifier (IntMap a))
+classifyIntMap :: IntMap a -> ExceptT Closure IO (Classifier (IntMap a))
 classifyIntMap x =
     case IntMap.minView x of
       Nothing      -> return $ mustBe $ C_IntMap FNothing
@@ -291,7 +300,7 @@ classifyIntMap x =
         cx <- classifyIO x'
         return $ mustBe $ C_IntMap (FJust (Classified cx x'))
 
-classifySequence :: Seq a -> IO (Classifier (Seq a))
+classifySequence :: Seq a -> ExceptT Closure IO (Classifier (Seq a))
 classifySequence x =
     case Seq.viewl x of
       Seq.EmptyL  -> return $ mustBe $ C_Sequence FNothing
@@ -299,7 +308,7 @@ classifySequence x =
         cx <- classifyIO x'
         return $ mustBe $ C_Sequence (FJust (Classified cx x'))
 
-classifyTree :: Tree a -> IO (Classifier (Tree a))
+classifyTree :: Tree a -> ExceptT Closure IO (Classifier (Tree a))
 classifyTree x =
     case x of
       Tree.Node x' _ -> do
@@ -309,12 +318,12 @@ classifyTree x =
 classifyTuple ::
      (SListI xs, IsValidSize (Length xs))
   => NP (K Box) xs
-  -> IO (Classifier (WrappedTuple xs))
+  -> ExceptT Closure IO (Classifier (WrappedTuple xs))
 classifyTuple ptrs = do
     cs <- hsequence' (hmap aux ptrs)
     return $ C_Tuple (Classifiers cs)
   where
-    aux :: K Box a -> (IO :.: Classified) a
+    aux :: K Box a -> (ExceptT Closure IO :.: Classified) a
     aux (K (Box x)) = Comp $ do
         c <- classifyIO (unsafeCoerce x)
         return $ Classified c (unsafeCoerce x)
@@ -333,8 +342,8 @@ isTuple typ = do
   Classified values
 -------------------------------------------------------------------------------}
 
-classified :: a -> Classified a
-classified x = Classified (classify x) x
+classified :: a -> Either Closure (Classified a)
+classified x = (\cx -> Classified cx x) <$> classify x
 
 {-------------------------------------------------------------------------------
   Classify constructor arguments
@@ -342,7 +351,8 @@ classified x = Classified (classify x) x
 
 -- | Classify the arguments to the constructor
 --
--- We only look at pointers and ignore any @UNPACK@ed data.
+-- We only look at pointers and ignore any @UNPACK@ed data. Arguments we cannot
+-- classify (like unlifted arguments) will be ignored.
 fromUserDefined :: forall c.
      (HasCallStack, KnownConstr c)
   => UserDefined c -> [Some Classified]
@@ -356,7 +366,7 @@ fromUserDefined = \(UserDefined x) -> unsafePerformIO $ go x
             let expected, actual :: Constr String
                 expected = knownConstr (sing @_ @c)
                 actual   = Constr pkg modl name
-            if expected == actual then
+            if expected == actual then do
               goArgs [] ptrArgs
             else do
 --              tree <- showClosureTree 5 x
@@ -376,8 +386,10 @@ fromUserDefined = \(UserDefined x) -> unsafePerformIO $ go x
     goArgs :: [Some Classified] -> [Box] -> IO [Some Classified]
     goArgs acc []         = return (reverse acc)
     goArgs acc (Box b:bs) = do
-        c <- classifyIO b
-        goArgs (Some (Classified c (unsafeCoerce b)) : acc) bs
+        mc <- runExceptT $ classifyIO b
+        case mc of
+          Right c -> goArgs (Some (Classified c (unsafeCoerce b)) : acc) bs
+          Left  _ -> goArgs                                         acc  bs
 
 {-------------------------------------------------------------------------------
   Show
@@ -388,8 +400,23 @@ fromUserDefined = \(UserDefined x) -> unsafePerformIO $ go x
 -------------------------------------------------------------------------------}
 
 -- | Show any value
+--
+-- This shows any value, as long as it's not unlifted. The result should be
+-- equal to show instances, with the following caveats:
+--
+-- * User-defined types (types not explicitly known to this library) with a
+--   /custom/ Show instance will still be showable, but the result will be
+--   what the /derived/ show instance would have done.
+-- * Record field names are not known at runtime, so they are not shown.
+-- * UNPACKed data is not visible to this library (if you compile with @-O0@
+--   @gch@ will not unpack data, so that might be a workaround if necessary).
+--
+-- If classification fails, we show the actual closure.
 anythingToString :: forall a. a -> String
-anythingToString x = showClassifiedValue 0 (classified x) ""
+anythingToString x =
+    case classified x of
+      Right classifier -> showClassifiedValue 0 classifier ""
+      Left  closure    -> show closure
 
 deriving instance Show (Classifier a)
 deriving instance Show (MaybeF     Classified a)
@@ -469,9 +496,6 @@ canShowClassified = go
 
     -- User-defined
     go (C_Custom SConstr) = Dict
-
-    -- Classification failed
-    go C_Unknown = Dict
 
     --
     -- Compound

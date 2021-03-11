@@ -11,6 +11,8 @@ module Debug.RecoverRTTI.FlatClosure (
   , asBox
   ) where
 
+import Control.Exception (evaluate)
+import Control.Monad
 import GHC.Exts.Heap (Box(..), asBox)
 import qualified GHC.Exts.Heap as H
 
@@ -39,8 +41,8 @@ data FlatClosure =
   deriving (Show)
 
 getBoxedClosureData :: Box -> IO FlatClosure
--- It is important that we force the value to WHNF /before/ getting the closure
-getBoxedClosureData b@(Box !_) = --
+getBoxedClosureData b = do
+    tryForceBox b
     fromClosure =<< H.getBoxedClosureData b
   where
     fromClosure :: H.Closure -> IO FlatClosure
@@ -54,7 +56,6 @@ getBoxedClosureData b@(Box !_) = --
 
         H.BlackholeClosure _ x' -> getBoxedClosureData x'
         H.IndClosure       _ x' -> getBoxedClosureData x'
-        H.SelectorClosure  _ x' -> getBoxedClosureData x'
 
         -- Constructor application
 
@@ -71,3 +72,18 @@ getBoxedClosureData b@(Box !_) = --
 
         otherClosure ->
           return $ OtherClosure otherClosure
+
+-- | Force the value to WHNF, if possible
+--
+-- We /cannot/ force the argument until we know what kind of closure we're
+-- dealing with. If this is an unlifted closure, forcing it will result in a
+-- ghc runtime crash.
+tryForceBox :: Box -> IO ()
+tryForceBox b@(Box x) = do
+    closure <- H.getBoxedClosureData b
+    case closure of
+
+      H.APClosure{}       -> void $ evaluate x
+      H.ThunkClosure{}    -> void $ evaluate x
+      H.SelectorClosure{} -> void $ evaluate x
+      _otherwise          -> return ()

@@ -124,10 +124,6 @@ data Classifier (a :: Type) :: Type where
 
   C_Custom :: Sing c -> Classifier (UserDefined c)
 
-  -- Classification failed
-
-  C_Unknown :: Classifier Unknown
-
 newtype Classifiers xs = Classifiers (NP Classified xs)
 
 {-------------------------------------------------------------------------------

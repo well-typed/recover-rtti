@@ -137,10 +137,11 @@ prop_constants = withMaxSuccess 1 $ conjoin [
 
       -- User defined
 
-    , compareClassifier $ Value (CC_User_NonRec FNothing)        (NR1 1234)
-    , compareClassifier $ Value (CC_User_NonRec (FJust CC_Char)) (NR2 'a' True)
-    , compareClassifier $ Value (CC_User_Rec    FNothing)        RNil
-    , compareClassifier $ Value (CC_User_Rec    (FJust CC_Char)) (RCons 'a' RNil)
+    , compareClassifier $ Value (CC_User_NonRec    FNothing)       (NR1 1234)
+    , compareClassifier $ Value (CC_User_NonRec   (FJust CC_Char)) (NR2 'a' True)
+    , compareClassifier $ Value (CC_User_Rec       FNothing)        RNil
+    , compareClassifier $ Value (CC_User_Rec      (FJust CC_Char)) (RCons 'a' RNil)
+    , compareClassifier $ Value (CC_User_Unlifted (FJust CC_Unit)) exampleContainsUnlifted
     ]
   where
     _checkAllCases :: ConcreteClassifier a -> ()
@@ -204,8 +205,9 @@ prop_constants = withMaxSuccess 1 $ conjoin [
 
         -- User-defined
 
-        CC_User_NonRec{} -> ()
-        CC_User_Rec{} -> ()
+        CC_User_NonRec{}   -> ()
+        CC_User_Rec{}      -> ()
+        CC_User_Unlifted{} -> ()
 
 -- | Test using arbitrary values
 prop_arbitrary :: Some Value -> Property
@@ -217,7 +219,7 @@ prop_arbitrary (Some v) = compareClassifier v
 compareClassifier :: Value a -> Property
 compareClassifier = \(Value cc x) ->
       counterexample ("Generated classifier: " ++ show cc)
-    $ case runExcept $ reclassify (classified x) of
+    $ case runExcept $ classifyThenReclassify x of
         Left err  ->
             counterexample ("Failed to reclassify. Error: " ++ err)
           $ property False

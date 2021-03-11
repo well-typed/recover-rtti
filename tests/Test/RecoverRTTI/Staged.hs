@@ -30,6 +30,7 @@
 module Test.RecoverRTTI.Staged (
     Reclassified(..)
   , reclassify
+  , classifyThenReclassify
   ) where
 
 import Control.Monad.Except
@@ -73,6 +74,15 @@ import Test.RecoverRTTI.UserDefined
 -- with a proof that we can /coerce/ from @a@ to @b@.
 data Reclassified a where
     Reclassified :: ConcreteClassifier b -> (a -> b) -> Reclassified a
+
+-- | Classify, then reclassify
+classifyThenReclassify :: a -> Except String (Reclassified a)
+classifyThenReclassify x =
+    case classified x of
+      Left closure ->
+        throwError $ "Failed to classify closure " ++ show closure
+      Right classifier ->
+        reclassify classifier
 
 -- | Reclassify values
 --
@@ -145,13 +155,10 @@ reclassify = go
 
       C_Custom s ->
         firstMatch ("Unknown constructor: " ++ prettyKnownConstr s) [
-            reclassifyF CC_User_NonRec s x
-          , reclassifyF CC_User_Rec    s x
+            reclassifyF CC_User_NonRec   s x
+          , reclassifyF CC_User_Rec      s x
+          , reclassifyF CC_User_Unlifted s x
           ]
-
-      -- Classification failed
-
-      C_Unknown -> throwError $ "Unknown closure: " ++ show x
 
     goMaybeF :: forall f a.
          (forall x x'. (x -> x') -> f x -> f x')
@@ -290,8 +297,8 @@ reclassifyF cc = \c x ->
         case checkEmptyTraversable (unsafeCoerceF constrOfF x) of
           Right _ ->
             return . Just $ Reclassified (cc FNothing) (unsafeCoerceF constrOfF)
-          Left x' ->
-            Just . aux constrOfF <$> reclassify (classified x')
+          Left x' -> do
+            Just . aux constrOfF <$> classifyThenReclassify x'
   where
     aux :: Poly (ConstrOfF f c)
         -> Reclassified a               -- Classification of the elements
@@ -316,6 +323,9 @@ instance Phantom (ConstrOfF NonRecursive c) where
   phantom (ConstrOfF IsConstrOf) = ConstrOfF IsConstrOf
 
 instance Phantom (ConstrOfF Recursive c) where
+  phantom (ConstrOfF IsConstrOf) = ConstrOfF IsConstrOf
+
+instance Phantom (ConstrOfF ContainsUnlifted c) where
   phantom (ConstrOfF IsConstrOf) = ConstrOfF IsConstrOf
 
 {-------------------------------------------------------------------------------
