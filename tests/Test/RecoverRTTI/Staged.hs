@@ -119,6 +119,8 @@ reclassify = go
       C_Ratio  c' -> goF          coerceRatio CC_Ratio  c'
       C_Set    c' -> goMaybeF     coerceSet   CC_Set    c'
       C_Map    c' -> goMaybePairF coerceMap   CC_Map    c'
+      C_IntSet    -> return $ Reclassified CC_IntSet id
+      C_IntMap c' -> goMaybeF     fmap        CC_IntMap c'
 
       C_Tuple (Classifiers cs) ->
         reclassifyTuple <$> (hsequence' (hmap (Comp . reclassify) cs))
@@ -200,7 +202,7 @@ reclassify = go
         aux <$> reclassify x'
       where
         aux :: Reclassified x -> Reclassified (f x)
-        aux (Reclassified c_x f_x) = 
+        aux (Reclassified c_x f_x) =
             Reclassified (cc c_x) (coerce f_x)
 
 reclassifyTuple ::

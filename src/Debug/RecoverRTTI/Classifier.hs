@@ -14,10 +14,12 @@ module Debug.RecoverRTTI.Classifier (
   ) where
 
 import Data.Int
+import Data.IntMap (IntMap)
+import Data.IntSet (IntSet)
 import Data.Kind
+import Data.Map (Map)
 import Data.Ratio
 import Data.Set (Set)
-import Data.Map (Map)
 import Data.SOP
 import Data.Void
 import Data.Word
@@ -92,6 +94,8 @@ data Classifier (a :: Type) :: Type where
   C_Ratio  ::            Classified a   -> Classifier (Ratio a)
   C_Set    :: MaybeF     Classified a   -> Classifier (Set a)
   C_Map    :: MaybePairF Classified a b -> Classifier (Map a b)
+  C_IntSet ::                              Classifier IntSet
+  C_IntMap :: MaybeF     Classified a   -> Classifier (IntMap a)
 
   C_Tuple ::
        (SListI xs, IsValidSize (Length xs))

@@ -36,8 +36,9 @@ import Unsafe.Coerce (unsafeCoerce)
 import qualified Data.ByteString       as BS.Strict
 import qualified Data.ByteString.Lazy  as BS.Lazy
 import qualified Data.ByteString.Short as BS.Short
-import qualified Data.Set              as Set
+import qualified Data.IntMap           as IntMap
 import qualified Data.Map              as Map
+import qualified Data.Set              as Set
 import qualified Data.Text             as Text.Strict
 import qualified Data.Text.Lazy        as Text.Lazy
 
@@ -252,6 +253,25 @@ arbitraryClassifiedGen typSz
                 b
             )
 
+          -- IntSet
+        , return $ return $ Some (defaultClassifiedGen CC_IntSet)
+
+          -- IntMap
+        , guard (typSz >= 1) >> (return $ do
+              Some b <- arbitraryClassifiedGen (typSz - 1)
+              genMaybeF
+                CC_IntMap
+                (return IntMap.empty)
+                (\(SizedGen genY) -> SizedGen $ \valSz -> do
+                   n <- choose (1, 5)
+                   IntMap.fromList <$> vectorOf n (
+                       (,) <$> arbitrary
+                           <*> genY (valSz `div` n)
+                     )
+                )
+                b
+            )
+
           -- User-defined
         , guard (typSz >= 1) >> (return $ do
               Some a <- arbitraryClassifiedGen (typSz - 1)
@@ -391,6 +411,8 @@ arbitraryClassifiedGen typSz
          C_Ratio{}  -> ()
          C_Set{}    -> ()
          C_Map{}    -> ()
+         C_IntSet{} -> ()
+         C_IntMap{} -> ()
          C_Tuple{}  -> ()
 
          -- Reference cells

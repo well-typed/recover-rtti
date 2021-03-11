@@ -12,8 +12,10 @@ import Data.Ratio
 import Data.SOP
 import Data.Type.Equality
 
-import qualified Data.Map as Map
-import qualified Data.Set as Set
+import qualified Data.IntMap as IntMap
+import qualified Data.IntSet as IntSet
+import qualified Data.Map    as Map
+import qualified Data.Set    as Set
 
 import Test.Tasty
 import Test.Tasty.QuickCheck hiding (classify, NonEmpty)
@@ -104,6 +106,12 @@ prop_constants = withMaxSuccess 1 $ conjoin [
     , compareClassifier $ Value (CC_Map FNothingPair)                Map.empty
     , compareClassifier $ Value (CC_Map (FJustPair CC_Int CC_Char)) (Map.fromList [(1, 'a'), (2, 'b')])
 
+    , compareClassifier $ Value CC_IntSet  IntSet.empty
+    , compareClassifier $ Value CC_IntSet (IntSet.fromList [1, 2, 3])
+
+    , compareClassifier $ Value (CC_IntMap FNothing)        IntMap.empty
+    , compareClassifier $ Value (CC_IntMap (FJust CC_Char)) (IntMap.fromList [(1, 'a'), (2, 'b')])
+
       -- Reference cells
 
     , compareClassifier $ Value CC_STRef exampleIORef
@@ -162,6 +170,8 @@ prop_constants = withMaxSuccess 1 $ conjoin [
         CC_Ratio{}  -> ()
         CC_Set{}    -> ()
         CC_Map{}    -> ()
+        CC_IntSet{} -> ()
+        CC_IntMap{} -> ()
         CC_Tuple{}  -> ()
 
         -- Functions

@@ -19,6 +19,8 @@ module Test.RecoverRTTI.ConcreteClassifier (
   ) where
 
 import Data.Int
+import Data.IntMap (IntMap)
+import Data.IntSet (IntSet)
 import Data.Kind
 import Data.Map (Map)
 import Data.Ratio
@@ -92,6 +94,8 @@ data ConcreteClassifier (a :: Type) :: Type where
     CC_Ratio  ::            ConcreteClassifier a   -> ConcreteClassifier (Ratio a)
     CC_Set    :: MaybeF     ConcreteClassifier a   -> ConcreteClassifier (Set a)
     CC_Map    :: MaybePairF ConcreteClassifier a b -> ConcreteClassifier (Map a b)
+    CC_IntSet ::                                      ConcreteClassifier IntSet
+    CC_IntMap :: MaybeF     ConcreteClassifier a   -> ConcreteClassifier (IntMap a)
 
     CC_Tuple ::
          (SListI xs, IsValidSize (Length xs))
@@ -173,6 +177,8 @@ classifierSize = go
     go (CC_Ratio  c) = 1 + go           c
     go (CC_Set    c) = 1 + goMaybeF     c
     go (CC_Map    c) = 1 + goMaybePairF c
+    go  CC_IntSet    = 1
+    go (CC_IntMap c) = 1 + goMaybeF     c
 
     go (CC_Tuple (ConcreteClassifiers cs)) =
         1 + sum (hcollapse (hmap (K . go) cs))
@@ -267,6 +273,8 @@ sameConcreteClassifier = go
     go (CC_Ratio  c) (CC_Ratio  c') = goF          c c'
     go (CC_Set    c) (CC_Set    c') = goMaybeF     c c'
     go (CC_Map    c) (CC_Map    c') = goMaybePairF c c'
+    go  CC_IntSet     CC_IntSet     = Just Refl
+    go (CC_IntMap c) (CC_IntMap c') = goMaybeF     c c'
 
     go (CC_Tuple (ConcreteClassifiers cs))
        (CC_Tuple (ConcreteClassifiers cs')) = (\Refl -> Refl) <$> goList cs cs'
@@ -370,6 +378,8 @@ sameConcreteClassifier = go
         CC_Ratio{}  -> ()
         CC_Set{}    -> ()
         CC_Map{}    -> ()
+        CC_IntSet{} -> ()
+        CC_IntMap{} -> ()
         CC_Tuple{}  -> ()
 
         -- Reference cells

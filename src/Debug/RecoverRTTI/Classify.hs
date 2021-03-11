@@ -153,6 +153,36 @@ classifyIO x = do
         cy <- classifyIO y'
         return $ mustBe $ C_Map (FJustPair (Classified cx x') (Classified cy y'))
 
+      -- IntSet
+      (inKnownModule DataIntSetInternal -> Just "Bin") ->
+        return $ mustBe $ C_IntSet
+      (inKnownModule DataIntSetInternal -> Just "Tip") ->
+        return $ mustBe $ C_IntSet
+      (inKnownModule DataIntSetInternal -> Just "Nil") ->
+        return $ mustBe $ C_IntSet
+
+      -- IntMap
+      (inKnownModule DataIntMapInternal -> Just "Nil") ->
+        return $ mustBe $ C_IntMap FNothing
+      (inKnownModuleNested DataIntMapInternal -> Just ("Tip", [Box x'])) -> do
+        cx <- classifyIO x'
+        return $ mustBe $ C_IntMap (FJust (Classified cx x'))
+      (inKnownModuleNested DataIntMapInternal -> Just ("Tip", [_sz, Box x'])) -> do
+        cx <- classifyIO x'
+        return $ mustBe $ C_IntMap (FJust (Classified cx x'))
+      (inKnownModuleNested DataIntMapInternal -> Just ("Bin", [Box left, _right])) -> do
+        -- The Bin constructor doesn't give us enough to go on, so we need to
+        -- recurse. The invariant of Bin says that it can never have a Nil
+        -- child, so it doesn't matter if we go left or right, we'll eventually
+        -- hit a tip.
+        mustBe <$> classifyIO left
+      (inKnownModuleNested DataIntMapInternal -> Just ("Bin", [_prefix, _mask, Box left, _right])) -> do
+        -- The Bin constructor doesn't give us enough to go on, so we need to
+        -- recurse. The invariant of Bin says that it can never have a Nil
+        -- child, so it doesn't matter if we go left or right, we'll eventually
+        -- hit a tip.
+        mustBe <$> classifyIO left
+
       -- Tuples (of size 2..62)
       (inKnownModuleNested GhcTuple -> Just (
             isTuple       -> Just (Some validSize@(ValidSize sz _))
@@ -370,6 +400,8 @@ canShowClassified = go
     go (C_Ratio  c) = goF          c
     go (C_Set    c) = goMaybeF     c
     go (C_Map    c) = goMaybePairF c
+    go  C_IntSet    = Dict
+    go (C_IntMap c) = goMaybeF     c
 
     go (C_Tuple (Classifiers cs)) =
         case all_NP (hmap (canShowClassified . classifiedType) cs) of

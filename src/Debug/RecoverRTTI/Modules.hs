@@ -106,6 +106,8 @@ data instance KnownModule 'PkgIntegerWiredIn =
 data instance KnownModule 'PkgContainers =
     DataSetInternal
   | DataMapInternal
+  | DataIntSetInternal
+  | DataIntMapInternal
 
 {-------------------------------------------------------------------------------
   Matching
@@ -157,3 +159,5 @@ inKnownModuleNested = go sing
     nameModl SIntegerWiredIn GhcIntegerType              = "GHC.Integer.Type"
     nameModl SContainers     DataSetInternal             = "Data.Set.Internal"
     nameModl SContainers     DataMapInternal             = "Data.Map.Internal"
+    nameModl SContainers     DataIntSetInternal          = "Data.IntSet.Internal"
+    nameModl SContainers     DataIntMapInternal          = "Data.IntMap.Internal"
