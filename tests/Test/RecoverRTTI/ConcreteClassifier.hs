@@ -20,6 +20,7 @@ module Test.RecoverRTTI.ConcreteClassifier (
 
 import Data.Int
 import Data.Kind
+import Data.Ratio
 import Data.SOP
 import Data.SOP.Dict
 import Data.Type.Equality
@@ -86,6 +87,7 @@ data ConcreteClassifier (a :: Type) :: Type where
     CC_Maybe  :: MaybeF  ConcreteClassifier a   -> ConcreteClassifier (Maybe a)
     CC_Either :: EitherF ConcreteClassifier a b -> ConcreteClassifier (Either a b)
     CC_List   :: MaybeF  ConcreteClassifier a   -> ConcreteClassifier [a]
+    CC_Ratio  :: ConcreteClassifier a           -> ConcreteClassifier (Ratio a)
 
     CC_Tuple ::
          (SListI xs, IsValidSize (Length xs))
@@ -163,6 +165,7 @@ classifierSize = go
     go (CC_Maybe  c) = 1 + goMaybeF  c
     go (CC_Either c) = 1 + goEitherF c
     go (CC_List   c) = 1 + goMaybeF  c
+    go (CC_Ratio  c) = 1 + go        c
 
     go (CC_Tuple (ConcreteClassifiers cs)) =
         1 + sum (hcollapse (hmap (K . go) cs))
@@ -250,6 +253,7 @@ sameConcreteClassifier = go
     go (CC_Maybe  c) (CC_Maybe  c') = goMaybeF  c c'
     go (CC_Either c) (CC_Either c') = goEitherF c c'
     go (CC_List   c) (CC_List   c') = goMaybeF  c c'
+    go (CC_Ratio  c) (CC_Ratio  c') = goF       c c'
 
     go (CC_Tuple (ConcreteClassifiers cs))
        (CC_Tuple (ConcreteClassifiers cs')) = (\Refl -> Refl) <$> goList cs cs'
@@ -289,6 +293,12 @@ sameConcreteClassifier = go
     goEitherF (FRight c) (FRight c') = (\Refl -> Refl) <$> go c c'
     goEitherF (FLeft  _) (FRight _ ) = Nothing
     goEitherF (FRight _) (FLeft  _ ) = Nothing
+
+    goF ::
+         ConcreteClassifier a
+      -> ConcreteClassifier b
+      -> Maybe (f a :~: f b)
+    goF c c' = (\Refl -> Refl) <$> go c c'
 
     goList ::
          NP ConcreteClassifier xs
@@ -336,6 +346,7 @@ sameConcreteClassifier = go
         CC_Maybe{}  -> ()
         CC_Either{} -> ()
         CC_List{}   -> ()
+        CC_Ratio{}  -> ()
         CC_Tuple{}  -> ()
 
         -- Reference cells

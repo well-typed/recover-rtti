@@ -39,6 +39,7 @@ import Data.SOP hiding (NS(..))
 import Data.Typeable
 import Data.Void
 import GHC.Exts (Any)
+import GHC.Real
 import GHC.TypeLits
 
 import Debug.RecoverRTTI
@@ -107,9 +108,10 @@ reclassify = go
 
       -- Compound
 
-      C_Maybe  c' -> goMaybeF  CC_Maybe  c'
-      C_Either c' -> goEitherF CC_Either c'
-      C_List   c' -> goMaybeF  CC_List   c'
+      C_Maybe  c' -> goMaybeF      CC_Maybe  c'
+      C_Either c' -> goEitherF     CC_Either c'
+      C_List   c' -> goMaybeF      CC_List   c'
+      C_Ratio  c' -> goF fmapRatio CC_Ratio  c'
 
       C_Tuple (Classifiers cs) ->
         reclassifyTuple <$> (hsequence' (hmap (Comp . reclassify) cs))
@@ -164,6 +166,20 @@ reclassify = go
       where
         aux :: Reclassified b -> Reclassified (f Void b)
         aux (Reclassified c f) = Reclassified (cc (FRight c)) (bimap id f)
+
+    goF :: forall f a.
+         (forall x y. (x -> y) -> f x -> f y)
+      -> (forall x. ConcreteClassifier x -> ConcreteClassifier (f x))
+      -> Classified a
+      -> Except String (Reclassified (f a))
+    goF fmap' cc x' =
+        aux <$> reclassify x'
+      where
+        aux :: Reclassified a -> Reclassified (f a)
+        aux (Reclassified c f) = Reclassified (cc c) (fmap' f)
+
+    fmapRatio :: (x -> y) -> Ratio x -> Ratio y
+    fmapRatio f (x :% y) = f x :% f y
 
 reclassifyTuple ::
      (SListI xs, IsValidSize (Length xs))

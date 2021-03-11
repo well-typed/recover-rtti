@@ -29,6 +29,7 @@ import Data.SOP
 import Data.SOP.Dict
 import Data.STRef (newSTRef)
 import Data.Void
+import GHC.Real
 import System.IO.Unsafe (unsafePerformIO)
 import Unsafe.Coerce (unsafeCoerce)
 
@@ -183,12 +184,12 @@ arbitraryClassifiedGen typSz
                 (\case FJust CC_Char -> CC_String
                        c             -> CC_List c)
                 (return [])
-                (\gen -> SizedGen $ \valSz -> do
+                (\(SizedGen gen) -> SizedGen $ \valSz -> do
                    -- Pick number of list elements (don't generate empty list)
                    n <- choose (1, 5)
 
                    -- Then divide total size of each list element
-                   vectorOf n (runSized (valSz `div` n) gen)
+                   vectorOf n (gen (valSz `div` n))
                 )
                 a
             )
@@ -204,6 +205,17 @@ arbitraryClassifiedGen typSz
               a <- arbitraryClassifiedGen (typSz `div` 2)
               b <- arbitraryClassifiedGen (typSz `div` 2)
               genEitherF CC_Either (fmap Left) (fmap Right) a b
+            )
+
+          -- Ratio
+        , guard (typSz >= 1) >> (return $ do
+              a <- arbitraryClassifiedGen (typSz `div` 2)
+              genF
+                CC_Ratio
+                (\(SizedGen gen) -> SizedGen $ \sz ->
+                   (:%) <$> gen (sz `div` 2) <*> gen (sz `div` 2)
+                )
+                a
             )
 
             -- User-defined
@@ -282,6 +294,16 @@ arbitraryClassifiedGen typSz
           , Some $ ClassifiedGen (cc (FRight cB)) (genRight genB)
           ]
 
+    genF ::
+         ( forall x. Show x => Show (f x)
+         , forall x. Eq   x => Eq   (f x)
+         )
+      => (forall x. ConcreteClassifier x -> ConcreteClassifier (f x))
+      -> (forall x. SizedGen x -> SizedGen (f x))
+      -> Some ClassifiedGen -> Gen (Some ClassifiedGen)
+    genF cc gen (Some (ClassifiedGen cA genA)) = return $
+        Some $ ClassifiedGen (cc cA) (gen genA)
+
     -- We check that we cover all cases of 'Classifier' rather than
     -- 'ConcreteClassifier': it is important that we generate test cases for
     -- everything we classify in the main library.
@@ -321,6 +343,7 @@ arbitraryClassifiedGen typSz
          C_Maybe{}  -> ()
          C_Either{} -> ()
          C_List{}   -> ()
+         C_Ratio{}  -> ()
          C_Tuple{}  -> ()
 
          -- Reference cells

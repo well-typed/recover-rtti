@@ -69,6 +69,7 @@ data instance KnownModule 'PkgBase =
   | GhcMVar
   | GhcConcSync
   | GhcMaybe
+  | GhcReal
   | DataEither
 
 {-------------------------------------------------------------------------------
@@ -134,6 +135,7 @@ inKnownModuleNested = go sing
     nameModl SBase           GhcMVar                     = "GHC.MVar"
     nameModl SBase           GhcConcSync                 = "GHC.Conc.Sync"
     nameModl SBase           GhcMaybe                    = "GHC.Maybe"
+    nameModl SBase           GhcReal                     = "GHC.Real"
     nameModl SBase           DataEither                  = "Data.Either"
     nameModl SByteString     DataByteStringInternal      = "Data.ByteString.Internal"
     nameModl SByteString     DataByteStringLazyInternal  = "Data.ByteString.Lazy.Internal"

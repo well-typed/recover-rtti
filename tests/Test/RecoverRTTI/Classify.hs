@@ -8,8 +8,9 @@
 module Test.RecoverRTTI.Classify (tests) where
 
 import Control.Monad.Except
-import Data.Type.Equality
+import Data.Ratio
 import Data.SOP
+import Data.Type.Equality
 
 import Test.Tasty
 import Test.Tasty.QuickCheck hiding (classify, NonEmpty)
@@ -92,6 +93,8 @@ prop_constants = withMaxSuccess 1 $ conjoin [
     , compareClassifier $ Value (CC_Tuple (ConcreteClassifiers (CC_Int :* CC_Char :* Nil)))            (WrappedTuple (4, 'a'))
     , compareClassifier $ Value (CC_Tuple (ConcreteClassifiers (CC_Int :* CC_Char :* CC_Bool :* Nil))) (WrappedTuple (4, 'a', True))
 
+    , compareClassifier $ Value (CC_Ratio CC_Integer) (1 % 2)
+
       -- Reference cells
 
     , compareClassifier $ Value CC_STRef exampleIORef
@@ -147,6 +150,7 @@ prop_constants = withMaxSuccess 1 $ conjoin [
         CC_Maybe{}  -> ()
         CC_Either{} -> ()
         CC_List{}   -> ()
+        CC_Ratio{}  -> ()
         CC_Tuple{}  -> ()
 
         -- Functions

@@ -125,6 +125,11 @@ classifyIO x = do
           C_Char     -> mustBe $ C_String
           _otherwise -> mustBe $ C_List (FJust (Classified c x'))
 
+      -- Ratio
+      (inKnownModuleNested GhcReal -> Just (":%", [Box x', _y'])) -> do
+        c <- classifyIO x'
+        return $ mustBe $ C_Ratio (Classified c x')
+
       -- Tuples (of size 2..62)
       (inKnownModuleNested GhcTuple -> Just (
             isTuple       -> Just (Some validSize@(ValidSize sz _))
@@ -338,6 +343,7 @@ canShowClassified = go
     go (C_Maybe  c) = goMaybeF  c
     go (C_Either c) = goEitherF c
     go (C_List   c) = goMaybeF  c
+    go (C_Ratio  c) = goF       c
 
     go (C_Tuple (Classifiers cs)) =
         case all_NP (hmap (canShowClassified . classifiedType) cs) of
@@ -354,9 +360,15 @@ canShowClassified = go
          (forall x y. (Show x, Show y) => Show (f x y))
       => EitherF Classified a b -> Dict Show (f a b)
     goEitherF (FLeft  c) = case go (classifiedType c) of
-                            Dict -> Dict
+                             Dict -> Dict
     goEitherF (FRight c) = case go (classifiedType c) of
-                            Dict -> Dict
+                             Dict -> Dict
+
+    goF :: forall f a.
+         (forall x. Show x => Show (f x))
+      => Classified a -> Dict Show (f a )
+    goF c = case go (classifiedType c) of
+              Dict -> Dict
 
 instance KnownConstr c => Show (UserDefined c) where
   showsPrec p x =
