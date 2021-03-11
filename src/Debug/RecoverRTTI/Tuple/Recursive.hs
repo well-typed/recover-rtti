@@ -1,11 +1,15 @@
+{-# OPTIONS_GHC -Wno-overlapping-patterns -Wno-incomplete-patterns -Wno-incomplete-uni-patterns -fno-opt-coercion #-}
+
 {-# LANGUAGE DataKinds               #-}
 {-# LANGUAGE FlexibleContexts        #-}
 {-# LANGUAGE ScopedTypeVariables     #-}
 {-# LANGUAGE TypeFamilies            #-}
 {-# LANGUAGE TypeOperators           #-}
--- {-# LANGUAGE UndecidableSuperClasses #-}
 
--- Disable the GHC pattern match checker (this makes compilation /much/ faster)
+-- | Provide a recursive views on tuples
+--
+-- NOTE: We disable the GHC pattern match checker (this makes compilation /much/
+-- faster).
 --
 -- Verified that this module compiles without warnings for smaller maximum
 -- tuple size.
@@ -14,9 +18,6 @@
 --
 -- * https://gitlab.haskell.org/ghc/ghc/-/issues/17836
 -- * https://gitlab.haskell.org/ghc/ghc/-/issues/16382
-{-# OPTIONS_GHC -Wno-overlapping-patterns -Wno-incomplete-patterns -Wno-incomplete-uni-patterns -fno-opt-coercion #-}
-
--- | Provide a recursive views on tuples
 module Debug.RecoverRTTI.Tuple.Recursive (
     Tuple
   , cons

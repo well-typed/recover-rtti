@@ -2,12 +2,13 @@ cabal-version:      2.4
 name:               recover-rtti
 version:            0.1.0.0
 synopsis:           Recover run-time type information from the GHC heap
-description:        This package looks at the GHC type to recover type
-                    information about arbitrary values. This makes it possible
-                    for example to show any value (function anythingToString)
-                    without having any Show instance in scope, though there
-                    are other use cases as well. For example, you could use it
-                    to define an anythingToJSON function.
+description:        The main function in this package is 'classify', which looks
+                    at the GHC heap to recover type information about arbitrary
+                    values. This makes it possible for example to show any value
+                    (function 'anythingToString') without having any @Show@
+                    instance in scope, though there are other use cases as well.
+                    For example, you could use it to define an 'anythingToJSON'
+                    function.
 bug-reports:        https://github.com/well-typed/recover-rtti/issues
 license:            BSD-3-Clause
 license-file:       LICENSE
