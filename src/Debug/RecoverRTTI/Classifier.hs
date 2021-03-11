@@ -5,9 +5,10 @@
 
 module Debug.RecoverRTTI.Classifier (
     Classifier(..)
-  , MaybeEmpty(..)
   , Classifiers(..)
   , Classified(..)
+    -- * Partial information
+  , MaybeF(..)
   ) where
 
 import Data.Int
@@ -79,8 +80,8 @@ data Classifier (a :: Type) :: Type where
 
   -- Compound
 
-  C_Maybe :: MaybeEmpty Classified a -> Classifier (Maybe a)
-  C_List  :: MaybeEmpty Classified a -> Classifier [a]
+  C_Maybe :: MaybeF Classified a -> Classifier (Maybe a)
+  C_List  :: MaybeF Classified a -> Classifier [a]
 
   C_Tuple ::
        (SListI xs, IsValidSize (Length xs))
@@ -104,8 +105,8 @@ data Classifier (a :: Type) :: Type where
 
   C_Unknown :: Classifier Unknown
 
-data MaybeEmpty f a where
-  Empty    :: MaybeEmpty f Void
-  NonEmpty :: f a -> MaybeEmpty f a
+data MaybeF f a where
+  FNothing :: MaybeF f Void
+  FJust    :: f a -> MaybeF f a
 
 newtype Classifiers xs = Classifiers (NP Classified xs)

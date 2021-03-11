@@ -82,8 +82,8 @@ data ConcreteClassifier (a :: Type) :: Type where
 
     -- Compound
 
-    CC_Maybe :: MaybeEmpty ConcreteClassifier a -> ConcreteClassifier (Maybe a)
-    CC_List  :: MaybeEmpty ConcreteClassifier a -> ConcreteClassifier [a]
+    CC_Maybe :: MaybeF ConcreteClassifier a -> ConcreteClassifier (Maybe a)
+    CC_List  :: MaybeF ConcreteClassifier a -> ConcreteClassifier [a]
 
     CC_Tuple ::
          (SListI xs, IsValidSize (Length xs))
@@ -101,13 +101,13 @@ data ConcreteClassifier (a :: Type) :: Type where
 
     -- User-defined
 
-    CC_User_NonRec :: MaybeEmpty ConcreteClassifier a -> ConcreteClassifier (NonRecursive a)
-    CC_User_Rec    :: MaybeEmpty ConcreteClassifier a -> ConcreteClassifier (Recursive    a)
+    CC_User_NonRec :: MaybeF ConcreteClassifier a -> ConcreteClassifier (NonRecursive a)
+    CC_User_Rec    :: MaybeF ConcreteClassifier a -> ConcreteClassifier (Recursive    a)
 
 newtype ConcreteClassifiers xs = ConcreteClassifiers (NP ConcreteClassifier xs)
 
 deriving instance Show (ConcreteClassifier a)
-deriving instance Show (MaybeEmpty ConcreteClassifier a)
+deriving instance Show (MaybeF ConcreteClassifier a)
 
 instance SListI xs => Show (ConcreteClassifiers xs) where
   show (ConcreteClassifiers xs) = go (hpure Dict)
@@ -156,8 +156,8 @@ classifierSize = go
 
     -- Compound
 
-    go (CC_Maybe c) = 1 + goMaybeEmpty c
-    go (CC_List  c) = 1 + goMaybeEmpty c
+    go (CC_Maybe c) = 1 + goMaybeF c
+    go (CC_List  c) = 1 + goMaybeF c
 
     go (CC_Tuple (ConcreteClassifiers cs)) =
         1 + sum (hcollapse (hmap (K . go) cs))
@@ -171,12 +171,12 @@ classifierSize = go
     go CC_MVar  = 1
 
     -- User-defined
-    go (CC_User_NonRec c) = 1 + goMaybeEmpty c
-    go (CC_User_Rec    c) = 1 + goMaybeEmpty c
+    go (CC_User_NonRec c) = 1 + goMaybeF c
+    go (CC_User_Rec    c) = 1 + goMaybeF c
 
-    goMaybeEmpty :: MaybeEmpty ConcreteClassifier a -> Int
-    goMaybeEmpty Empty        = 0
-    goMaybeEmpty (NonEmpty c) = go c
+    goMaybeF :: MaybeF ConcreteClassifier a -> Int
+    goMaybeF FNothing  = 0
+    goMaybeF (FJust c) = go c
 
 {-------------------------------------------------------------------------------
   Values
@@ -237,8 +237,8 @@ sameConcreteClassifier = go
 
     -- Compound
 
-    go (CC_Maybe c) (CC_Maybe c') = goF c c'
-    go (CC_List  c) (CC_List  c') = goF c c'
+    go (CC_Maybe c) (CC_Maybe c') = goMaybeF c c'
+    go (CC_List  c) (CC_List  c') = goMaybeF c c'
 
     go (CC_Tuple (ConcreteClassifiers cs))
        (CC_Tuple (ConcreteClassifiers cs')) = (\Refl -> Refl) <$> goList cs cs'
@@ -255,20 +255,20 @@ sameConcreteClassifier = go
 
     -- User-defined
 
-    go (CC_User_NonRec c) (CC_User_NonRec c') = goF c c'
-    go (CC_User_Rec    c) (CC_User_Rec    c') = goF c c'
+    go (CC_User_NonRec c) (CC_User_NonRec c') = goMaybeF c c'
+    go (CC_User_Rec    c) (CC_User_Rec    c') = goMaybeF c c'
 
     -- Otherwise, not equal
 
     go _ _ = Nothing
 
-    goF ::
-         MaybeEmpty ConcreteClassifier a
-      -> MaybeEmpty ConcreteClassifier b
+    goMaybeF ::
+         MaybeF ConcreteClassifier a
+      -> MaybeF ConcreteClassifier b
       -> Maybe (f a :~: f b)
-    goF Empty        Empty         = Just Refl
-    goF (NonEmpty c) (NonEmpty c') = (\Refl -> Refl) <$> go c c'
-    goF _            _             = Nothing
+    goMaybeF FNothing  FNothing   = Just Refl
+    goMaybeF (FJust c) (FJust c') = (\Refl -> Refl) <$> go c c'
+    goMaybeF _          _         = Nothing
 
     goList ::
          NP ConcreteClassifier xs

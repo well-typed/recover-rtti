@@ -104,8 +104,8 @@ reclassify = go
 
       -- Compound
 
-      C_Maybe c' -> goMaybeEmpty CC_Maybe c'
-      C_List  c' -> goMaybeEmpty CC_List  c'
+      C_Maybe c' -> goMaybeF CC_Maybe c'
+      C_List  c' -> goMaybeF CC_List  c'
 
       C_Tuple (Classifiers cs) ->
         reclassifyTuple <$> (hsequence' (hmap (Comp . reclassify) cs))
@@ -132,23 +132,18 @@ reclassify = go
 
       C_Unknown -> throwError $ "Unknown closure: " ++ show x
 
-{-
-    CC_Maybe :: MaybeEmpty ConcreteClassifier a -> ConcreteClassifier (Maybe a)
-    CC_List  :: MaybeEmpty ConcreteClassifier a -> ConcreteClassifier [a]
--}
-
-    goMaybeEmpty :: forall f a.
+    goMaybeF :: forall f a.
          Functor f
-      => (forall x. MaybeEmpty ConcreteClassifier x -> ConcreteClassifier (f x))
-      -> MaybeEmpty Classified a
+      => (forall x. MaybeF ConcreteClassifier x -> ConcreteClassifier (f x))
+      -> MaybeF Classified a
       -> Except String (Reclassified (f a))
-    goMaybeEmpty cc Empty =
-        return $ Reclassified (cc Empty) id
-    goMaybeEmpty cc (NonEmpty x') =
+    goMaybeF cc FNothing =
+        return $ Reclassified (cc FNothing) id
+    goMaybeF cc (FJust x') =
         aux <$> reclassify x'
       where
         aux :: Reclassified a -> Reclassified (f a)
-        aux (Reclassified c f) = Reclassified (cc (NonEmpty c)) (fmap f)
+        aux (Reclassified c f) = Reclassified (cc (FJust c)) (fmap f)
 
 reclassifyTuple ::
      (SListI xs, IsValidSize (Length xs))
@@ -204,7 +199,7 @@ reclassifyF ::
        , Traversable f
        , Typeable f
        )
-  => (forall a. MaybeEmpty ConcreteClassifier a -> ConcreteClassifier (f a))
+  => (forall a. MaybeF ConcreteClassifier a -> ConcreteClassifier (f a))
   -> Sing (c :: Constr Symbol)
   -> UserDefined c
   -> Except String (Maybe (Reclassified (UserDefined c)))
@@ -215,7 +210,7 @@ reclassifyF cc = \c x ->
       Just constrOfF ->
         case checkEmptyTraversable (unsafeCoerceF constrOfF x) of
           Right _ ->
-            return . Just $ Reclassified (cc Empty) (unsafeCoerceF constrOfF)
+            return . Just $ Reclassified (cc FNothing) (unsafeCoerceF constrOfF)
           Left x' ->
             Just . aux constrOfF <$> reclassify (classified x')
   where
@@ -223,7 +218,7 @@ reclassifyF cc = \c x ->
         -> Reclassified a               -- Classification of the elements
         -> Reclassified (UserDefined c) -- Classification of the container
     aux constrOfF (Reclassified c f) =
-        Reclassified (cc (NonEmpty c)) (fmap f . unsafeCoerceF constrOfF)
+        Reclassified (cc (FJust c)) (fmap f . unsafeCoerceF constrOfF)
 
 {-------------------------------------------------------------------------------
   Prove that the functors of our user-defined types are indeed parametric

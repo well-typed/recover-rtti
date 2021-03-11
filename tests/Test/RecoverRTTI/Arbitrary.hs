@@ -176,9 +176,9 @@ arbitraryClassifiedGen typSz
           -- inferred as @String@
           guard (typSz >= 1) >> (return $
               arbitraryClassifiedGen (typSz - 1) >>=
-              genMaybeEmpty
-                (\case NonEmpty CC_Char -> CC_String
-                       c                -> CC_List c)
+              genMaybeF
+                (\case FJust CC_Char -> CC_String
+                       c             -> CC_List c)
                 (return [])
                 (\gen -> SizedGen $ \valSz -> do
                    -- Pick number of list elements (don't generate empty list)
@@ -192,7 +192,7 @@ arbitraryClassifiedGen typSz
         , -- Maybe
           guard (typSz >= 1) >> (return $
               arbitraryClassifiedGen (typSz - 1) >>=
-              genMaybeEmpty
+              genMaybeF
                 CC_Maybe
                 (return Nothing)
                 (\gen -> SizedGen $ fmap Just . (`runSized` gen))
@@ -201,7 +201,7 @@ arbitraryClassifiedGen typSz
             -- User-defined
         , guard (typSz >= 1) >> (return $
               arbitraryClassifiedGen (typSz - 1) >>=
-              genMaybeEmpty
+              genMaybeF
                 CC_User_NonRec
                 (NR1 <$> arbitrary)
                 (\gen -> SizedGen $ \valSz ->
@@ -211,7 +211,7 @@ arbitraryClassifiedGen typSz
 
         , guard (typSz >= 1) >> (return $
               arbitraryClassifiedGen (typSz - 1) >>=
-              genMaybeEmpty
+              genMaybeF
                 CC_User_Rec
                 (return RNil)
                 (\gen -> SizedGen $ \valSz -> do
@@ -239,18 +239,18 @@ arbitraryClassifiedGen typSz
             )
         ]
 
-    genMaybeEmpty ::
+    genMaybeF ::
          ( forall x. Show x => Show (f x)
          , forall x. Eq   x => Eq   (f x)
          )
-      => (forall x. MaybeEmpty ConcreteClassifier x -> ConcreteClassifier (f x))
+      => (forall x. MaybeF ConcreteClassifier x -> ConcreteClassifier (f x))
       -> Gen (f Void)
       -> (forall x. SizedGen x -> SizedGen (f x))
       -> Some ClassifiedGen -> Gen (Some ClassifiedGen)
-    genMaybeEmpty cc genEmpty genNonEmpty (Some (ClassifiedGen c genA)) =
+    genMaybeF cc genEmpty genNonEmpty (Some (ClassifiedGen c genA)) =
         elements [
-            Some $ ClassifiedGen (cc Empty)        (ignoreSize $ genEmpty)
-          , Some $ ClassifiedGen (cc (NonEmpty c)) (genNonEmpty genA)
+            Some $ ClassifiedGen (cc FNothing)  (ignoreSize $ genEmpty)
+          , Some $ ClassifiedGen (cc (FJust c)) (genNonEmpty genA)
           ]
     -- We check that we cover all cases of 'Classifier' rather than
     -- 'ConcreteClassifier': it is important that we generate test cases for

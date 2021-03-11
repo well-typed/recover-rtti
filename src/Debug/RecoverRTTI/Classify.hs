@@ -102,19 +102,19 @@ classifyIO x = do
 
       -- Maybe
       (inKnownModule GhcMaybe -> Just "Nothing") ->
-        return $ mustBe $ C_Maybe Empty
+        return $ mustBe $ C_Maybe FNothing
       (inKnownModuleNested GhcMaybe -> Just ("Just", [Box x'])) -> do
         c <- classifyIO x'
-        return $ mustBe $ C_Maybe (NonEmpty (Classified c x'))
+        return $ mustBe $ C_Maybe (FJust (Classified c x'))
 
       -- Lists (this includes the 'String' case)
       (inKnownModuleNested GhcTypes -> Just ("[]", [])) ->
-        return $ mustBe $ C_List Empty
+        return $ mustBe $ C_List FNothing
       (inKnownModuleNested GhcTypes -> Just (":", [Box x', _xs])) -> do
         c <- classifyIO x'
         return $ case c of
           C_Char     -> mustBe $ C_String
-          _otherwise -> mustBe $ C_List (NonEmpty (Classified c x'))
+          _otherwise -> mustBe $ C_List (FJust (Classified c x'))
 
       -- Tuples (of size 2..62)
       (inKnownModuleNested GhcTuple -> Just (
@@ -329,7 +329,7 @@ showAnything :: forall a. a -> String
 showAnything x = showClassifiedValue 0 (classified x) ""
 
 deriving instance Show (Classifier a)
-deriving instance Show (MaybeEmpty Classified a)
+deriving instance Show (MaybeF Classified a)
 deriving instance Show (Some Classified)
 
 instance Show (Classified a) where
@@ -360,8 +360,11 @@ canShowClassified = go
   where
     go :: Classifier a -> Dict Show a
 
-    -- Primitive types
+    --
+    -- Simple cases
+    --
 
+    -- Primitive types
     go C_Bool     = Dict
     go C_Char     = Dict
     go C_Double   = Dict
@@ -380,7 +383,6 @@ canShowClassified = go
     go C_Word64   = Dict
 
     -- String types
-
     go C_String      = Dict
     go C_BS_Strict   = Dict
     go C_BS_Lazy     = Dict
@@ -388,42 +390,37 @@ canShowClassified = go
     go C_Text_Strict = Dict
     go C_Text_Lazy   = Dict
 
-    -- Compound
-
-    go (C_Maybe c) = goMaybeEmpty c
-    go (C_List  c) = goMaybeEmpty c
-
-    go (C_Tuple (Classifiers cs)) =
-        case all_NP (hmap (canShowClassified . classifiedType) cs) of
-          Dict -> Dict
-
     -- Reference cells
-
     go C_STRef = Dict
     go C_TVar  = Dict
     go C_MVar  = Dict
 
     -- Functions
-
     go C_Fun = Dict
 
     -- User-defined
-
     go (C_Custom SConstr) = Dict
 
     -- Classification failed
-
     go C_Unknown = Dict
 
+    --
+    -- Compound
+    --
 
+    go (C_Maybe c) = goMaybeF c
+    go (C_List  c) = goMaybeF c
 
-    goMaybeEmpty :: forall f a.
+    go (C_Tuple (Classifiers cs)) =
+        case all_NP (hmap (canShowClassified . classifiedType) cs) of
+          Dict -> Dict
+
+    goMaybeF :: forall f a.
          (forall x. Show x => Show (f x))
-      => MaybeEmpty Classified a -> Dict Show (f a)
-    goMaybeEmpty Empty        = Dict
-    goMaybeEmpty (NonEmpty c) = case go (classifiedType c) of
-                                  Dict -> Dict
-
+      => MaybeF Classified a -> Dict Show (f a)
+    goMaybeF FNothing  = Dict
+    goMaybeF (FJust c) = case go (classifiedType c) of
+                           Dict -> Dict
 
 instance KnownConstr c => Show (UserDefined c) where
   showsPrec p x =

@@ -77,13 +77,13 @@ prop_constants = withMaxSuccess 1 $ conjoin [
 
       -- Compound
 
-    , compareClassifier $ Value (CC_Maybe Empty) Nothing
-    , compareClassifier $ Value (CC_Maybe (NonEmpty CC_Int)) (Just 3)
+    , compareClassifier $ Value (CC_Maybe FNothing)       Nothing
+    , compareClassifier $ Value (CC_Maybe (FJust CC_Int)) (Just 3)
 
-    , compareClassifier $ Value (CC_List Empty) []
-    , compareClassifier $ Value (CC_List (NonEmpty CC_Int)) [1, 2, 3]
+    , compareClassifier $ Value (CC_List FNothing)       []
+    , compareClassifier $ Value (CC_List (FJust CC_Int)) [1, 2, 3]
 
-    , compareClassifier $ Value (CC_Tuple (ConcreteClassifiers (CC_Int :* CC_Char :* Nil))) (WrappedTuple (4, 'a'))
+    , compareClassifier $ Value (CC_Tuple (ConcreteClassifiers (CC_Int :* CC_Char :* Nil)))            (WrappedTuple (4, 'a'))
     , compareClassifier $ Value (CC_Tuple (ConcreteClassifiers (CC_Int :* CC_Char :* CC_Bool :* Nil))) (WrappedTuple (4, 'a', True))
 
       -- Reference cells
@@ -99,10 +99,10 @@ prop_constants = withMaxSuccess 1 $ conjoin [
 
       -- User defined
 
-    , compareClassifier $ Value (CC_User_NonRec Empty)              (NR1 1234)
-    , compareClassifier $ Value (CC_User_NonRec (NonEmpty CC_Char)) (NR2 'a' True)
-    , compareClassifier $ Value (CC_User_Rec    Empty)              RNil
-    , compareClassifier $ Value (CC_User_Rec    (NonEmpty CC_Char)) (RCons 'a' RNil)
+    , compareClassifier $ Value (CC_User_NonRec FNothing)        (NR1 1234)
+    , compareClassifier $ Value (CC_User_NonRec (FJust CC_Char)) (NR2 'a' True)
+    , compareClassifier $ Value (CC_User_Rec    FNothing)        RNil
+    , compareClassifier $ Value (CC_User_Rec    (FJust CC_Char)) (RCons 'a' RNil)
     ]
   where
     _checkAllCases :: ConcreteClassifier a -> ()
