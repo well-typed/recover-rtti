@@ -111,6 +111,10 @@ reclassify = go
       C_Text_Strict -> return $ Reclassified CC_Text_Strict id
       C_Text_Lazy   -> return $ Reclassified CC_Text_Lazy   id
 
+      -- Aeson
+
+      C_Value -> return $ Reclassified CC_Value id
+
       -- Compound
 
       C_Maybe    c' -> goMaybeF     fmap        CC_Maybe    c'

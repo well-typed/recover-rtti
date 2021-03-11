@@ -110,6 +110,17 @@ classifyIO x = do
       (inKnownModule DataTextInternalLazy -> Just "Empty") -> return $ mustBe C_Text_Lazy
 
       --
+      -- Aeson
+      --
+
+      (inKnownModule DataAesonTypesInternal -> Just "Object") -> return $ mustBe C_Value
+      (inKnownModule DataAesonTypesInternal -> Just "Array")  -> return $ mustBe C_Value
+      (inKnownModule DataAesonTypesInternal -> Just "String") -> return $ mustBe C_Value
+      (inKnownModule DataAesonTypesInternal -> Just "Number") -> return $ mustBe C_Value
+      (inKnownModule DataAesonTypesInternal -> Just "Bool")   -> return $ mustBe C_Value
+      (inKnownModule DataAesonTypesInternal -> Just "Null")   -> return $ mustBe C_Value
+
+      --
       -- Compound (ghc-prim)
       --
 
@@ -444,6 +455,9 @@ canShowClassified = go
     go C_BS_Short    = Dict
     go C_Text_Strict = Dict
     go C_Text_Lazy   = Dict
+
+    -- Aeson
+    go C_Value = Dict
 
     -- Reference cells
     go C_STRef = Dict

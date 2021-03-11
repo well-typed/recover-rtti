@@ -12,6 +12,7 @@ import Data.Ratio
 import Data.SOP
 import Data.Type.Equality
 
+import qualified Data.Aeson    as Aeson
 import qualified Data.IntMap   as IntMap
 import qualified Data.IntSet   as IntSet
 import qualified Data.Map      as Map
@@ -85,6 +86,10 @@ prop_constants = withMaxSuccess 1 $ conjoin [
     , compareClassifier $ Value CC_Text_Strict "abcdefg"
     , compareClassifier $ Value CC_Text_Lazy   ""
     , compareClassifier $ Value CC_Text_Lazy   "abcdefg"
+
+      -- Aeson
+
+    , compareClassifier $ Value CC_Value (Aeson.object [("x" Aeson..= True)])
 
       -- Compound
 
@@ -168,6 +173,10 @@ prop_constants = withMaxSuccess 1 $ conjoin [
         CC_BS_Short    -> ()
         CC_Text_Strict -> ()
         CC_Text_Lazy   -> ()
+
+        -- Aeson
+
+        CC_Value -> ()
 
         -- Compound
 

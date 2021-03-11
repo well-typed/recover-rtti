@@ -5,6 +5,7 @@
 {-# LANGUAGE GADTs                 #-}
 {-# LANGUAGE KindSignatures        #-}
 {-# LANGUAGE LambdaCase            #-}
+{-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE QuantifiedConstraints #-}
 {-# LANGUAGE RankNTypes            #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
@@ -35,6 +36,7 @@ import GHC.Real
 import System.IO.Unsafe (unsafePerformIO)
 import Unsafe.Coerce (unsafeCoerce)
 
+import qualified Data.Aeson            as Aeson
 import qualified Data.ByteString       as BS.Strict
 import qualified Data.ByteString.Lazy  as BS.Lazy
 import qualified Data.ByteString.Short as BS.Short
@@ -45,6 +47,7 @@ import qualified Data.Set              as Set
 import qualified Data.Text             as Text.Strict
 import qualified Data.Text.Lazy        as Text.Lazy
 import qualified Data.Tree             as Tree
+import qualified Data.Vector           as Vector
 
 import Test.QuickCheck hiding (classify, NonEmpty)
 
@@ -151,6 +154,9 @@ arbitraryClassifiedGen typSz
            , Some $ ClassifiedGen CC_Text_Strict (mapList 0 Text.Strict.pack)
            , Some $ ClassifiedGen CC_Text_Lazy   (mapList 0 Text.Lazy.pack)
           ]
+
+          -- Aeson
+        , [ Some $ ClassifiedGen CC_Value arbitraryAesonValue ]
 
           -- Reference cells
         , [ Some $ ClassifiedGen CC_STRef (ignoreSize $ pure exampleSTRef)
@@ -435,6 +441,10 @@ arbitraryClassifiedGen typSz
          C_Text_Strict -> ()
          C_Text_Lazy   -> ()
 
+         -- Aeson
+
+         C_Value -> ()
+
          -- Compound
 
          C_Maybe{}    -> ()
@@ -532,6 +542,41 @@ split (x:xs) = first (x:) $ splot xs
 splot :: [a] -> ([a], [a])
 splot []     = ([], [])
 splot (x:xs) = second (x:) $ split xs
+
+{-------------------------------------------------------------------------------
+  Auxiliary Aeson
+-------------------------------------------------------------------------------}
+
+arbitraryAesonValue :: SizedGen Aeson.Value
+arbitraryAesonValue = SizedGen $ go
+  where
+    go :: Int -> Gen Aeson.Value
+    go 0  = oneof nonRecursive
+    go sz = oneof (nonRecursive ++ recursive sz)
+
+    nonRecursive :: [Gen Aeson.Value]
+    nonRecursive = [
+          Aeson.String . Text.Strict.pack <$> arbitrary
+        , Aeson.Number . fromInteger <$> arbitrary
+        , Aeson.Bool <$> arbitrary
+        , return Aeson.Null
+        ]
+
+    recursive :: Int -> [Gen Aeson.Value]
+    recursive sz = [
+          do n <- choose (0, 5)
+             Aeson.Array . Vector.fromList <$> replicateM n (go (sz `div` n))
+        , do n <- choose (0, 5)
+             Aeson.object <$> replicateM n (
+                     (Aeson..=)
+                 <$> fieldName
+                 <*> go (sz `div` n)
+               )
+        ]
+
+    -- We're not interested in testing crazy values
+    fieldName :: Gen Text.Strict.Text
+    fieldName = elements ["a", "b", "c"]
 
 {-------------------------------------------------------------------------------
   Some global variables, which we use only as input to the tests

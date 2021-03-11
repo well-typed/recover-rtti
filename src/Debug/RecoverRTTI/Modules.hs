@@ -31,6 +31,7 @@ data KnownPkg =
   | PkgText
   | PkgIntegerWiredIn
   | PkgContainers
+  | PkgAeson
 
 data family KnownModule (pkg :: KnownPkg)
 
@@ -45,6 +46,7 @@ data instance Sing (pkg :: KnownPkg) where
   SText           :: Sing 'PkgText
   SIntegerWiredIn :: Sing 'PkgIntegerWiredIn
   SContainers     :: Sing 'PkgContainers
+  SAeson          :: Sing 'PkgAeson
 
 instance SingI 'PkgGhcPrim        where sing = SGhcPrim
 instance SingI 'PkgBase           where sing = SBase
@@ -52,6 +54,7 @@ instance SingI 'PkgByteString     where sing = SByteString
 instance SingI 'PkgText           where sing = SText
 instance SingI 'PkgIntegerWiredIn where sing = SIntegerWiredIn
 instance SingI 'PkgContainers     where sing = SContainers
+instance SingI 'PkgAeson          where sing = SAeson
 
 {-------------------------------------------------------------------------------
   Modules in @ghc-pri@
@@ -112,6 +115,13 @@ data instance KnownModule 'PkgContainers =
   | DataTree
 
 {-------------------------------------------------------------------------------
+  Modules in @aeson@
+-------------------------------------------------------------------------------}
+
+data instance KnownModule 'PkgAeson =
+    DataAesonTypesInternal
+
+{-------------------------------------------------------------------------------
   Matching
 -------------------------------------------------------------------------------}
 
@@ -141,6 +151,7 @@ inKnownModuleNested = go sing
     namePkg SText           = "text"
     namePkg SIntegerWiredIn = "integer-wired-in"
     namePkg SContainers     = "containers"
+    namePkg SAeson          = "aeson"
 
     nameModl :: Sing (pkg :: KnownPkg) -> KnownModule pkg -> String
     nameModl SGhcPrim        GhcTypes                    = "GHC.Types"
@@ -165,3 +176,4 @@ inKnownModuleNested = go sing
     nameModl SContainers     DataIntMapInternal          = "Data.IntMap.Internal"
     nameModl SContainers     DataSequenceInternal        = "Data.Sequence.Internal"
     nameModl SContainers     DataTree                    = "Data.Tree"
+    nameModl SAeson          DataAesonTypesInternal      = "Data.Aeson.Types.Internal"

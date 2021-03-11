@@ -32,6 +32,7 @@ import Data.Tree (Tree)
 import Data.Type.Equality
 import Data.Word
 
+import qualified Data.Aeson            as Aeson
 import qualified Data.ByteString       as BS.Strict
 import qualified Data.ByteString.Lazy  as BS.Lazy
 import qualified Data.ByteString.Short as BS.Short
@@ -87,6 +88,10 @@ data ConcreteClassifier (a :: Type) :: Type where
     CC_BS_Short    :: ConcreteClassifier BS.Short.ShortByteString
     CC_Text_Strict :: ConcreteClassifier Text.Strict.Text
     CC_Text_Lazy   :: ConcreteClassifier Text.Lazy.Text
+
+    -- Aeson
+
+    CC_Value :: ConcreteClassifier Aeson.Value
 
     -- Compound
 
@@ -172,6 +177,9 @@ classifierSize = go
     go CC_BS_Short    = 1
     go CC_Text_Strict = 1
     go CC_Text_Lazy   = 1
+
+    -- Aeson
+    go CC_Value = 1
 
     -- Compound
 
@@ -270,6 +278,10 @@ sameConcreteClassifier = go
     go CC_BS_Short    CC_BS_Short    = Just Refl
     go CC_Text_Strict CC_Text_Strict = Just Refl
     go CC_Text_Lazy   CC_Text_Lazy   = Just Refl
+
+    -- Aeson
+
+    go CC_Value CC_Value = Just Refl
 
     -- Compound
 
@@ -377,6 +389,10 @@ sameConcreteClassifier = go
         CC_BS_Short    -> ()
         CC_Text_Strict -> ()
         CC_Text_Lazy   -> ()
+
+        -- Aeson
+
+        CC_Value -> ()
 
         -- Compound
 

@@ -13,6 +13,7 @@ module Debug.RecoverRTTI.Classifier (
   , MaybePairF(..)
   ) where
 
+import Data.Aeson (Value)
 import Data.Int
 import Data.IntMap (IntMap)
 import Data.IntSet (IntSet)
@@ -87,6 +88,10 @@ data Classifier (a :: Type) :: Type where
   C_BS_Short    :: Classifier BS.Short.ShortByteString
   C_Text_Strict :: Classifier Text.Strict.Text
   C_Text_Lazy   :: Classifier Text.Lazy.Text
+
+  -- Aeson
+
+  C_Value :: Classifier Value
 
   -- Compound
 

@@ -33,6 +33,7 @@ library
                       Debug.RecoverRTTI.UserDefined
                       Debug.RecoverRTTI.Wrappers
     build-depends:    base >= 4.13
+                    , aeson
                     , bytestring
                     , containers
                     , ghc-heap
@@ -60,6 +61,7 @@ test-suite test-recover-rtti
     build-depends:    base >= 4.13
                     , recover-rtti
 
+                    , aeson
                     , bytestring
                     , containers
                     , ghc-heap
@@ -70,5 +72,6 @@ test-suite test-recover-rtti
                     , tasty
                     , tasty-quickcheck
                     , text
+                    , vector
     ghc-options:      -Wall
                       -Wno-orphans
