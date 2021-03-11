@@ -129,7 +129,6 @@ classifyIO x = do
       --
 
       FunClosure {} -> return $ mustBe C_Fun
-      PAPClosure {} -> return $ mustBe C_Fun
 
       --
       -- User defined

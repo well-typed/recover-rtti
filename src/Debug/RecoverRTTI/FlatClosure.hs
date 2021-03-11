@@ -21,14 +21,20 @@ import qualified GHC.Exts.Heap as H
 -- TODO: For functions ('FunClosure', 'PAPClosure') we don't currently include
 -- any information at all. We could potentially do better here.
 data FlatClosure =
+    -- | Constructor application
     ConstrClosure {
         ptrArgs :: [Box]
       , pkg     :: String
       , modl    :: String
       , name    :: String
       }
+
+    -- | Functions
+    --
+    -- We map 'H.FunClosure', 'H.PAPClosure' and H.BCOClosure' all to this.
   | FunClosure
-  | PAPClosure
+
+    -- | Unrecognized closure type
   | OtherClosure H.Closure
   deriving (Show)
 
@@ -50,14 +56,16 @@ getBoxedClosureData b@(Box !_) = --
         H.IndClosure       _ x' -> getBoxedClosureData x'
         H.SelectorClosure  _ x' -> getBoxedClosureData x'
 
-        -- Cases we're actually interested in
+        -- Constructor application
 
         H.ConstrClosure{ptrArgs, pkg, modl, name} ->
           return $ ConstrClosure{..}
-        H.FunClosure{} ->
-          return $ FunClosure
-        H.PAPClosure{} ->
-          return $ PAPClosure
+
+        -- Functions
+
+        H.FunClosure{} -> return $ FunClosure
+        H.PAPClosure{} -> return $ FunClosure
+        H.BCOClosure{} -> return $ FunClosure
 
         -- Other kinds of constructors
 
