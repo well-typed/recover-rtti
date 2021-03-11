@@ -19,8 +19,10 @@ import Data.IntSet (IntSet)
 import Data.Kind
 import Data.Map (Map)
 import Data.Ratio
+import Data.Sequence (Seq)
 import Data.Set (Set)
 import Data.SOP
+import Data.Tree (Tree)
 import Data.Void
 import Data.Word
 
@@ -88,14 +90,16 @@ data Classifier (a :: Type) :: Type where
 
   -- Compound
 
-  C_Maybe  :: MaybeF     Classified a   -> Classifier (Maybe a)
-  C_Either :: EitherF    Classified a b -> Classifier (Either a b)
-  C_List   :: MaybeF     Classified a   -> Classifier [a]
-  C_Ratio  ::            Classified a   -> Classifier (Ratio a)
-  C_Set    :: MaybeF     Classified a   -> Classifier (Set a)
-  C_Map    :: MaybePairF Classified a b -> Classifier (Map a b)
-  C_IntSet ::                              Classifier IntSet
-  C_IntMap :: MaybeF     Classified a   -> Classifier (IntMap a)
+  C_Maybe    :: MaybeF     Classified a   -> Classifier (Maybe a)
+  C_Either   :: EitherF    Classified a b -> Classifier (Either a b)
+  C_List     :: MaybeF     Classified a   -> Classifier [a]
+  C_Ratio    ::            Classified a   -> Classifier (Ratio a)
+  C_Set      :: MaybeF     Classified a   -> Classifier (Set a)
+  C_Map      :: MaybePairF Classified a b -> Classifier (Map a b)
+  C_IntSet   ::                              Classifier IntSet
+  C_IntMap   :: MaybeF     Classified a   -> Classifier (IntMap a)
+  C_Sequence :: MaybeF     Classified a   -> Classifier (Seq a)
+  C_Tree     ::            Classified a   -> Classifier (Tree a)
 
   C_Tuple ::
        (SListI xs, IsValidSize (Length xs))

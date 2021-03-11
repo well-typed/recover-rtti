@@ -12,10 +12,12 @@ import Data.Ratio
 import Data.SOP
 import Data.Type.Equality
 
-import qualified Data.IntMap as IntMap
-import qualified Data.IntSet as IntSet
-import qualified Data.Map    as Map
-import qualified Data.Set    as Set
+import qualified Data.IntMap   as IntMap
+import qualified Data.IntSet   as IntSet
+import qualified Data.Map      as Map
+import qualified Data.Sequence as Seq
+import qualified Data.Set      as Set
+import qualified Data.Tree     as Tree
 
 import Test.Tasty
 import Test.Tasty.QuickCheck hiding (classify, NonEmpty)
@@ -109,8 +111,13 @@ prop_constants = withMaxSuccess 1 $ conjoin [
     , compareClassifier $ Value CC_IntSet  IntSet.empty
     , compareClassifier $ Value CC_IntSet (IntSet.fromList [1, 2, 3])
 
-    , compareClassifier $ Value (CC_IntMap FNothing)        IntMap.empty
+    , compareClassifier $ Value (CC_IntMap FNothing)         IntMap.empty
     , compareClassifier $ Value (CC_IntMap (FJust CC_Char)) (IntMap.fromList [(1, 'a'), (2, 'b')])
+
+    , compareClassifier $ Value (CC_Sequence FNothing)        Seq.empty
+    , compareClassifier $ Value (CC_Sequence (FJust CC_Int)) (Seq.fromList [1, 2, 3])
+
+    , compareClassifier $ Value (CC_Tree CC_Int) (Tree.Node 1 [])
 
       -- Reference cells
 
@@ -164,15 +171,17 @@ prop_constants = withMaxSuccess 1 $ conjoin [
 
         -- Compound
 
-        CC_Maybe{}  -> ()
-        CC_Either{} -> ()
-        CC_List{}   -> ()
-        CC_Ratio{}  -> ()
-        CC_Set{}    -> ()
-        CC_Map{}    -> ()
-        CC_IntSet{} -> ()
-        CC_IntMap{} -> ()
-        CC_Tuple{}  -> ()
+        CC_Maybe{}    -> ()
+        CC_Either{}   -> ()
+        CC_List{}     -> ()
+        CC_Ratio{}    -> ()
+        CC_Set{}      -> ()
+        CC_Map{}      -> ()
+        CC_IntSet{}   -> ()
+        CC_IntMap{}   -> ()
+        CC_Sequence{} -> ()
+        CC_Tree{}     -> ()
+        CC_Tuple{}    -> ()
 
         -- Functions
 

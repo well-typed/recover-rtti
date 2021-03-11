@@ -23,11 +23,14 @@ module Debug.RecoverRTTI.Classify (
   ) where
 
 import Control.Monad (guard)
+import Data.Sequence (Seq)
 import Data.SOP
 import Data.SOP.Dict
 import GHC.Stack
 import System.IO.Unsafe (unsafePerformIO)
 import Unsafe.Coerce (unsafeCoerce)
+
+import qualified Data.Sequence as Seq
 
 import Debug.RecoverRTTI.Classifier
 import Debug.RecoverRTTI.Constr
@@ -183,6 +186,19 @@ classifyIO x = do
         -- hit a tip.
         mustBe <$> classifyIO left
 
+      -- Sequence
+      (inKnownModule DataSequenceInternal -> Just "EmptyT") ->
+        mustBe <$> classifySequence (unsafeCoerce x)
+      (inKnownModule DataSequenceInternal -> Just "Single") ->
+        mustBe <$> classifySequence (unsafeCoerce x)
+      (inKnownModule DataSequenceInternal -> Just "Deep") ->
+        mustBe <$> classifySequence (unsafeCoerce x)
+
+      -- Tree
+      (inKnownModuleNested DataTree -> Just ("Node", [Box x', _subforest])) -> do
+        cx <- classifyIO x'
+        return $ mustBe $ C_Tree (Classified cx x')
+
       -- Tuples (of size 2..62)
       (inKnownModuleNested GhcTuple -> Just (
             isTuple       -> Just (Some validSize@(ValidSize sz _))
@@ -219,6 +235,14 @@ classifyIO x = do
 
       OtherClosure _ ->
         return $ mustBe C_Unknown
+
+classifySequence :: Seq a -> IO (Classifier (Seq a))
+classifySequence x =
+    case Seq.viewl x of
+      Seq.EmptyL  -> return $ mustBe $ C_Sequence FNothing
+      x' Seq.:< _ -> do
+        cx <- classifyIO x'
+        return $ mustBe $ C_Sequence (FJust (Classified cx x'))
 
 classifyTuple ::
      (SListI xs, IsValidSize (Length xs))
@@ -394,14 +418,16 @@ canShowClassified = go
     -- Compound
     --
 
-    go (C_Maybe  c) = goMaybeF     c
-    go (C_Either c) = goEitherF    c
-    go (C_List   c) = goMaybeF     c
-    go (C_Ratio  c) = goF          c
-    go (C_Set    c) = goMaybeF     c
-    go (C_Map    c) = goMaybePairF c
-    go  C_IntSet    = Dict
-    go (C_IntMap c) = goMaybeF     c
+    go (C_Maybe    c) = goMaybeF     c
+    go (C_Either   c) = goEitherF    c
+    go (C_List     c) = goMaybeF     c
+    go (C_Ratio    c) = goF          c
+    go (C_Set      c) = goMaybeF     c
+    go (C_Map      c) = goMaybePairF c
+    go  C_IntSet      = Dict
+    go (C_IntMap   c) = goMaybeF     c
+    go (C_Sequence c) = goMaybeF     c
+    go (C_Tree     c) = goF          c
 
     go (C_Tuple (Classifiers cs)) =
         case all_NP (hmap (canShowClassified . classifiedType) cs) of

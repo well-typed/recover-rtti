@@ -23,11 +23,13 @@ import Control.Concurrent.MVar (newEmptyMVar)
 import Control.Concurrent.STM (newTVarIO)
 import Control.Monad
 import Control.Monad.ST.Unsafe (unsafeSTToIO)
+import Data.Bifunctor
 import Data.IORef (newIORef)
 import Data.Maybe (catMaybes)
 import Data.SOP
 import Data.SOP.Dict
 import Data.STRef (newSTRef)
+import Data.Tree (Tree)
 import Data.Void
 import GHC.Real
 import System.IO.Unsafe (unsafePerformIO)
@@ -38,9 +40,11 @@ import qualified Data.ByteString.Lazy  as BS.Lazy
 import qualified Data.ByteString.Short as BS.Short
 import qualified Data.IntMap           as IntMap
 import qualified Data.Map              as Map
+import qualified Data.Sequence         as Seq
 import qualified Data.Set              as Set
 import qualified Data.Text             as Text.Strict
 import qualified Data.Text.Lazy        as Text.Lazy
+import qualified Data.Tree             as Tree
 
 import Test.QuickCheck hiding (classify, NonEmpty)
 
@@ -272,7 +276,35 @@ arbitraryClassifiedGen typSz
                 b
             )
 
+          -- Sequence
+        , guard (typSz >= 1) >> (return $ do
+              Some a <- arbitraryClassifiedGen (typSz - 1)
+              genMaybeF
+                CC_Sequence
+                (return Seq.empty)
+                (\(SizedGen genX) -> SizedGen $ \valSz -> do
+                   n <- choose (1, 5)
+                   Seq.fromList <$> vectorOf n (genX (valSz `div` n))
+                )
+                a
+           )
+
+          -- Tree
+        , guard (typSz >= 1) >> (return $ do
+              Some a <- arbitraryClassifiedGen (typSz - 1)
+              genF
+                CC_Tree
+                (\(SizedGen genX) -> SizedGen $ \valSz -> do
+                   n <- choose (1, 5)
+                   mkSomeTree <$> vectorOf n (genX (valSz `div` n))
+                )
+                a
+            )
+
+          --
           -- User-defined
+          --
+
         , guard (typSz >= 1) >> (return $ do
               Some a <- arbitraryClassifiedGen (typSz - 1)
               genMaybeF
@@ -405,15 +437,17 @@ arbitraryClassifiedGen typSz
 
          -- Compound
 
-         C_Maybe{}  -> ()
-         C_Either{} -> ()
-         C_List{}   -> ()
-         C_Ratio{}  -> ()
-         C_Set{}    -> ()
-         C_Map{}    -> ()
-         C_IntSet{} -> ()
-         C_IntMap{} -> ()
-         C_Tuple{}  -> ()
+         C_Maybe{}    -> ()
+         C_Either{}   -> ()
+         C_List{}     -> ()
+         C_Ratio{}    -> ()
+         C_Set{}      -> ()
+         C_Map{}      -> ()
+         C_IntSet{}   -> ()
+         C_IntMap{}   -> ()
+         C_Tuple{}    -> ()
+         C_Sequence{} -> ()
+         C_Tree{}     -> ()
 
          -- Reference cells
 
@@ -472,6 +506,32 @@ instance Arbitrary (Some Value) where
 
       -- For the values however we want to be able to generate larger trees
       Some . Value cc <$> runSized sz gen
+
+{-------------------------------------------------------------------------------
+  Auxiliary tree functions
+-------------------------------------------------------------------------------}
+
+mkSomeTree :: [a] -> Tree a
+mkSomeTree []       = error "mkSomeTree: empty"
+mkSomeTree [x]      = Tree.Node x []
+mkSomeTree [x, y]   = Tree.Node x [Tree.Node y []]
+mkSomeTree (x : xs) =
+    let (left, right) = split xs
+    in Tree.Node x [mkSomeTree left, mkSomeTree right]
+
+-- | Split list into halves
+--
+-- If the input has at least two elements, neither list will be empty
+--
+-- > split "abcde" == ("ace","bd")
+split :: [a] -> ([a], [a])
+split []     = ([], [])
+split (x:xs) = first (x:) $ splot xs
+
+-- | Auxiliary to 'split'
+splot :: [a] -> ([a], [a])
+splot []     = ([], [])
+splot (x:xs) = second (x:) $ split xs
 
 {-------------------------------------------------------------------------------
   Some global variables, which we use only as input to the tests

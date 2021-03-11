@@ -108,6 +108,8 @@ data instance KnownModule 'PkgContainers =
   | DataMapInternal
   | DataIntSetInternal
   | DataIntMapInternal
+  | DataSequenceInternal
+  | DataTree
 
 {-------------------------------------------------------------------------------
   Matching
@@ -161,3 +163,5 @@ inKnownModuleNested = go sing
     nameModl SContainers     DataMapInternal             = "Data.Map.Internal"
     nameModl SContainers     DataIntSetInternal          = "Data.IntSet.Internal"
     nameModl SContainers     DataIntMapInternal          = "Data.IntMap.Internal"
+    nameModl SContainers     DataSequenceInternal        = "Data.Sequence.Internal"
+    nameModl SContainers     DataTree                    = "Data.Tree"
