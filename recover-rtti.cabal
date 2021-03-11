@@ -2,7 +2,12 @@ cabal-version:      2.4
 name:               recover-rtti
 version:            0.1.0.0
 synopsis:           Recover run-time type information from the GHC heap
--- description:
+description:        This package looks at the GHC type to recover type
+                    information about arbitrary values. This makes it possible
+                    for example to show any value (function anythingToString)
+                    without having any Show instance in scope, though there
+                    are other use cases as well. For example, you could use it
+                    to define an anythingToJSON function.
 bug-reports:        https://github.com/well-typed/recover-rtti/issues
 license:            BSD-3-Clause
 license-file:       LICENSE
@@ -13,6 +18,8 @@ category:           Debugging
 extra-source-files:
     README.md
     CHANGELOG.md
+
+Tested-With: GHC ==8.8.4 || ==8.10.4 || ==9.0.1
 
 library
     exposed-modules:  Debug.RecoverRTTI
@@ -32,15 +39,15 @@ library
                       Debug.RecoverRTTI.Tuple.Size
                       Debug.RecoverRTTI.UserDefined
                       Debug.RecoverRTTI.Wrappers
-    build-depends:    base >= 4.13
-                    , aeson
-                    , bytestring
-                    , containers
-                    , ghc-heap
-                    , mtl
-                    , sop-core
-                    , stm
-                    , text
+    build-depends:    base        >= 4.13  && < 4.16
+                    , aeson       >= 1.5   && < 1.6
+                    , bytestring  >= 0.10  && < 0.11
+                    , containers  >= 0.6   && < 0.7
+                    , ghc-heap    >= 8.8   && < 9.1
+                    , mtl         >= 2.2   && < 2.3
+                    , sop-core    >= 0.5   && < 0.6
+                    , stm         >= 2.5   && < 2.6
+                    , text        >= 1.2   && < 1.3
     hs-source-dirs:   src
     default-language: Haskell2010
     ghc-options:      -Wall

@@ -33,7 +33,6 @@ module Debug.RecoverRTTI.Util.TypeLevel (
 
 import Data.Kind
 import Data.Proxy
-import Data.Void
 import Data.Type.Equality
 import GHC.TypeLits (ErrorMessage, Symbol, KnownSymbol, TypeError, sameSymbol)
 
@@ -163,20 +162,5 @@ class Phantom (f :: k -> Type) where
 data Poly (f :: k -> Type) = Poly (forall (a :: k). f a)
 
 -- | Commute @Maybe@ and @forall@
---
--- NOTE: Technically speaking this is definable just in terms of 'Functor'
--- (see '_maybePolyFunctor'). However, that requires the _argument_ to be
--- polymorphic (rank-2 polymorphism); not a problem necessarily, but that then
--- eventually bubbles up and requires quantified constraints (due to a 'SingI'
--- contrained being required for @f a@ for all @a@), which are awkward to deal
--- with. The definition we provide here is easier to work with (we can pick
--- @a == Any@), and additionally avoids having to provide both 'Functor' and
--- 'Contrafunctor' instances; this definition simply is more direct.
 maybePoly :: Phantom f => Maybe (f a) -> Maybe (Poly f)
 maybePoly = fmap (\v -> Poly (phantom v))
-
--- | Variation on 'maybePoly'
---
--- Just here as documentation.
-_maybePolyFunctor :: Functor f => (forall a. Maybe (f a)) -> Maybe (Poly f)
-_maybePolyFunctor = fmap (\v -> Poly (fmap absurd v))

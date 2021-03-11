@@ -30,6 +30,7 @@ data KnownPkg =
   | PkgByteString
   | PkgText
   | PkgIntegerWiredIn
+  | PkgGhcBignum
   | PkgContainers
   | PkgAeson
 
@@ -45,6 +46,7 @@ data instance Sing (pkg :: KnownPkg) where
   SByteString     :: Sing 'PkgByteString
   SText           :: Sing 'PkgText
   SIntegerWiredIn :: Sing 'PkgIntegerWiredIn
+  SGhcBignum      :: Sing 'PkgGhcBignum
   SContainers     :: Sing 'PkgContainers
   SAeson          :: Sing 'PkgAeson
 
@@ -53,6 +55,7 @@ instance SingI 'PkgBase           where sing = SBase
 instance SingI 'PkgByteString     where sing = SByteString
 instance SingI 'PkgText           where sing = SText
 instance SingI 'PkgIntegerWiredIn where sing = SIntegerWiredIn
+instance SingI 'PkgGhcBignum      where sing = SGhcBignum
 instance SingI 'PkgContainers     where sing = SContainers
 instance SingI 'PkgAeson          where sing = SAeson
 
@@ -103,6 +106,13 @@ data instance KnownModule 'PkgIntegerWiredIn =
     GhcIntegerType
 
 {-------------------------------------------------------------------------------
+  Modules in @ghc-bignum@
+-------------------------------------------------------------------------------}
+
+data instance KnownModule 'PkgGhcBignum =
+    GhcNumInteger
+
+{-------------------------------------------------------------------------------
   Modules in @containers@
 -------------------------------------------------------------------------------}
 
@@ -150,6 +160,7 @@ inKnownModuleNested = go sing
     namePkg SByteString     = "bytestring"
     namePkg SText           = "text"
     namePkg SIntegerWiredIn = "integer-wired-in"
+    namePkg SGhcBignum      = "ghc-bignum"
     namePkg SContainers     = "containers"
     namePkg SAeson          = "aeson"
 
@@ -170,6 +181,7 @@ inKnownModuleNested = go sing
     nameModl SText           DataTextInternal            = "Data.Text.Internal"
     nameModl SText           DataTextInternalLazy        = "Data.Text.Internal.Lazy"
     nameModl SIntegerWiredIn GhcIntegerType              = "GHC.Integer.Type"
+    nameModl SGhcBignum      GhcNumInteger               = "GHC.Num.Integer"
     nameModl SContainers     DataSetInternal             = "Data.Set.Internal"
     nameModl SContainers     DataMapInternal             = "Data.Map.Internal"
     nameModl SContainers     DataIntSetInternal          = "Data.IntSet.Internal"

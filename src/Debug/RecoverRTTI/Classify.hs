@@ -97,6 +97,9 @@ classifyIO x = do
       (inKnownModule GhcIntegerType -> Just "S#")  -> return $ mustBe C_Integer
       (inKnownModule GhcIntegerType -> Just "Jp#") -> return $ mustBe C_Integer
       (inKnownModule GhcIntegerType -> Just "Jn#") -> return $ mustBe C_Integer
+      (inKnownModule GhcNumInteger  -> Just "IS")  -> return $ mustBe C_Integer
+      (inKnownModule GhcNumInteger  -> Just "IP")  -> return $ mustBe C_Integer
+      (inKnownModule GhcNumInteger  -> Just "IN")  -> return $ mustBe C_Integer
 
       -- GHC.Word
       (inKnownModule GhcWord -> Just "W8#")  -> return $ mustBe C_Word8

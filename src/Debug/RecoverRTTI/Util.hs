@@ -38,7 +38,7 @@ import Debug.RecoverRTTI.Util.TypeLevel
 -------------------------------------------------------------------------------}
 
 data Some (f :: k -> Type) where
-  Some :: forall f (a :: k). f a -> Some f
+  Some :: forall f a. f a -> Some f
 
 elimKnownSymbol :: String -> (forall n. KnownSymbol n => Proxy n -> r) -> r
 elimKnownSymbol s k =
