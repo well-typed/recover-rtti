@@ -55,15 +55,6 @@ import Debug.RecoverRTTI.Util.TypeLevel
   Classification
 -------------------------------------------------------------------------------}
 
--- | Classify a value
---
--- Given a value of some unknown type @a@ and a classifier @Classifier a@,
--- it should be sound to coerce the value to the type indicated by the
--- classifier.
---
--- This is also the reason not all values can be classified; in particular,
--- we cannot classify values of unlifted types, as for these types coercion
--- does not work (this would result in a ghc runtime crash).
 classifyIO :: a -> ExceptT Closure IO (Classifier a)
 classifyIO x = do
     closure <- lift $ getBoxedClosureData (asBox x)
@@ -238,6 +229,15 @@ classifyIO x = do
 mustBe :: Classifier b -> Classifier a
 mustBe = unsafeCoerce
 
+-- | Classify a value
+--
+-- Given a value of some unknown type @a@ and a classifier @Classifier a@,
+-- it should be sound to coerce the value to the type indicated by the
+-- classifier.
+--
+-- This is also the reason not all values can be classified; in particular,
+-- we cannot classify values of unlifted types, as for these types coercion
+-- does not work (this would result in a ghc runtime crash).
 classify :: a -> Either Closure (Classifier a)
 classify = unsafePerformIO . runExceptT . classifyIO
 
