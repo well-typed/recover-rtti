@@ -80,6 +80,9 @@ prop_constants = withMaxSuccess 1 $ conjoin [
     , compareClassifier $ Value (CC_Maybe FNothing)       Nothing
     , compareClassifier $ Value (CC_Maybe (FJust CC_Int)) (Just 3)
 
+    , compareClassifier $ Value (CC_Either (FLeft  CC_Int))  (Left 3)
+    , compareClassifier $ Value (CC_Either (FRight CC_Bool)) (Right True)
+
     , compareClassifier $ Value (CC_List FNothing)       []
     , compareClassifier $ Value (CC_List (FJust CC_Int)) [1, 2, 3]
 
@@ -137,9 +140,10 @@ prop_constants = withMaxSuccess 1 $ conjoin [
 
         -- Compound
 
-        CC_Maybe{} -> ()
-        CC_List{}  -> ()
-        CC_Tuple{} -> ()
+        CC_Maybe{}  -> ()
+        CC_Either{} -> ()
+        CC_List{}   -> ()
+        CC_Tuple{}  -> ()
 
         -- Functions
 

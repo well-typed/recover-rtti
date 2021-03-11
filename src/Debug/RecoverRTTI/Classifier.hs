@@ -9,6 +9,7 @@ module Debug.RecoverRTTI.Classifier (
   , Classified(..)
     -- * Partial information
   , MaybeF(..)
+  , EitherF(..)
   ) where
 
 import Data.Int
@@ -80,8 +81,9 @@ data Classifier (a :: Type) :: Type where
 
   -- Compound
 
-  C_Maybe :: MaybeF Classified a -> Classifier (Maybe a)
-  C_List  :: MaybeF Classified a -> Classifier [a]
+  C_Maybe  :: MaybeF  Classified a   -> Classifier (Maybe a)
+  C_Either :: EitherF Classified a b -> Classifier (Either a b)
+  C_List   :: MaybeF  Classified a   -> Classifier [a]
 
   C_Tuple ::
        (SListI xs, IsValidSize (Length xs))
@@ -105,8 +107,16 @@ data Classifier (a :: Type) :: Type where
 
   C_Unknown :: Classifier Unknown
 
+newtype Classifiers xs = Classifiers (NP Classified xs)
+
+{-------------------------------------------------------------------------------
+  Partial information
+-------------------------------------------------------------------------------}
+
 data MaybeF f a where
   FNothing :: MaybeF f Void
   FJust    :: f a -> MaybeF f a
 
-newtype Classifiers xs = Classifiers (NP Classified xs)
+data EitherF f a b where
+  FLeft  :: f a -> EitherF f a Void
+  FRight :: f b -> EitherF f Void b

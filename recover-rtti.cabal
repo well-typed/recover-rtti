@@ -26,6 +26,7 @@ library
                       Debug.RecoverRTTI.Classify
                       Debug.RecoverRTTI.ClosureTree
                       Debug.RecoverRTTI.Constr
+                      Debug.RecoverRTTI.Modules
                       Debug.RecoverRTTI.Tuple
                       Debug.RecoverRTTI.Tuple.Recursive
                       Debug.RecoverRTTI.Tuple.Size

@@ -33,9 +33,11 @@ module Test.RecoverRTTI.Staged (
   ) where
 
 import Control.Monad.Except
+import Data.Bifunctor
 import Data.Kind
 import Data.SOP hiding (NS(..))
 import Data.Typeable
+import Data.Void
 import GHC.Exts (Any)
 import GHC.TypeLits
 
@@ -104,8 +106,9 @@ reclassify = go
 
       -- Compound
 
-      C_Maybe c' -> goMaybeF CC_Maybe c'
-      C_List  c' -> goMaybeF CC_List  c'
+      C_Maybe  c' -> goMaybeF  CC_Maybe  c'
+      C_Either c' -> goEitherF CC_Either c'
+      C_List   c' -> goMaybeF  CC_List   c'
 
       C_Tuple (Classifiers cs) ->
         reclassifyTuple <$> (hsequence' (hmap (Comp . reclassify) cs))
@@ -144,6 +147,22 @@ reclassify = go
       where
         aux :: Reclassified a -> Reclassified (f a)
         aux (Reclassified c f) = Reclassified (cc (FJust c)) (fmap f)
+
+    goEitherF :: forall f a b.
+         Bifunctor f
+      => (forall x y. EitherF ConcreteClassifier x y -> ConcreteClassifier (f x y))
+      -> EitherF Classified a b
+      -> Except String (Reclassified (f a b))
+    goEitherF cc (FLeft x') =
+        aux <$> reclassify x'
+      where
+        aux :: Reclassified a -> Reclassified (f a Void)
+        aux (Reclassified c f) = Reclassified (cc (FLeft c)) (bimap f id)
+    goEitherF cc (FRight x') =
+        aux <$> reclassify x'
+      where
+        aux :: Reclassified b -> Reclassified (f Void b)
+        aux (Reclassified c f) = Reclassified (cc (FRight c)) (bimap id f)
 
 reclassifyTuple ::
      (SListI xs, IsValidSize (Length xs))

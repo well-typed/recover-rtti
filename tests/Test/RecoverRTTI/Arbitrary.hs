@@ -1,4 +1,5 @@
 {-# LANGUAGE DataKinds             #-}
+{-# LANGUAGE DeriveFunctor         #-}
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE GADTs                 #-}
@@ -52,6 +53,7 @@ import Test.RecoverRTTI.UserDefined
 -------------------------------------------------------------------------------}
 
 newtype SizedGen a = SizedGen (Int -> Gen a)
+  deriving (Functor)
 
 runSized :: Int -> SizedGen a -> Gen a
 runSized n (SizedGen gen) = gen n
@@ -174,8 +176,8 @@ arbitraryClassifiedGen typSz
           --
           -- We have to be careful not to generate @[Char]@, because this is
           -- inferred as @String@
-          guard (typSz >= 1) >> (return $
-              arbitraryClassifiedGen (typSz - 1) >>=
+          guard (typSz >= 1) >> (return $ do
+              a <- arbitraryClassifiedGen (typSz - 1)
               genMaybeF
                 (\case FJust CC_Char -> CC_String
                        c             -> CC_List c)
@@ -187,15 +189,20 @@ arbitraryClassifiedGen typSz
                    -- Then divide total size of each list element
                    vectorOf n (runSized (valSz `div` n) gen)
                 )
+                a
             )
 
-        , -- Maybe
-          guard (typSz >= 1) >> (return $
-              arbitraryClassifiedGen (typSz - 1) >>=
-              genMaybeF
-                CC_Maybe
-                (return Nothing)
-                (\gen -> SizedGen $ fmap Just . (`runSized` gen))
+          -- Maybe
+        , guard (typSz >= 1) >> (return $ do
+              a <- arbitraryClassifiedGen (typSz - 1)
+              genMaybeF CC_Maybe (return Nothing) (fmap Just) a
+            )
+
+          -- Either
+        , guard (typSz >= 2) >> (return $ do
+              a <- arbitraryClassifiedGen (typSz `div` 2)
+              b <- arbitraryClassifiedGen (typSz `div` 2)
+              genEitherF CC_Either (fmap Left) (fmap Right) a b
             )
 
             -- User-defined
@@ -247,11 +254,33 @@ arbitraryClassifiedGen typSz
       -> Gen (f Void)
       -> (forall x. SizedGen x -> SizedGen (f x))
       -> Some ClassifiedGen -> Gen (Some ClassifiedGen)
-    genMaybeF cc genEmpty genNonEmpty (Some (ClassifiedGen c genA)) =
+    genMaybeF cc genNothing genJust (Some (ClassifiedGen cA genA)) =
         elements [
-            Some $ ClassifiedGen (cc FNothing)  (ignoreSize $ genEmpty)
-          , Some $ ClassifiedGen (cc (FJust c)) (genNonEmpty genA)
+            Some $ ClassifiedGen (cc FNothing)   (ignoreSize $ genNothing)
+          , Some $ ClassifiedGen (cc (FJust cA)) (genJust genA)
           ]
+
+    genEitherF ::
+         ( forall x y. (Show x, Show y) => Show (f x y)
+         , forall x y. (Eq   x, Eq   y) => Eq   (f x y)
+         )
+      => (forall x y. EitherF ConcreteClassifier x y -> ConcreteClassifier (f x y))
+      -> (forall x. SizedGen x -> SizedGen (f x Void))
+      -> (forall y. SizedGen y -> SizedGen (f Void y))
+      -> Some ClassifiedGen -- a
+      -> Some ClassifiedGen -- b
+      -> Gen (Some ClassifiedGen)
+    genEitherF cc
+               genLeft
+               genRight
+               (Some (ClassifiedGen cA genA))
+               (Some (ClassifiedGen cB genB))
+               =
+        elements [
+            Some $ ClassifiedGen (cc (FLeft  cA)) (genLeft  genA)
+          , Some $ ClassifiedGen (cc (FRight cB)) (genRight genB)
+          ]
+
     -- We check that we cover all cases of 'Classifier' rather than
     -- 'ConcreteClassifier': it is important that we generate test cases for
     -- everything we classify in the main library.
@@ -287,9 +316,10 @@ arbitraryClassifiedGen typSz
 
          -- Compound
 
-         C_Maybe{} -> ()
-         C_List{}  -> ()
-         C_Tuple{} -> ()
+         C_Maybe{}  -> ()
+         C_Either{} -> ()
+         C_List{}   -> ()
+         C_Tuple{}  -> ()
 
          -- Reference cells
 

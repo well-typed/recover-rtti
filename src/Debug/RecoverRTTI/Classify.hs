@@ -1,15 +1,11 @@
-{-# LANGUAGE DataKinds             #-}
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE GADTs                 #-}
-{-# LANGUAGE KindSignatures        #-}
-{-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE NamedFieldPuns        #-}
 {-# LANGUAGE QuantifiedConstraints #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
 {-# LANGUAGE StandaloneDeriving    #-}
 {-# LANGUAGE TypeApplications      #-}
-{-# LANGUAGE TypeFamilies          #-}
 {-# LANGUAGE TypeOperators         #-}
 {-# LANGUAGE UndecidableInstances  #-}
 {-# LANGUAGE ViewPatterns          #-}
@@ -27,7 +23,6 @@ module Debug.RecoverRTTI.Classify (
   ) where
 
 import Control.Monad (guard)
-import Data.List (isPrefixOf)
 import Data.SOP
 import Data.SOP.Dict
 import GHC.Stack
@@ -37,6 +32,7 @@ import Unsafe.Coerce (unsafeCoerce)
 import Debug.RecoverRTTI.Classifier
 import Debug.RecoverRTTI.Constr
 import Debug.RecoverRTTI.FlatClosure
+import Debug.RecoverRTTI.Modules
 import Debug.RecoverRTTI.Tuple
 import Debug.RecoverRTTI.UserDefined
 import Debug.RecoverRTTI.Util
@@ -106,6 +102,14 @@ classifyIO x = do
       (inKnownModuleNested GhcMaybe -> Just ("Just", [Box x'])) -> do
         c <- classifyIO x'
         return $ mustBe $ C_Maybe (FJust (Classified c x'))
+
+      -- Either
+      (inKnownModuleNested DataEither -> Just ("Left", [Box x'])) -> do
+        c <- classifyIO x'
+        return $ mustBe $ C_Either (FLeft (Classified c x'))
+      (inKnownModuleNested DataEither -> Just ("Right", [Box x'])) -> do
+        c <- classifyIO x'
+        return $ mustBe $ C_Either (FRight (Classified c x'))
 
       -- Lists (this includes the 'String' case)
       (inKnownModuleNested GhcTypes -> Just ("[]", [])) ->
@@ -183,90 +187,6 @@ isTuple typ = do
     toValidSize (length xs + 1)
 
 {-------------------------------------------------------------------------------
-  Modules we classify types from
--------------------------------------------------------------------------------}
-
-data family KnownModule (pkg :: KnownPkg)
-
-data KnownPkg =
-    PkgGhcPrim
-  | PkgBase
-  | PkgByteString
-  | PkgText
-
-data instance Sing (pkg :: KnownPkg) where
-  SGhcPrim    :: Sing 'PkgGhcPrim
-  SBase       :: Sing 'PkgBase
-  SByteString :: Sing 'PkgByteString
-  SText       :: Sing 'PkgText
-
-instance SingI 'PkgGhcPrim    where sing = SGhcPrim
-instance SingI 'PkgBase       where sing = SBase
-instance SingI 'PkgByteString where sing = SByteString
-instance SingI 'PkgText       where sing = SText
-
-data instance KnownModule 'PkgGhcPrim =
-    GhcTypes
-  | GhcTuple
-
-data instance KnownModule 'PkgBase =
-    GhcInt
-  | GhcWord
-  | GhcSTRef
-  | GhcMVar
-  | GhcConcSync
-  | GhcMaybe
-
-data instance KnownModule 'PkgByteString =
-    DataByteStringInternal
-  | DataByteStringLazyInternal
-  | DataByteStringShortInternal
-
-data instance KnownModule 'PkgText =
-    DataTextInternal
-  | DataTextInternalLazy
-
--- | Check if the given closure is from a known package/module
-inKnownModule :: SingI pkg
-  => KnownModule pkg
-  -> FlatClosure -> Maybe String
-inKnownModule modl = fmap fst . inKnownModuleNested modl
-
--- | Generalization of 'inKnownModule' that additionally returns nested pointers
-inKnownModuleNested :: SingI pkg
-  => KnownModule pkg
-  -> FlatClosure -> Maybe (String, [Box])
-inKnownModuleNested = go sing
-  where
-    go :: Sing pkg -> KnownModule pkg -> FlatClosure -> Maybe (String, [Box])
-    go knownPkg knownModl ConstrClosure{pkg, modl, name, ptrArgs} = do
-        guard (namePkg knownPkg `isPrefixOf` pkg) -- ignore the version number
-        guard (modl == nameModl knownPkg knownModl)
-        return (name, ptrArgs)
-    go _ _ _otherClosure = Nothing
-
-    namePkg :: Sing (pkg :: KnownPkg) -> String
-    namePkg SGhcPrim    = "ghc-prim"
-    namePkg SBase       = "base"
-    namePkg SByteString = "bytestring"
-    namePkg SText       = "text"
-
-    nameModl :: Sing (pkg :: KnownPkg) -> KnownModule pkg -> String
-    nameModl SGhcPrim    GhcTypes                    = "GHC.Types"
-    nameModl SGhcPrim    GhcTuple                    = "GHC.Tuple"
-    nameModl SBase       GhcInt                      = "GHC.Int"
-    nameModl SBase       GhcWord                     = "GHC.Word"
-    nameModl SBase       GhcSTRef                    = "GHC.STRef"
-    nameModl SBase       GhcMVar                     = "GHC.MVar"
-    nameModl SBase       GhcConcSync                 = "GHC.Conc.Sync"
-    nameModl SBase       GhcMaybe                    = "GHC.Maybe"
-    nameModl SByteString DataByteStringInternal      = "Data.ByteString.Internal"
-    nameModl SByteString DataByteStringLazyInternal  = "Data.ByteString.Lazy.Internal"
-    nameModl SByteString DataByteStringShortInternal = "Data.ByteString.Short.Internal"
-    nameModl SText       DataTextInternal            = "Data.Text.Internal"
-    nameModl SText       DataTextInternalLazy        = "Data.Text.Internal.Lazy"
-
-{-------------------------------------------------------------------------------
   Classified values
 -------------------------------------------------------------------------------}
 
@@ -329,7 +249,8 @@ showAnything :: forall a. a -> String
 showAnything x = showClassifiedValue 0 (classified x) ""
 
 deriving instance Show (Classifier a)
-deriving instance Show (MaybeF Classified a)
+deriving instance Show (MaybeF  Classified a)
+deriving instance Show (EitherF Classified a b)
 deriving instance Show (Some Classified)
 
 instance Show (Classified a) where
@@ -408,8 +329,9 @@ canShowClassified = go
     -- Compound
     --
 
-    go (C_Maybe c) = goMaybeF c
-    go (C_List  c) = goMaybeF c
+    go (C_Maybe  c) = goMaybeF  c
+    go (C_Either c) = goEitherF c
+    go (C_List   c) = goMaybeF  c
 
     go (C_Tuple (Classifiers cs)) =
         case all_NP (hmap (canShowClassified . classifiedType) cs) of
@@ -421,6 +343,14 @@ canShowClassified = go
     goMaybeF FNothing  = Dict
     goMaybeF (FJust c) = case go (classifiedType c) of
                            Dict -> Dict
+
+    goEitherF :: forall f a b.
+         (forall x y. (Show x, Show y) => Show (f x y))
+      => EitherF Classified a b -> Dict Show (f a b)
+    goEitherF (FLeft  c) = case go (classifiedType c) of
+                            Dict -> Dict
+    goEitherF (FRight c) = case go (classifiedType c) of
+                            Dict -> Dict
 
 instance KnownConstr c => Show (UserDefined c) where
   showsPrec p x =

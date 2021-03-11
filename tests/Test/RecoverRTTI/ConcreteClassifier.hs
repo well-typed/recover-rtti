@@ -82,8 +82,9 @@ data ConcreteClassifier (a :: Type) :: Type where
 
     -- Compound
 
-    CC_Maybe :: MaybeF ConcreteClassifier a -> ConcreteClassifier (Maybe a)
-    CC_List  :: MaybeF ConcreteClassifier a -> ConcreteClassifier [a]
+    CC_Maybe  :: MaybeF  ConcreteClassifier a   -> ConcreteClassifier (Maybe a)
+    CC_Either :: EitherF ConcreteClassifier a b -> ConcreteClassifier (Either a b)
+    CC_List   :: MaybeF  ConcreteClassifier a   -> ConcreteClassifier [a]
 
     CC_Tuple ::
          (SListI xs, IsValidSize (Length xs))
@@ -107,7 +108,8 @@ data ConcreteClassifier (a :: Type) :: Type where
 newtype ConcreteClassifiers xs = ConcreteClassifiers (NP ConcreteClassifier xs)
 
 deriving instance Show (ConcreteClassifier a)
-deriving instance Show (MaybeF ConcreteClassifier a)
+deriving instance Show (MaybeF  ConcreteClassifier a)
+deriving instance Show (EitherF ConcreteClassifier a b)
 
 instance SListI xs => Show (ConcreteClassifiers xs) where
   show (ConcreteClassifiers xs) = go (hpure Dict)
@@ -156,8 +158,9 @@ classifierSize = go
 
     -- Compound
 
-    go (CC_Maybe c) = 1 + goMaybeF c
-    go (CC_List  c) = 1 + goMaybeF c
+    go (CC_Maybe  c) = 1 + goMaybeF  c
+    go (CC_Either c) = 1 + goEitherF c
+    go (CC_List   c) = 1 + goMaybeF  c
 
     go (CC_Tuple (ConcreteClassifiers cs)) =
         1 + sum (hcollapse (hmap (K . go) cs))
@@ -177,6 +180,10 @@ classifierSize = go
     goMaybeF :: MaybeF ConcreteClassifier a -> Int
     goMaybeF FNothing  = 0
     goMaybeF (FJust c) = go c
+
+    goEitherF :: EitherF ConcreteClassifier a b -> Int
+    goEitherF (FLeft  c) = go c
+    goEitherF (FRight c) = go c
 
 {-------------------------------------------------------------------------------
   Values
@@ -237,8 +244,9 @@ sameConcreteClassifier = go
 
     -- Compound
 
-    go (CC_Maybe c) (CC_Maybe c') = goMaybeF c c'
-    go (CC_List  c) (CC_List  c') = goMaybeF c c'
+    go (CC_Maybe  c) (CC_Maybe  c') = goMaybeF  c c'
+    go (CC_Either c) (CC_Either c') = goEitherF c c'
+    go (CC_List   c) (CC_List   c') = goMaybeF  c c'
 
     go (CC_Tuple (ConcreteClassifiers cs))
        (CC_Tuple (ConcreteClassifiers cs')) = (\Refl -> Refl) <$> goList cs cs'
@@ -269,6 +277,15 @@ sameConcreteClassifier = go
     goMaybeF FNothing  FNothing   = Just Refl
     goMaybeF (FJust c) (FJust c') = (\Refl -> Refl) <$> go c c'
     goMaybeF _          _         = Nothing
+
+    goEitherF ::
+         EitherF ConcreteClassifier a b
+      -> EitherF ConcreteClassifier c d
+      -> Maybe (f a b :~: f c d)
+    goEitherF (FLeft  c) (FLeft  c') = (\Refl -> Refl) <$> go c c'
+    goEitherF (FRight c) (FRight c') = (\Refl -> Refl) <$> go c c'
+    goEitherF (FLeft  _) (FRight _ ) = Nothing
+    goEitherF (FRight _) (FLeft  _ ) = Nothing
 
     goList ::
          NP ConcreteClassifier xs
@@ -312,9 +329,10 @@ sameConcreteClassifier = go
 
         -- Compound
 
-        CC_Maybe{} -> ()
-        CC_List{}  -> ()
-        CC_Tuple{} -> ()
+        CC_Maybe{}  -> ()
+        CC_Either{} -> ()
+        CC_List{}   -> ()
+        CC_Tuple{}  -> ()
 
         -- Reference cells
 
