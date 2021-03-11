@@ -70,8 +70,10 @@ data Reclassified a where
 --
 -- See detailed description in 'Reclassified'.
 reclassify :: Classified a -> Except String (Reclassified a)
-reclassify = \(Classified c x) ->
-    case c of
+reclassify = go
+  where
+    go :: Classified a -> Except String (Reclassified a)
+    go (Classified c x) = case c of
       -- Primitive types
 
       C_Bool     -> return $ Reclassified CC_Bool     id
@@ -102,10 +104,8 @@ reclassify = \(Classified c x) ->
 
       -- Compound
 
-      C_List Empty ->
-        return $ Reclassified (CC_List Empty) id
-      C_List (NonEmpty x') ->
-        cc_list <$> reclassify x'
+      C_Maybe c' -> goMaybeEmpty CC_Maybe c'
+      C_List  c' -> goMaybeEmpty CC_List  c'
 
       C_Tuple (Classifiers cs) ->
         reclassifyTuple <$> (hsequence' (hmap (Comp . reclassify) cs))
@@ -131,9 +131,24 @@ reclassify = \(Classified c x) ->
       -- Classification failed
 
       C_Unknown -> throwError $ "Unknown closure: " ++ show x
-  where
-    cc_list :: Reclassified a -> Reclassified [a]
-    cc_list (Reclassified c f) = Reclassified (CC_List (NonEmpty c)) (map f)
+
+{-
+    CC_Maybe :: MaybeEmpty ConcreteClassifier a -> ConcreteClassifier (Maybe a)
+    CC_List  :: MaybeEmpty ConcreteClassifier a -> ConcreteClassifier [a]
+-}
+
+    goMaybeEmpty :: forall f a.
+         Functor f
+      => (forall x. MaybeEmpty ConcreteClassifier x -> ConcreteClassifier (f x))
+      -> MaybeEmpty Classified a
+      -> Except String (Reclassified (f a))
+    goMaybeEmpty cc Empty =
+        return $ Reclassified (cc Empty) id
+    goMaybeEmpty cc (NonEmpty x') =
+        aux <$> reclassify x'
+      where
+        aux :: Reclassified a -> Reclassified (f a)
+        aux (Reclassified c f) = Reclassified (cc (NonEmpty c)) (fmap f)
 
 reclassifyTuple ::
      (SListI xs, IsValidSize (Length xs))

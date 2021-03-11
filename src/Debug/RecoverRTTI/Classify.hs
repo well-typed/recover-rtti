@@ -1,17 +1,18 @@
-{-# LANGUAGE DataKinds            #-}
-{-# LANGUAGE FlexibleContexts     #-}
-{-# LANGUAGE FlexibleInstances    #-}
-{-# LANGUAGE GADTs                #-}
-{-# LANGUAGE KindSignatures       #-}
-{-# LANGUAGE LambdaCase           #-}
-{-# LANGUAGE NamedFieldPuns       #-}
-{-# LANGUAGE ScopedTypeVariables  #-}
-{-# LANGUAGE StandaloneDeriving   #-}
-{-# LANGUAGE TypeApplications     #-}
-{-# LANGUAGE TypeFamilies         #-}
-{-# LANGUAGE TypeOperators        #-}
-{-# LANGUAGE UndecidableInstances #-}
-{-# LANGUAGE ViewPatterns         #-}
+{-# LANGUAGE DataKinds             #-}
+{-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE FlexibleInstances     #-}
+{-# LANGUAGE GADTs                 #-}
+{-# LANGUAGE KindSignatures        #-}
+{-# LANGUAGE LambdaCase            #-}
+{-# LANGUAGE NamedFieldPuns        #-}
+{-# LANGUAGE QuantifiedConstraints #-}
+{-# LANGUAGE ScopedTypeVariables   #-}
+{-# LANGUAGE StandaloneDeriving    #-}
+{-# LANGUAGE TypeApplications      #-}
+{-# LANGUAGE TypeFamilies          #-}
+{-# LANGUAGE TypeOperators         #-}
+{-# LANGUAGE UndecidableInstances  #-}
+{-# LANGUAGE ViewPatterns          #-}
 
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
@@ -98,6 +99,13 @@ classifyIO x = do
       --
       -- Compound (ghc-prim)
       --
+
+      -- Maybe
+      (inKnownModule GhcMaybe -> Just "Nothing") ->
+        return $ mustBe $ C_Maybe Empty
+      (inKnownModuleNested GhcMaybe -> Just ("Just", [Box x'])) -> do
+        c <- classifyIO x'
+        return $ mustBe $ C_Maybe (NonEmpty (Classified c x'))
 
       -- Lists (this includes the 'String' case)
       (inKnownModuleNested GhcTypes -> Just ("[]", [])) ->
@@ -207,6 +215,7 @@ data instance KnownModule 'PkgBase =
   | GhcSTRef
   | GhcMVar
   | GhcConcSync
+  | GhcMaybe
 
 data instance KnownModule 'PkgByteString =
     DataByteStringInternal
@@ -250,6 +259,7 @@ inKnownModuleNested = go sing
     nameModl SBase       GhcSTRef                    = "GHC.STRef"
     nameModl SBase       GhcMVar                     = "GHC.MVar"
     nameModl SBase       GhcConcSync                 = "GHC.Conc.Sync"
+    nameModl SBase       GhcMaybe                    = "GHC.Maybe"
     nameModl SByteString DataByteStringInternal      = "Data.ByteString.Internal"
     nameModl SByteString DataByteStringLazyInternal  = "Data.ByteString.Lazy.Internal"
     nameModl SByteString DataByteStringShortInternal = "Data.ByteString.Short.Internal"
@@ -346,63 +356,74 @@ showClassifiedValue p (Classified c x) =
       Dict -> showsPrec p x
 
 canShowClassified :: Classifier a -> Dict Show a
-canShowClassified = \case
+canShowClassified = go
+  where
+    go :: Classifier a -> Dict Show a
+
     -- Primitive types
 
-    C_Bool     -> Dict
-    C_Char     -> Dict
-    C_Double   -> Dict
-    C_Float    -> Dict
-    C_Int      -> Dict
-    C_Int16    -> Dict
-    C_Int8     -> Dict
-    C_Int32    -> Dict
-    C_Int64    -> Dict
-    C_Ordering -> Dict
-    C_Unit     -> Dict
-    C_Word     -> Dict
-    C_Word8    -> Dict
-    C_Word16   -> Dict
-    C_Word32   -> Dict
-    C_Word64   -> Dict
+    go C_Bool     = Dict
+    go C_Char     = Dict
+    go C_Double   = Dict
+    go C_Float    = Dict
+    go C_Int      = Dict
+    go C_Int16    = Dict
+    go C_Int8     = Dict
+    go C_Int32    = Dict
+    go C_Int64    = Dict
+    go C_Ordering = Dict
+    go C_Unit     = Dict
+    go C_Word     = Dict
+    go C_Word8    = Dict
+    go C_Word16   = Dict
+    go C_Word32   = Dict
+    go C_Word64   = Dict
 
     -- String types
 
-    C_String      -> Dict
-    C_BS_Strict   -> Dict
-    C_BS_Lazy     -> Dict
-    C_BS_Short    -> Dict
-    C_Text_Strict -> Dict
-    C_Text_Lazy   -> Dict
+    go C_String      = Dict
+    go C_BS_Strict   = Dict
+    go C_BS_Lazy     = Dict
+    go C_BS_Short    = Dict
+    go C_Text_Strict = Dict
+    go C_Text_Lazy   = Dict
 
     -- Compound
 
-    C_List Empty -> Dict
-    C_List (NonEmpty c') ->
-        case canShowClassified (classifiedType c') of
-          Dict -> Dict
+    go (C_Maybe c) = goMaybeEmpty c
+    go (C_List  c) = goMaybeEmpty c
 
-    C_Tuple (Classifiers cs) ->
+    go (C_Tuple (Classifiers cs)) =
         case all_NP (hmap (canShowClassified . classifiedType) cs) of
           Dict -> Dict
 
     -- Reference cells
 
-    C_STRef -> Dict
-    C_TVar  -> Dict
-    C_MVar  -> Dict
+    go C_STRef = Dict
+    go C_TVar  = Dict
+    go C_MVar  = Dict
 
     -- Functions
 
-    C_Fun -> Dict
+    go C_Fun = Dict
 
     -- User-defined
 
-    C_Custom SConstr -> Dict
+    go (C_Custom SConstr) = Dict
 
     -- Classification failed
 
-    C_Unknown -> Dict
+    go C_Unknown = Dict
+
+
+
+    goMaybeEmpty :: forall f a.
+         (forall x. Show x => Show (f x))
+      => MaybeEmpty Classified a -> Dict Show (f a)
+    goMaybeEmpty Empty        = Dict
+    goMaybeEmpty (NonEmpty c) = case go (classifiedType c) of
+                                  Dict -> Dict
+
 
 instance KnownConstr c => Show (UserDefined c) where
   showsPrec p x =

@@ -82,7 +82,8 @@ data ConcreteClassifier (a :: Type) :: Type where
 
     -- Compound
 
-    CC_List :: MaybeEmpty ConcreteClassifier a -> ConcreteClassifier [a]
+    CC_Maybe :: MaybeEmpty ConcreteClassifier a -> ConcreteClassifier (Maybe a)
+    CC_List  :: MaybeEmpty ConcreteClassifier a -> ConcreteClassifier [a]
 
     CC_Tuple ::
          (SListI xs, IsValidSize (Length xs))
@@ -154,8 +155,10 @@ classifierSize = go
     go CC_Text_Lazy   = 1
 
     -- Compound
-    go (CC_List c) =
-        1 + goMaybeEmpty c
+
+    go (CC_Maybe c) = 1 + goMaybeEmpty c
+    go (CC_List  c) = 1 + goMaybeEmpty c
+
     go (CC_Tuple (ConcreteClassifiers cs)) =
         1 + sum (hcollapse (hmap (K . go) cs))
 
@@ -234,7 +237,9 @@ sameConcreteClassifier = go
 
     -- Compound
 
-    go (CC_List c) (CC_List c') =  goF c c'
+    go (CC_Maybe c) (CC_Maybe c') = goF c c'
+    go (CC_List  c) (CC_List  c') = goF c c'
+
     go (CC_Tuple (ConcreteClassifiers cs))
        (CC_Tuple (ConcreteClassifiers cs')) = (\Refl -> Refl) <$> goList cs cs'
 
@@ -307,6 +312,7 @@ sameConcreteClassifier = go
 
         -- Compound
 
+        CC_Maybe{} -> ()
         CC_List{}  -> ()
         CC_Tuple{} -> ()
 

@@ -77,6 +77,9 @@ prop_constants = withMaxSuccess 1 $ conjoin [
 
       -- Compound
 
+    , compareClassifier $ Value (CC_Maybe Empty) Nothing
+    , compareClassifier $ Value (CC_Maybe (NonEmpty CC_Int)) (Just 3)
+
     , compareClassifier $ Value (CC_List Empty) []
     , compareClassifier $ Value (CC_List (NonEmpty CC_Int)) [1, 2, 3]
 
@@ -134,7 +137,8 @@ prop_constants = withMaxSuccess 1 $ conjoin [
 
         -- Compound
 
-        CC_List{} -> ()
+        CC_Maybe{} -> ()
+        CC_List{}  -> ()
         CC_Tuple{} -> ()
 
         -- Functions

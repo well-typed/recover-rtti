@@ -79,7 +79,8 @@ data Classifier (a :: Type) :: Type where
 
   -- Compound
 
-  C_List :: MaybeEmpty Classified a -> Classifier [a]
+  C_Maybe :: MaybeEmpty Classified a -> Classifier (Maybe a)
+  C_List  :: MaybeEmpty Classified a -> Classifier [a]
 
   C_Tuple ::
        (SListI xs, IsValidSize (Length xs))

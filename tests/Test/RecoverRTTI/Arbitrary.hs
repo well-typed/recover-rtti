@@ -189,6 +189,15 @@ arbitraryClassifiedGen typSz
                 )
             )
 
+        , -- Maybe
+          guard (typSz >= 1) >> (return $
+              arbitraryClassifiedGen (typSz - 1) >>=
+              genMaybeEmpty
+                CC_Maybe
+                (return Nothing)
+                (\gen -> SizedGen $ fmap Just . (`runSized` gen))
+            )
+
             -- User-defined
         , guard (typSz >= 1) >> (return $
               arbitraryClassifiedGen (typSz - 1) >>=
@@ -278,6 +287,7 @@ arbitraryClassifiedGen typSz
 
          -- Compound
 
+         C_Maybe{} -> ()
          C_List{}  -> ()
          C_Tuple{} -> ()
 
