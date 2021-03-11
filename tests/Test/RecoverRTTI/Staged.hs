@@ -35,12 +35,17 @@ module Test.RecoverRTTI.Staged (
 import Control.Monad.Except
 import Data.Bifunctor
 import Data.Kind
+import Data.Map (Map)
+import Data.Set (Set)
 import Data.SOP hiding (NS(..))
 import Data.Typeable
 import Data.Void
 import GHC.Exts (Any)
 import GHC.Real
 import GHC.TypeLits
+
+import qualified Data.Map as Map
+import qualified Data.Set as Set
 
 import Debug.RecoverRTTI
 import Debug.RecoverRTTI.Util
@@ -108,10 +113,10 @@ reclassify = go
 
       -- Compound
 
-      C_Maybe  c' -> goMaybeF      CC_Maybe  c'
-      C_Either c' -> goEitherF     CC_Either c'
-      C_List   c' -> goMaybeF      CC_List   c'
-      C_Ratio  c' -> goF fmapRatio CC_Ratio  c'
+      C_Maybe  c' -> goMaybeF  fmap        CC_Maybe  c'
+      C_Either c' -> goEitherF bimap       CC_Either c'
+      C_List   c' -> goMaybeF  fmap        CC_List   c'
+      C_Ratio  c' -> goF       coerceRatio CC_Ratio  c'
 
       C_Tuple (Classifiers cs) ->
         reclassifyTuple <$> (hsequence' (hmap (Comp . reclassify) cs))
@@ -139,47 +144,44 @@ reclassify = go
       C_Unknown -> throwError $ "Unknown closure: " ++ show x
 
     goMaybeF :: forall f a.
-         Functor f
-      => (forall x. MaybeF ConcreteClassifier x -> ConcreteClassifier (f x))
+         (forall x x'. (x -> x') -> f x -> f x')
+      -> (forall x. MaybeF ConcreteClassifier x -> ConcreteClassifier (f x))
       -> MaybeF Classified a
       -> Except String (Reclassified (f a))
-    goMaybeF cc FNothing =
+    goMaybeF _ cc FNothing =
         return $ Reclassified (cc FNothing) id
-    goMaybeF cc (FJust x') =
+    goMaybeF coerce cc (FJust x') =
         aux <$> reclassify x'
       where
         aux :: Reclassified a -> Reclassified (f a)
-        aux (Reclassified c f) = Reclassified (cc (FJust c)) (fmap f)
+        aux (Reclassified c f) = Reclassified (cc (FJust c)) (coerce f)
 
     goEitherF :: forall f a b.
-         Bifunctor f
-      => (forall x y. EitherF ConcreteClassifier x y -> ConcreteClassifier (f x y))
+         (forall x x' y y'. (x -> x') -> (y -> y') -> f x y -> f x' y')
+      -> (forall x y. EitherF ConcreteClassifier x y -> ConcreteClassifier (f x y))
       -> EitherF Classified a b
       -> Except String (Reclassified (f a b))
-    goEitherF cc (FLeft x') =
+    goEitherF coerce cc (FLeft x') =
         aux <$> reclassify x'
       where
         aux :: Reclassified a -> Reclassified (f a Void)
-        aux (Reclassified c f) = Reclassified (cc (FLeft c)) (bimap f id)
-    goEitherF cc (FRight x') =
+        aux (Reclassified c f) = Reclassified (cc (FLeft c)) (coerce f id)
+    goEitherF coerce cc (FRight x') =
         aux <$> reclassify x'
       where
         aux :: Reclassified b -> Reclassified (f Void b)
-        aux (Reclassified c f) = Reclassified (cc (FRight c)) (bimap id f)
+        aux (Reclassified c f) = Reclassified (cc (FRight c)) (coerce id f)
 
     goF :: forall f a.
-         (forall x y. (x -> y) -> f x -> f y)
+         (forall x x'. (x -> x') -> f x -> f x')
       -> (forall x. ConcreteClassifier x -> ConcreteClassifier (f x))
       -> Classified a
       -> Except String (Reclassified (f a))
-    goF fmap' cc x' =
+    goF coerce cc x' =
         aux <$> reclassify x'
       where
         aux :: Reclassified a -> Reclassified (f a)
-        aux (Reclassified c f) = Reclassified (cc c) (fmap' f)
-
-    fmapRatio :: (x -> y) -> Ratio x -> Ratio y
-    fmapRatio f (x :% y) = f x :% f y
+        aux (Reclassified c f) = Reclassified (cc c) (coerce f)
 
 reclassifyTuple ::
      (SListI xs, IsValidSize (Length xs))
@@ -204,6 +206,19 @@ reclassifyTuple = \cs ->
                          case x of
                            Reclassified y f_y ->
                              k (y :* np) (bimapTuple f_y f_np)
+
+{-------------------------------------------------------------------------------
+  Lift coercions to non-functor types
+-------------------------------------------------------------------------------}
+
+coerceRatio :: (x -> x') -> Ratio x -> Ratio x'
+coerceRatio f (x :% y) = f x :% f y
+
+_coerceSet :: (x -> x') -> Set x -> Set x'
+_coerceSet f = Set.fromDistinctAscList . map f . Set.toAscList
+
+_coerceMap :: (x -> x') -> (y -> y') -> Map x y -> Map x' y'
+_coerceMap f g = Map.fromDistinctAscList . map (bimap f g) . Map.toAscList
 
 {-------------------------------------------------------------------------------
   When we reclassify values of user-defined types with type arguments, we need
