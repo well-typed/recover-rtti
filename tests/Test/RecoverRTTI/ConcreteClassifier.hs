@@ -21,6 +21,7 @@ module Test.RecoverRTTI.ConcreteClassifier (
 import Data.Int
 import Data.Kind
 import Data.Ratio
+import Data.Set (Set)
 import Data.SOP
 import Data.SOP.Dict
 import Data.Type.Equality
@@ -88,6 +89,7 @@ data ConcreteClassifier (a :: Type) :: Type where
     CC_Either :: EitherF ConcreteClassifier a b -> ConcreteClassifier (Either a b)
     CC_List   :: MaybeF  ConcreteClassifier a   -> ConcreteClassifier [a]
     CC_Ratio  :: ConcreteClassifier a           -> ConcreteClassifier (Ratio a)
+    CC_Set    :: MaybeF  ConcreteClassifier a   -> ConcreteClassifier (Set a)
 
     CC_Tuple ::
          (SListI xs, IsValidSize (Length xs))
@@ -166,6 +168,7 @@ classifierSize = go
     go (CC_Either c) = 1 + goEitherF c
     go (CC_List   c) = 1 + goMaybeF  c
     go (CC_Ratio  c) = 1 + go        c
+    go (CC_Set    c) = 1 + goMaybeF  c
 
     go (CC_Tuple (ConcreteClassifiers cs)) =
         1 + sum (hcollapse (hmap (K . go) cs))
@@ -254,6 +257,7 @@ sameConcreteClassifier = go
     go (CC_Either c) (CC_Either c') = goEitherF c c'
     go (CC_List   c) (CC_List   c') = goMaybeF  c c'
     go (CC_Ratio  c) (CC_Ratio  c') = goF       c c'
+    go (CC_Set    c) (CC_Set    c') = goMaybeF  c c'
 
     go (CC_Tuple (ConcreteClassifiers cs))
        (CC_Tuple (ConcreteClassifiers cs')) = (\Refl -> Refl) <$> goList cs cs'
@@ -347,6 +351,7 @@ sameConcreteClassifier = go
         CC_Either{} -> ()
         CC_List{}   -> ()
         CC_Ratio{}  -> ()
+        CC_Set{}    -> ()
         CC_Tuple{}  -> ()
 
         -- Reference cells

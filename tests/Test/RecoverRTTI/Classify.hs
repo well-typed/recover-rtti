@@ -12,6 +12,8 @@ import Data.Ratio
 import Data.SOP
 import Data.Type.Equality
 
+import qualified Data.Set as Set
+
 import Test.Tasty
 import Test.Tasty.QuickCheck hiding (classify, NonEmpty)
 
@@ -95,6 +97,9 @@ prop_constants = withMaxSuccess 1 $ conjoin [
 
     , compareClassifier $ Value (CC_Ratio CC_Integer) (1 % 2)
 
+    , compareClassifier $ Value (CC_Set FNothing)          Set.empty
+    , compareClassifier $ Value (CC_Set (FJust (CC_Int))) (Set.fromList [1, 2, 3] )
+
       -- Reference cells
 
     , compareClassifier $ Value CC_STRef exampleIORef
@@ -151,6 +156,7 @@ prop_constants = withMaxSuccess 1 $ conjoin [
         CC_Either{} -> ()
         CC_List{}   -> ()
         CC_Ratio{}  -> ()
+        CC_Set{}    -> ()
         CC_Tuple{}  -> ()
 
         -- Functions

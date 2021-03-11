@@ -117,6 +117,7 @@ reclassify = go
       C_Either c' -> goEitherF bimap       CC_Either c'
       C_List   c' -> goMaybeF  fmap        CC_List   c'
       C_Ratio  c' -> goF       coerceRatio CC_Ratio  c'
+      C_Set    c' -> goMaybeF  coerceSet   CC_Set    c'
 
       C_Tuple (Classifiers cs) ->
         reclassifyTuple <$> (hsequence' (hmap (Comp . reclassify) cs))
@@ -214,8 +215,8 @@ reclassifyTuple = \cs ->
 coerceRatio :: (x -> x') -> Ratio x -> Ratio x'
 coerceRatio f (x :% y) = f x :% f y
 
-_coerceSet :: (x -> x') -> Set x -> Set x'
-_coerceSet f = Set.fromDistinctAscList . map f . Set.toAscList
+coerceSet :: (x -> x') -> Set x -> Set x'
+coerceSet f = Set.fromDistinctAscList . map f . Set.toAscList
 
 _coerceMap :: (x -> x') -> (y -> y') -> Map x y -> Map x' y'
 _coerceMap f g = Map.fromDistinctAscList . map (bimap f g) . Map.toAscList

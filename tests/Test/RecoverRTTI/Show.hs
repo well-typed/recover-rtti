@@ -1,6 +1,6 @@
 {-# LANGUAGE NumericUnderscores #-}
 
--- | Verify that 'showAnything' produces same result as 'show'
+-- | Verify that 'anythingToString' produces same result as 'show'
 module Test.RecoverRTTI.Show (tests) where
 
 import Test.Tasty
@@ -14,8 +14,8 @@ import Test.RecoverRTTI.ConcreteClassifier
 
 tests :: TestTree
 tests = testGroup "Test.RecoverRTTI.Show" [
-      testProperty "showGenerated" prop_showGenerated
-    , testProperty "showAnything"  prop_showAnything
+      testProperty "showGenerated"    prop_showGenerated
+    , testProperty "anythingToString" prop_anythingToString
     ]
 
 -- | Check that the generated value is showable
@@ -27,8 +27,8 @@ prop_showGenerated (Some (Value _cc x)) =
    $ property (length (show x) < 1_000_000)
 
 -- | Compare " normal " 'show' against the " recovered " 'show'
-prop_showAnything :: Some Value -> Property
-prop_showAnything (Some (Value _cc x)) =
+prop_anythingToString :: Some Value -> Property
+prop_anythingToString (Some (Value _cc x)) =
       counterexample ("inferred: " ++ show (classify x))
     $ within 1_000_000
-    $ show x === showAnything x
+    $ show x === anythingToString x

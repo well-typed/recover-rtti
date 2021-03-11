@@ -36,6 +36,7 @@ import Unsafe.Coerce (unsafeCoerce)
 import qualified Data.ByteString       as BS.Strict
 import qualified Data.ByteString.Lazy  as BS.Lazy
 import qualified Data.ByteString.Short as BS.Short
+import qualified Data.Set              as Set
 import qualified Data.Text             as Text.Strict
 import qualified Data.Text.Lazy        as Text.Lazy
 
@@ -179,7 +180,7 @@ arbitraryClassifiedGen typSz
           -- We have to be careful not to generate @[Char]@, because this is
           -- inferred as @String@
           guard (typSz >= 1) >> (return $ do
-              a <- arbitraryClassifiedGen (typSz - 1)
+              Some a <- arbitraryClassifiedGen (typSz - 1)
               genMaybeF
                 (\case FJust CC_Char -> CC_String
                        c             -> CC_List c)
@@ -196,20 +197,20 @@ arbitraryClassifiedGen typSz
 
           -- Maybe
         , guard (typSz >= 1) >> (return $ do
-              a <- arbitraryClassifiedGen (typSz - 1)
+              Some a <- arbitraryClassifiedGen (typSz - 1)
               genMaybeF CC_Maybe (return Nothing) (fmap Just) a
             )
 
           -- Either
         , guard (typSz >= 2) >> (return $ do
-              a <- arbitraryClassifiedGen (typSz `div` 2)
-              b <- arbitraryClassifiedGen (typSz `div` 2)
+              Some a <- arbitraryClassifiedGen (typSz `div` 2)
+              Some b <- arbitraryClassifiedGen (typSz `div` 2)
               genEitherF CC_Either (fmap Left) (fmap Right) a b
             )
 
           -- Ratio
         , guard (typSz >= 1) >> (return $ do
-              a <- arbitraryClassifiedGen (typSz `div` 2)
+              Some a <- arbitraryClassifiedGen (typSz `div` 2)
               genF
                 CC_Ratio
                 (\(SizedGen gen) -> SizedGen $ \sz ->
@@ -218,19 +219,34 @@ arbitraryClassifiedGen typSz
                 a
             )
 
-            -- User-defined
-        , guard (typSz >= 1) >> (return $
-              arbitraryClassifiedGen (typSz - 1) >>=
+          -- Set
+          -- For set we must pick an ordered type, so we just pick Int
+        , return (do
+              genMaybeF
+                CC_Set
+                (return Set.empty)
+                -- Same strategy as for lists
+                (\(SizedGen gen) -> SizedGen $ \valSz -> do
+                   n <- choose (1, 5)
+                   Set.fromList <$> vectorOf n (gen (valSz `div` n))
+                )
+                (defaultClassifiedGen CC_Int)
+            )
+
+          -- User-defined
+        , guard (typSz >= 1) >> (return $ do
+              Some a <- arbitraryClassifiedGen (typSz - 1)
               genMaybeF
                 CC_User_NonRec
                 (NR1 <$> arbitrary)
                 (\gen -> SizedGen $ \valSz ->
                     NR2 <$> runSized valSz gen <*> arbitrary
                 )
+                a
             )
 
-        , guard (typSz >= 1) >> (return $
-              arbitraryClassifiedGen (typSz - 1) >>=
+        , guard (typSz >= 1) >> (return $ do
+              Some a <- arbitraryClassifiedGen (typSz - 1)
               genMaybeF
                 CC_User_Rec
                 (return RNil)
@@ -239,6 +255,7 @@ arbitraryClassifiedGen typSz
                   n <- choose (1, 5)
                   recursiveFromList <$> vectorOf n (runSized (valSz `div` n) gen)
                 )
+                a
             )
 
           -- Tuples
@@ -265,9 +282,9 @@ arbitraryClassifiedGen typSz
          )
       => (forall x. MaybeF ConcreteClassifier x -> ConcreteClassifier (f x))
       -> Gen (f Void)
-      -> (forall x. SizedGen x -> SizedGen (f x))
-      -> Some ClassifiedGen -> Gen (Some ClassifiedGen)
-    genMaybeF cc genNothing genJust (Some (ClassifiedGen cA genA)) =
+      -> (SizedGen a -> SizedGen (f a))
+      -> ClassifiedGen a -> Gen (Some ClassifiedGen)
+    genMaybeF cc genNothing genJust (ClassifiedGen cA genA) =
         elements [
             Some $ ClassifiedGen (cc FNothing)   (ignoreSize $ genNothing)
           , Some $ ClassifiedGen (cc (FJust cA)) (genJust genA)
@@ -278,17 +295,12 @@ arbitraryClassifiedGen typSz
          , forall x y. (Eq   x, Eq   y) => Eq   (f x y)
          )
       => (forall x y. EitherF ConcreteClassifier x y -> ConcreteClassifier (f x y))
-      -> (forall x. SizedGen x -> SizedGen (f x Void))
-      -> (forall y. SizedGen y -> SizedGen (f Void y))
-      -> Some ClassifiedGen -- a
-      -> Some ClassifiedGen -- b
+      -> (SizedGen a -> SizedGen (f a Void))
+      -> (SizedGen b -> SizedGen (f Void b))
+      -> ClassifiedGen a
+      -> ClassifiedGen b
       -> Gen (Some ClassifiedGen)
-    genEitherF cc
-               genLeft
-               genRight
-               (Some (ClassifiedGen cA genA))
-               (Some (ClassifiedGen cB genB))
-               =
+    genEitherF cc genLeft genRight (ClassifiedGen cA genA) (ClassifiedGen cB genB) =
         elements [
             Some $ ClassifiedGen (cc (FLeft  cA)) (genLeft  genA)
           , Some $ ClassifiedGen (cc (FRight cB)) (genRight genB)
@@ -299,9 +311,9 @@ arbitraryClassifiedGen typSz
          , forall x. Eq   x => Eq   (f x)
          )
       => (forall x. ConcreteClassifier x -> ConcreteClassifier (f x))
-      -> (forall x. SizedGen x -> SizedGen (f x))
-      -> Some ClassifiedGen -> Gen (Some ClassifiedGen)
-    genF cc gen (Some (ClassifiedGen cA genA)) = return $
+      -> (SizedGen a -> SizedGen (f a))
+      -> ClassifiedGen a -> Gen (Some ClassifiedGen)
+    genF cc gen (ClassifiedGen cA genA) = return $
         Some $ ClassifiedGen (cc cA) (gen genA)
 
     -- We check that we cover all cases of 'Classifier' rather than
@@ -344,6 +356,7 @@ arbitraryClassifiedGen typSz
          C_Either{} -> ()
          C_List{}   -> ()
          C_Ratio{}  -> ()
+         C_Set{}    -> ()
          C_Tuple{}  -> ()
 
          -- Reference cells

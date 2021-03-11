@@ -30,6 +30,7 @@ data KnownPkg =
   | PkgByteString
   | PkgText
   | PkgIntegerWiredIn
+  | PkgContainers
 
 data family KnownModule (pkg :: KnownPkg)
 
@@ -43,12 +44,14 @@ data instance Sing (pkg :: KnownPkg) where
   SByteString     :: Sing 'PkgByteString
   SText           :: Sing 'PkgText
   SIntegerWiredIn :: Sing 'PkgIntegerWiredIn
+  SContainers     :: Sing 'PkgContainers
 
 instance SingI 'PkgGhcPrim        where sing = SGhcPrim
 instance SingI 'PkgBase           where sing = SBase
 instance SingI 'PkgByteString     where sing = SByteString
 instance SingI 'PkgText           where sing = SText
 instance SingI 'PkgIntegerWiredIn where sing = SIntegerWiredIn
+instance SingI 'PkgContainers     where sing = SContainers
 
 {-------------------------------------------------------------------------------
   Modules in @ghc-pri@
@@ -97,6 +100,13 @@ data instance KnownModule 'PkgIntegerWiredIn =
     GhcIntegerType
 
 {-------------------------------------------------------------------------------
+  Modules in @containers@
+-------------------------------------------------------------------------------}
+
+data instance KnownModule 'PkgContainers =
+    DataSetInternal
+
+{-------------------------------------------------------------------------------
   Matching
 -------------------------------------------------------------------------------}
 
@@ -125,6 +135,7 @@ inKnownModuleNested = go sing
     namePkg SByteString     = "bytestring"
     namePkg SText           = "text"
     namePkg SIntegerWiredIn = "integer-wired-in"
+    namePkg SContainers     = "containers"
 
     nameModl :: Sing (pkg :: KnownPkg) -> KnownModule pkg -> String
     nameModl SGhcPrim        GhcTypes                    = "GHC.Types"
@@ -143,3 +154,4 @@ inKnownModuleNested = go sing
     nameModl SText           DataTextInternal            = "Data.Text.Internal"
     nameModl SText           DataTextInternalLazy        = "Data.Text.Internal.Lazy"
     nameModl SIntegerWiredIn GhcIntegerType              = "GHC.Integer.Type"
+    nameModl SContainers     DataSetInternal             = "Data.Set.Internal"

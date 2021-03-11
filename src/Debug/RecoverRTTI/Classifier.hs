@@ -15,6 +15,7 @@ module Debug.RecoverRTTI.Classifier (
 import Data.Int
 import Data.Kind
 import Data.Ratio
+import Data.Set (Set)
 import Data.SOP
 import Data.Void
 import Data.Word
@@ -87,6 +88,7 @@ data Classifier (a :: Type) :: Type where
   C_Either :: EitherF Classified a b -> Classifier (Either a b)
   C_List   :: MaybeF  Classified a   -> Classifier [a]
   C_Ratio  :: Classified a           -> Classifier (Ratio a)
+  C_Set    :: MaybeF Classified a    -> Classifier (Set a)
 
   C_Tuple ::
        (SListI xs, IsValidSize (Length xs))

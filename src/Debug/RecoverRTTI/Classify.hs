@@ -18,7 +18,7 @@ module Debug.RecoverRTTI.Classify (
   , classified
   , fromUserDefined
     -- * Showing values
-  , showAnything
+  , anythingToString
   , canShowClassified
   ) where
 
@@ -129,6 +129,17 @@ classifyIO x = do
       (inKnownModuleNested GhcReal -> Just (":%", [Box x', _y'])) -> do
         c <- classifyIO x'
         return $ mustBe $ C_Ratio (Classified c x')
+
+      -- Set
+      -- We have to be careful: the size may or may not be unpacked
+      (inKnownModule DataSetInternal -> Just "Tip") ->
+        return $ mustBe $ C_Set FNothing
+      (inKnownModuleNested DataSetInternal -> Just ("Bin", [Box x', _left, _right])) -> do
+        c <- classifyIO x'
+        return $ mustBe $ C_Set (FJust (Classified c x'))
+      (inKnownModuleNested DataSetInternal -> Just ("Bin", [_sz, Box x', _left, _right])) -> do
+        c <- classifyIO x'
+        return $ mustBe $ C_Set (FJust (Classified c x'))
 
       -- Tuples (of size 2..62)
       (inKnownModuleNested GhcTuple -> Just (
@@ -255,8 +266,8 @@ fromUserDefined = \(UserDefined x) -> unsafePerformIO $ go x
 -------------------------------------------------------------------------------}
 
 -- | Show any value
-showAnything :: forall a. a -> String
-showAnything x = showClassifiedValue 0 (classified x) ""
+anythingToString :: forall a. a -> String
+anythingToString x = showClassifiedValue 0 (classified x) ""
 
 deriving instance Show (Classifier a)
 deriving instance Show (MaybeF  Classified a)
@@ -344,6 +355,7 @@ canShowClassified = go
     go (C_Either c) = goEitherF c
     go (C_List   c) = goMaybeF  c
     go (C_Ratio  c) = goF       c
+    go (C_Set    c) = goMaybeF  c
 
     go (C_Tuple (Classifiers cs)) =
         case all_NP (hmap (canShowClassified . classifiedType) cs) of
