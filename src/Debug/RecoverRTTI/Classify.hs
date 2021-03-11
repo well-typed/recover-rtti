@@ -23,14 +23,23 @@ module Debug.RecoverRTTI.Classify (
   ) where
 
 import Control.Monad (guard)
+import Data.IntMap (IntMap)
+import Data.Map (Map)
 import Data.Sequence (Seq)
+import Data.Set (Set)
 import Data.SOP
 import Data.SOP.Dict
+import Data.Tree (Tree)
+import GHC.Real
 import GHC.Stack
 import System.IO.Unsafe (unsafePerformIO)
 import Unsafe.Coerce (unsafeCoerce)
 
+import qualified Data.IntMap   as IntMap
+import qualified Data.Map      as Map
 import qualified Data.Sequence as Seq
+import qualified Data.Set      as Set
+import qualified Data.Tree     as Tree
 
 import Debug.RecoverRTTI.Classifier
 import Debug.RecoverRTTI.Constr
@@ -106,55 +115,37 @@ classifyIO x = do
 
       -- Maybe
       (inKnownModule GhcMaybe -> Just "Nothing") ->
-        return $ mustBe $ C_Maybe FNothing
-      (inKnownModuleNested GhcMaybe -> Just ("Just", [Box x'])) -> do
-        cx <- classifyIO x'
-        return $ mustBe $ C_Maybe (FJust (Classified cx x'))
+        mustBe <$> classifyMaybe (unsafeCoerce x)
+      (inKnownModule GhcMaybe -> Just "Just") ->
+        mustBe <$> classifyMaybe (unsafeCoerce x)
 
       -- Either
-      (inKnownModuleNested DataEither -> Just ("Left", [Box x'])) -> do
-        cx <- classifyIO x'
-        return $ mustBe $ C_Either (FLeft (Classified cx x'))
-      (inKnownModuleNested DataEither -> Just ("Right", [Box x'])) -> do
-        cx <- classifyIO x'
-        return $ mustBe $ C_Either (FRight (Classified cx x'))
+      (inKnownModule DataEither -> Just "Left") ->
+        mustBe <$> classifyEither (unsafeCoerce x)
+      (inKnownModule DataEither -> Just "Right") ->
+        mustBe <$> classifyEither (unsafeCoerce x)
 
       -- Lists (this includes the 'String' case)
-      (inKnownModuleNested GhcTypes -> Just ("[]", [])) ->
-        return $ mustBe $ C_List FNothing
-      (inKnownModuleNested GhcTypes -> Just (":", [Box x', _xs])) -> do
-        cx <- classifyIO x'
-        return $ case cx of
-          C_Char     -> mustBe $ C_String
-          _otherwise -> mustBe $ C_List (FJust (Classified cx x'))
+      (inKnownModule GhcTypes -> Just "[]") ->
+        mustBe <$> classifyList (unsafeCoerce x)
+      (inKnownModule GhcTypes -> Just ":") ->
+        mustBe <$> classifyList (unsafeCoerce x)
 
       -- Ratio
-      (inKnownModuleNested GhcReal -> Just (":%", [Box x', _y'])) -> do
-        cx <- classifyIO x'
-        return $ mustBe $ C_Ratio (Classified cx x')
+      (inKnownModule GhcReal -> Just ":%") ->
+        mustBe <$> classifyRatio (unsafeCoerce x)
 
       -- Set
-      -- We have to be careful: the size may or may not be unpacked
       (inKnownModule DataSetInternal -> Just "Tip") ->
-        return $ mustBe $ C_Set FNothing
-      (inKnownModuleNested DataSetInternal -> Just ("Bin", [Box x', _left, _right])) -> do
-        cx <- classifyIO x'
-        return $ mustBe $ C_Set (FJust (Classified cx x'))
-      (inKnownModuleNested DataSetInternal -> Just ("Bin", [_sz, Box x', _left, _right])) -> do
-        cx <- classifyIO x'
-        return $ mustBe $ C_Set (FJust (Classified cx x'))
+        mustBe <$> classifySet (unsafeCoerce x)
+      (inKnownModule DataSetInternal -> Just "Bin") ->
+        mustBe <$> classifySet (unsafeCoerce x)
 
       -- Map
       (inKnownModule DataMapInternal -> Just "Tip") ->
-        return $ mustBe $ C_Map FNothingPair
-      (inKnownModuleNested DataMapInternal -> Just ("Bin", [Box x', Box y', _left, _right])) -> do
-        cx <- classifyIO x'
-        cy <- classifyIO y'
-        return $ mustBe $ C_Map (FJustPair (Classified cx x') (Classified cy y'))
-      (inKnownModuleNested DataMapInternal -> Just ("Bin", [_sz, Box x', Box y', _left, _right])) -> do
-        cx <- classifyIO x'
-        cy <- classifyIO y'
-        return $ mustBe $ C_Map (FJustPair (Classified cx x') (Classified cy y'))
+        mustBe <$> classifyMap (unsafeCoerce x)
+      (inKnownModule DataMapInternal -> Just "Bin") ->
+        mustBe <$> classifyMap (unsafeCoerce x)
 
       -- IntSet
       (inKnownModule DataIntSetInternal -> Just "Bin") ->
@@ -166,25 +157,11 @@ classifyIO x = do
 
       -- IntMap
       (inKnownModule DataIntMapInternal -> Just "Nil") ->
-        return $ mustBe $ C_IntMap FNothing
-      (inKnownModuleNested DataIntMapInternal -> Just ("Tip", [Box x'])) -> do
-        cx <- classifyIO x'
-        return $ mustBe $ C_IntMap (FJust (Classified cx x'))
-      (inKnownModuleNested DataIntMapInternal -> Just ("Tip", [_sz, Box x'])) -> do
-        cx <- classifyIO x'
-        return $ mustBe $ C_IntMap (FJust (Classified cx x'))
-      (inKnownModuleNested DataIntMapInternal -> Just ("Bin", [Box left, _right])) -> do
-        -- The Bin constructor doesn't give us enough to go on, so we need to
-        -- recurse. The invariant of Bin says that it can never have a Nil
-        -- child, so it doesn't matter if we go left or right, we'll eventually
-        -- hit a tip.
-        mustBe <$> classifyIO left
-      (inKnownModuleNested DataIntMapInternal -> Just ("Bin", [_prefix, _mask, Box left, _right])) -> do
-        -- The Bin constructor doesn't give us enough to go on, so we need to
-        -- recurse. The invariant of Bin says that it can never have a Nil
-        -- child, so it doesn't matter if we go left or right, we'll eventually
-        -- hit a tip.
-        mustBe <$> classifyIO left
+        mustBe <$> classifyIntMap (unsafeCoerce x)
+      (inKnownModule DataIntMapInternal -> Just "Tip") ->
+        mustBe <$> classifyIntMap (unsafeCoerce x)
+      (inKnownModule DataIntMapInternal -> Just "Bin") ->
+        mustBe <$> classifyIntMap (unsafeCoerce x)
 
       -- Sequence
       (inKnownModule DataSequenceInternal -> Just "EmptyT") ->
@@ -195,9 +172,8 @@ classifyIO x = do
         mustBe <$> classifySequence (unsafeCoerce x)
 
       -- Tree
-      (inKnownModuleNested DataTree -> Just ("Node", [Box x', _subforest])) -> do
-        cx <- classifyIO x'
-        return $ mustBe $ C_Tree (Classified cx x')
+      (inKnownModule DataTree -> Just "Node") ->
+        mustBe <$> classifyTree (unsafeCoerce x)
 
       -- Tuples (of size 2..62)
       (inKnownModuleNested GhcTuple -> Just (
@@ -236,6 +212,74 @@ classifyIO x = do
       OtherClosure _ ->
         return $ mustBe C_Unknown
 
+mustBe :: Classifier b -> Classifier a
+mustBe = unsafeCoerce
+
+classify :: a -> Classifier a
+classify = unsafePerformIO . classifyIO
+
+{-------------------------------------------------------------------------------
+  Classification for compound types
+-------------------------------------------------------------------------------}
+
+classifyMaybe :: Maybe a -> IO (Classifier (Maybe a))
+classifyMaybe x =
+    case x of
+      Nothing -> return $ mustBe $ C_Maybe FNothing
+      Just x' -> do
+        cx <- classifyIO x'
+        return $ mustBe $ C_Maybe (FJust (Classified cx x'))
+
+classifyEither :: Either a b -> IO (Classifier (Either a b))
+classifyEither x =
+    case x of
+      Left x' -> do
+        cx <- classifyIO x'
+        return $ mustBe $ C_Either (FLeft (Classified cx x'))
+      Right y' -> do
+        cy <- classifyIO y'
+        return $ mustBe $ C_Either (FRight (Classified cy y'))
+
+classifyList :: [a] -> IO (Classifier [a])
+classifyList x =
+    case x of
+      []   -> return $ mustBe $ C_List FNothing
+      x':_ -> do
+        cx <- classifyIO x'
+        return $ case cx of
+          C_Char     -> mustBe $ C_String
+          _otherwise -> mustBe $ C_List (FJust (Classified cx x'))
+
+classifyRatio :: Ratio a -> IO (Classifier (Ratio a))
+classifyRatio (x' :% _) = do
+    cx <- classifyIO x'
+    return $ mustBe $ C_Ratio (Classified cx x')
+
+classifySet :: Set a -> IO (Classifier (Set a))
+classifySet x =
+    case Set.lookupMin x of
+      Nothing -> return $ mustBe $ C_Set FNothing
+      Just x' -> do
+        cx <- classifyIO x'
+        return $ mustBe $ C_Set (FJust (Classified cx x'))
+
+classifyMap :: Map a b -> IO (Classifier (Map a b))
+classifyMap x =
+   case Map.lookupMin x of
+     Nothing       -> return $ mustBe $ C_Map FNothingPair
+     Just (x', y') -> do
+       cx <- classifyIO x'
+       cy <- classifyIO y'
+       return $ mustBe $ C_Map (FJustPair (Classified cx x') (Classified cy y'))
+
+classifyIntMap :: IntMap a -> IO (Classifier (IntMap a))
+classifyIntMap x =
+    case IntMap.minView x of
+      Nothing      -> return $ mustBe $ C_IntMap FNothing
+      Just (x', _) -> do
+        cx <- classifyIO x'
+        return $ mustBe $ C_IntMap (FJust (Classified cx x'))
+
 classifySequence :: Seq a -> IO (Classifier (Seq a))
 classifySequence x =
     case Seq.viewl x of
@@ -243,6 +287,13 @@ classifySequence x =
       x' Seq.:< _ -> do
         cx <- classifyIO x'
         return $ mustBe $ C_Sequence (FJust (Classified cx x'))
+
+classifyTree :: Tree a -> IO (Classifier (Tree a))
+classifyTree x =
+    case x of
+      Tree.Node x' _ -> do
+        cx <- classifyIO x'
+        return $ mustBe $ C_Tree (Classified cx x')
 
 classifyTuple ::
      (SListI xs, IsValidSize (Length xs))
@@ -256,12 +307,6 @@ classifyTuple ptrs = do
     aux (K (Box x)) = Comp $ do
         c <- classifyIO (unsafeCoerce x)
         return $ Classified c (unsafeCoerce x)
-
-mustBe :: Classifier b -> Classifier a
-mustBe = unsafeCoerce
-
-classify :: a -> Classifier a
-classify = unsafePerformIO . classifyIO
 
 {-------------------------------------------------------------------------------
   Recognizing tuples
