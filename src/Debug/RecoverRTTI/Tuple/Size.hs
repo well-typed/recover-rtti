@@ -1,5 +1,6 @@
 {-# LANGUAGE DataKinds           #-}
 {-# LANGUAGE EmptyCase           #-}
+{-# LANGUAGE FlexibleContexts    #-}
 {-# LANGUAGE FlexibleInstances   #-}
 {-# LANGUAGE GADTs               #-}
 {-# LANGUAGE KindSignatures      #-}
@@ -20,6 +21,7 @@ module Debug.RecoverRTTI.Tuple.Size (
   , toValidSize
   ) where
 
+import Data.Proxy
 import Data.SOP.Dict
 
 import Debug.RecoverRTTI.Util
@@ -32,11 +34,23 @@ import Debug.RecoverRTTI.Util.TypeLevel
 data ValidSize (n :: Nat) where
   ValidSize :: Sing n -> (forall r. TooBig n -> r) -> ValidSize n
 
-smallerIsValid :: forall n. ValidSize ('S n) -> ValidSize n
-smallerIsValid = \(ValidSize (SS n) tooBig) -> ValidSize n $ aux tooBig
+smallerIsValid' :: forall n. ValidSize ('S n) -> ValidSize n
+smallerIsValid' = \(ValidSize (SS n) tooBig) -> ValidSize n $ aux tooBig
   where
     aux :: (TooBig ('S n) -> r) -> TooBig n -> r
     aux tooBig TooBig = tooBig (TooBig :: TooBig ('S n))
+
+smallerIsValid :: forall n r.
+     IsValidSize ('S n)
+  => Proxy ('S n)
+  -> (IsValidSize n => r)
+  -> r
+smallerIsValid _ k =
+    case liftValidSize (smallerIsValid' valid) of
+      Dict -> k
+  where
+    valid :: ValidSize ('S n)
+    valid = isValidSize
 
 class SingI n => IsValidSize n where
   isValidSize :: ValidSize n

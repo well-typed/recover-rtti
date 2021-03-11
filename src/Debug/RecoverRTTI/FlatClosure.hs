@@ -33,7 +33,8 @@ data FlatClosure =
   deriving (Show)
 
 getBoxedClosureData :: Box -> IO FlatClosure
-getBoxedClosureData b@(Box !_) =
+-- It is important that we force the value to WHNF /before/ getting the closure
+getBoxedClosureData b@(Box !_) = --
     fromClosure =<< H.getBoxedClosureData b
   where
     fromClosure :: H.Closure -> IO FlatClosure

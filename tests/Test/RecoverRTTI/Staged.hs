@@ -139,12 +139,12 @@ reclassifyTuple ::
      (SListI xs, IsValidSize (Length xs))
   => NP Reclassified xs -> Reclassified (WrappedTuple xs)
 reclassifyTuple = \cs ->
-    go isValidSize cs $ \cs' f ->
+    go cs $ \cs' f ->
       Reclassified (CC_Tuple (ConcreteClassifiers cs')) f
   where
-    go :: SListI xs
-      => ValidSize (Length xs)
-      -> NP Reclassified xs
+    go :: forall xs r.
+         (SListI xs, IsValidSize (Length xs))
+      => NP Reclassified xs
       -> (forall ys.
                (SListI ys, Length ys ~ Length xs)
             => NP ConcreteClassifier ys
@@ -152,22 +152,12 @@ reclassifyTuple = \cs ->
             -> r
          )
       -> r
-    go _     Nil       k = k Nil id
-    go valid (x :* xs) k = go (smallerIsValid valid) xs $ \np f_np ->
-        case x of
-          Reclassified y f_y ->
-            k (y :* np) (liftWrapped valid f_y f_np)
-
-    liftWrapped :: forall a as b bs.
-         (SListI as, SListI bs, Length as ~ Length bs)
-      => ValidSize ('S (Length as))
-      -> (a -> b)
-      -> (WrappedTuple as -> WrappedTuple bs)
-      -> WrappedTuple (a ': as)
-      -> WrappedTuple (b ': bs)
-    liftWrapped valid f_a f_as (WrappedTuple tuple) =
-        let (a :: a, as) = uncons (Proxy @as) valid tuple
-        in WrappedTuple $ cons (Proxy @bs) valid (f_a a, getWrappedTuple (f_as (WrappedTuple as)))
+    go Nil       k = k Nil id
+    go (x :* xs) k = smallerIsValid (Proxy @(Length xs)) $
+                       go xs $ \np f_np ->
+                         case x of
+                           Reclassified y f_y ->
+                             k (y :* np) (bimapTuple f_y f_np)
 
 {-------------------------------------------------------------------------------
   When we reclassify values of user-defined types with type arguments, we need

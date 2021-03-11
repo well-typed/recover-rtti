@@ -224,7 +224,7 @@ arbitraryClassifiedGen typSz
                         CC_Tuple (ConcreteClassifiers (hmap genClassifier np))
                     , classifiedGen = SizedGen $ \valSz -> do
                         let valSz' = valSz `div` lengthSList np
-                        WrappedTuple . tupleFromNP <$>
+                        tupleFromNP <$>
                           hsequence(hmap (runSized valSz' . classifiedGen) np)
                     }
             )
