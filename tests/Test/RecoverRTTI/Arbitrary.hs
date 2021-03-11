@@ -118,6 +118,7 @@ arbitraryClassifiedGen typSz
           , Some $ defaultClassifiedGen CC_Int8
           , Some $ defaultClassifiedGen CC_Int32
           , Some $ defaultClassifiedGen CC_Int64
+          , Some $ defaultClassifiedGen CC_Integer
           , Some $ defaultClassifiedGen CC_Ordering
           , Some $ defaultClassifiedGen CC_Unit
           , Some $ defaultClassifiedGen CC_Word
@@ -297,6 +298,7 @@ arbitraryClassifiedGen typSz
          C_Int8     -> ()
          C_Int32    -> ()
          C_Int64    -> ()
+         C_Integer  -> ()
          C_Ordering -> ()
          C_Unit     -> ()
          C_Word     -> ()

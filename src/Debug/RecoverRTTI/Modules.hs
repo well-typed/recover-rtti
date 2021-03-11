@@ -29,6 +29,7 @@ data KnownPkg =
   | PkgBase
   | PkgByteString
   | PkgText
+  | PkgIntegerWiredIn
 
 data family KnownModule (pkg :: KnownPkg)
 
@@ -37,15 +38,17 @@ data family KnownModule (pkg :: KnownPkg)
 -------------------------------------------------------------------------------}
 
 data instance Sing (pkg :: KnownPkg) where
-  SGhcPrim    :: Sing 'PkgGhcPrim
-  SBase       :: Sing 'PkgBase
-  SByteString :: Sing 'PkgByteString
-  SText       :: Sing 'PkgText
+  SGhcPrim        :: Sing 'PkgGhcPrim
+  SBase           :: Sing 'PkgBase
+  SByteString     :: Sing 'PkgByteString
+  SText           :: Sing 'PkgText
+  SIntegerWiredIn :: Sing 'PkgIntegerWiredIn
 
-instance SingI 'PkgGhcPrim    where sing = SGhcPrim
-instance SingI 'PkgBase       where sing = SBase
-instance SingI 'PkgByteString where sing = SByteString
-instance SingI 'PkgText       where sing = SText
+instance SingI 'PkgGhcPrim        where sing = SGhcPrim
+instance SingI 'PkgBase           where sing = SBase
+instance SingI 'PkgByteString     where sing = SByteString
+instance SingI 'PkgText           where sing = SText
+instance SingI 'PkgIntegerWiredIn where sing = SIntegerWiredIn
 
 {-------------------------------------------------------------------------------
   Modules in @ghc-pri@
@@ -86,6 +89,13 @@ data instance KnownModule 'PkgText =
   | DataTextInternalLazy
 
 {-------------------------------------------------------------------------------
+  Modules in @integer-wired-in@ (this is a virtual package)
+-------------------------------------------------------------------------------}
+
+data instance KnownModule 'PkgIntegerWiredIn =
+    GhcIntegerType
+
+{-------------------------------------------------------------------------------
   Matching
 -------------------------------------------------------------------------------}
 
@@ -109,23 +119,25 @@ inKnownModuleNested = go sing
     go _ _ _otherClosure = Nothing
 
     namePkg :: Sing (pkg :: KnownPkg) -> String
-    namePkg SGhcPrim    = "ghc-prim"
-    namePkg SBase       = "base"
-    namePkg SByteString = "bytestring"
-    namePkg SText       = "text"
+    namePkg SGhcPrim        = "ghc-prim"
+    namePkg SBase           = "base"
+    namePkg SByteString     = "bytestring"
+    namePkg SText           = "text"
+    namePkg SIntegerWiredIn = "integer-wired-in"
 
     nameModl :: Sing (pkg :: KnownPkg) -> KnownModule pkg -> String
-    nameModl SGhcPrim    GhcTypes                    = "GHC.Types"
-    nameModl SGhcPrim    GhcTuple                    = "GHC.Tuple"
-    nameModl SBase       GhcInt                      = "GHC.Int"
-    nameModl SBase       GhcWord                     = "GHC.Word"
-    nameModl SBase       GhcSTRef                    = "GHC.STRef"
-    nameModl SBase       GhcMVar                     = "GHC.MVar"
-    nameModl SBase       GhcConcSync                 = "GHC.Conc.Sync"
-    nameModl SBase       GhcMaybe                    = "GHC.Maybe"
-    nameModl SBase       DataEither                  = "Data.Either"
-    nameModl SByteString DataByteStringInternal      = "Data.ByteString.Internal"
-    nameModl SByteString DataByteStringLazyInternal  = "Data.ByteString.Lazy.Internal"
-    nameModl SByteString DataByteStringShortInternal = "Data.ByteString.Short.Internal"
-    nameModl SText       DataTextInternal            = "Data.Text.Internal"
-    nameModl SText       DataTextInternalLazy        = "Data.Text.Internal.Lazy"
+    nameModl SGhcPrim        GhcTypes                    = "GHC.Types"
+    nameModl SGhcPrim        GhcTuple                    = "GHC.Tuple"
+    nameModl SBase           GhcInt                      = "GHC.Int"
+    nameModl SBase           GhcWord                     = "GHC.Word"
+    nameModl SBase           GhcSTRef                    = "GHC.STRef"
+    nameModl SBase           GhcMVar                     = "GHC.MVar"
+    nameModl SBase           GhcConcSync                 = "GHC.Conc.Sync"
+    nameModl SBase           GhcMaybe                    = "GHC.Maybe"
+    nameModl SBase           DataEither                  = "Data.Either"
+    nameModl SByteString     DataByteStringInternal      = "Data.ByteString.Internal"
+    nameModl SByteString     DataByteStringLazyInternal  = "Data.ByteString.Lazy.Internal"
+    nameModl SByteString     DataByteStringShortInternal = "Data.ByteString.Short.Internal"
+    nameModl SText           DataTextInternal            = "Data.Text.Internal"
+    nameModl SText           DataTextInternalLazy        = "Data.Text.Internal.Lazy"
+    nameModl SIntegerWiredIn GhcIntegerType              = "GHC.Integer.Type"

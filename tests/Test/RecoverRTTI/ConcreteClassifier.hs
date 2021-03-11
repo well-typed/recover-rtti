@@ -63,6 +63,7 @@ data ConcreteClassifier (a :: Type) :: Type where
     CC_Int16    :: ConcreteClassifier Int16
     CC_Int32    :: ConcreteClassifier Int32
     CC_Int64    :: ConcreteClassifier Int64
+    CC_Integer  :: ConcreteClassifier Integer
     CC_Ordering :: ConcreteClassifier Ordering
     CC_Unit     :: ConcreteClassifier ()
     CC_Word     :: ConcreteClassifier Word
@@ -140,6 +141,7 @@ classifierSize = go
     go CC_Int16    = 1
     go CC_Int32    = 1
     go CC_Int64    = 1
+    go CC_Integer  = 1
     go CC_Ordering = 1
     go CC_Unit     = 1
     go CC_Word     = 1
@@ -225,6 +227,7 @@ sameConcreteClassifier = go
     go CC_Int16    CC_Int16    = Just Refl
     go CC_Int32    CC_Int32    = Just Refl
     go CC_Int64    CC_Int64    = Just Refl
+    go CC_Integer  CC_Integer  = Just Refl
     go CC_Ordering CC_Ordering = Just Refl
     go CC_Unit     CC_Unit     = Just Refl
     go CC_Word     CC_Word     = Just Refl
@@ -310,6 +313,7 @@ sameConcreteClassifier = go
         CC_Int16    -> ()
         CC_Int32    -> ()
         CC_Int64    -> ()
+        CC_Integer  -> ()
         CC_Ordering -> ()
         CC_Unit     -> ()
         CC_Word     -> ()

@@ -87,6 +87,7 @@ reclassify = go
       C_Int16    -> return $ Reclassified CC_Int16    id
       C_Int32    -> return $ Reclassified CC_Int32    id
       C_Int64    -> return $ Reclassified CC_Int64    id
+      C_Integer  -> return $ Reclassified CC_Integer  id
       C_Ordering -> return $ Reclassified CC_Ordering id
       C_Unit     -> return $ Reclassified CC_Unit     id
       C_Word     -> return $ Reclassified CC_Word     id

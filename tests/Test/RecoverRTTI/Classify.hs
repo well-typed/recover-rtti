@@ -49,6 +49,9 @@ prop_constants = withMaxSuccess 1 $ conjoin [
     , compareClassifier $ Value CC_Int16    1234
     , compareClassifier $ Value CC_Int32    1234
     , compareClassifier $ Value CC_Int64    1234
+    , compareClassifier $ Value CC_Integer  1234
+    , compareClassifier $ Value CC_Integer  (succ (fromIntegral (maxBound :: Int)))
+    , compareClassifier $ Value CC_Integer  (pred (fromIntegral (minBound :: Int)))
     , compareClassifier $ Value CC_Ordering LT
     , compareClassifier $ Value CC_Ordering GT
     , compareClassifier $ Value CC_Ordering EQ
@@ -121,6 +124,7 @@ prop_constants = withMaxSuccess 1 $ conjoin [
         CC_Int16    -> ()
         CC_Int32    -> ()
         CC_Int64    -> ()
+        CC_Integer  -> ()
         CC_Ordering -> ()
         CC_Unit     -> ()
         CC_Word     -> ()

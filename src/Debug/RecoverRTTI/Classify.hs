@@ -71,6 +71,11 @@ classifyIO x = do
       (inKnownModule GhcInt -> Just "I32#") -> return $ mustBe C_Int32
       (inKnownModule GhcInt -> Just "I64#") -> return $ mustBe C_Int64
 
+      -- GHC.Integer
+      (inKnownModule GhcIntegerType -> Just "S#")  -> return $ mustBe C_Integer
+      (inKnownModule GhcIntegerType -> Just "Jp#") -> return $ mustBe C_Integer
+      (inKnownModule GhcIntegerType -> Just "Jn#") -> return $ mustBe C_Integer
+
       -- GHC.Word
       (inKnownModule GhcWord -> Just "W8#")  -> return $ mustBe C_Word8
       (inKnownModule GhcWord -> Just "W16#") -> return $ mustBe C_Word16
@@ -295,6 +300,7 @@ canShowClassified = go
     go C_Int8     = Dict
     go C_Int32    = Dict
     go C_Int64    = Dict
+    go C_Integer  = Dict
     go C_Ordering = Dict
     go C_Unit     = Dict
     go C_Word     = Dict

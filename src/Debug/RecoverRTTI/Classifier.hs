@@ -58,6 +58,7 @@ data Classifier (a :: Type) :: Type where
   C_Int8     :: Classifier Int8
   C_Int32    :: Classifier Int32
   C_Int64    :: Classifier Int64
+  C_Integer  :: Classifier Integer
   C_Ordering :: Classifier Ordering
   C_Unit     :: Classifier ()
   C_Word     :: Classifier Word
