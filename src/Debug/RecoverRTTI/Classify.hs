@@ -105,41 +105,53 @@ classifyIO x = do
       (inKnownModule GhcMaybe -> Just "Nothing") ->
         return $ mustBe $ C_Maybe FNothing
       (inKnownModuleNested GhcMaybe -> Just ("Just", [Box x'])) -> do
-        c <- classifyIO x'
-        return $ mustBe $ C_Maybe (FJust (Classified c x'))
+        cx <- classifyIO x'
+        return $ mustBe $ C_Maybe (FJust (Classified cx x'))
 
       -- Either
       (inKnownModuleNested DataEither -> Just ("Left", [Box x'])) -> do
-        c <- classifyIO x'
-        return $ mustBe $ C_Either (FLeft (Classified c x'))
+        cx <- classifyIO x'
+        return $ mustBe $ C_Either (FLeft (Classified cx x'))
       (inKnownModuleNested DataEither -> Just ("Right", [Box x'])) -> do
-        c <- classifyIO x'
-        return $ mustBe $ C_Either (FRight (Classified c x'))
+        cx <- classifyIO x'
+        return $ mustBe $ C_Either (FRight (Classified cx x'))
 
       -- Lists (this includes the 'String' case)
       (inKnownModuleNested GhcTypes -> Just ("[]", [])) ->
         return $ mustBe $ C_List FNothing
       (inKnownModuleNested GhcTypes -> Just (":", [Box x', _xs])) -> do
-        c <- classifyIO x'
-        return $ case c of
+        cx <- classifyIO x'
+        return $ case cx of
           C_Char     -> mustBe $ C_String
-          _otherwise -> mustBe $ C_List (FJust (Classified c x'))
+          _otherwise -> mustBe $ C_List (FJust (Classified cx x'))
 
       -- Ratio
       (inKnownModuleNested GhcReal -> Just (":%", [Box x', _y'])) -> do
-        c <- classifyIO x'
-        return $ mustBe $ C_Ratio (Classified c x')
+        cx <- classifyIO x'
+        return $ mustBe $ C_Ratio (Classified cx x')
 
       -- Set
       -- We have to be careful: the size may or may not be unpacked
       (inKnownModule DataSetInternal -> Just "Tip") ->
         return $ mustBe $ C_Set FNothing
       (inKnownModuleNested DataSetInternal -> Just ("Bin", [Box x', _left, _right])) -> do
-        c <- classifyIO x'
-        return $ mustBe $ C_Set (FJust (Classified c x'))
+        cx <- classifyIO x'
+        return $ mustBe $ C_Set (FJust (Classified cx x'))
       (inKnownModuleNested DataSetInternal -> Just ("Bin", [_sz, Box x', _left, _right])) -> do
-        c <- classifyIO x'
-        return $ mustBe $ C_Set (FJust (Classified c x'))
+        cx <- classifyIO x'
+        return $ mustBe $ C_Set (FJust (Classified cx x'))
+
+      -- Map
+      (inKnownModule DataMapInternal -> Just "Tip") ->
+        return $ mustBe $ C_Map FNothingPair
+      (inKnownModuleNested DataMapInternal -> Just ("Bin", [Box x', Box y', _left, _right])) -> do
+        cx <- classifyIO x'
+        cy <- classifyIO y'
+        return $ mustBe $ C_Map (FJustPair (Classified cx x') (Classified cy y'))
+      (inKnownModuleNested DataMapInternal -> Just ("Bin", [_sz, Box x', Box y', _left, _right])) -> do
+        cx <- classifyIO x'
+        cy <- classifyIO y'
+        return $ mustBe $ C_Map (FJustPair (Classified cx x') (Classified cy y'))
 
       -- Tuples (of size 2..62)
       (inKnownModuleNested GhcTuple -> Just (
@@ -270,8 +282,9 @@ anythingToString :: forall a. a -> String
 anythingToString x = showClassifiedValue 0 (classified x) ""
 
 deriving instance Show (Classifier a)
-deriving instance Show (MaybeF  Classified a)
-deriving instance Show (EitherF Classified a b)
+deriving instance Show (MaybeF     Classified a)
+deriving instance Show (EitherF    Classified a b)
+deriving instance Show (MaybePairF Classified a b)
 deriving instance Show (Some Classified)
 
 instance Show (Classified a) where
@@ -351,11 +364,12 @@ canShowClassified = go
     -- Compound
     --
 
-    go (C_Maybe  c) = goMaybeF  c
-    go (C_Either c) = goEitherF c
-    go (C_List   c) = goMaybeF  c
-    go (C_Ratio  c) = goF       c
-    go (C_Set    c) = goMaybeF  c
+    go (C_Maybe  c) = goMaybeF     c
+    go (C_Either c) = goEitherF    c
+    go (C_List   c) = goMaybeF     c
+    go (C_Ratio  c) = goF          c
+    go (C_Set    c) = goMaybeF     c
+    go (C_Map    c) = goMaybePairF c
 
     go (C_Tuple (Classifiers cs)) =
         case all_NP (hmap (canShowClassified . classifiedType) cs) of
@@ -381,6 +395,15 @@ canShowClassified = go
       => Classified a -> Dict Show (f a )
     goF c = case go (classifiedType c) of
               Dict -> Dict
+
+    goMaybePairF :: forall f a b.
+         (forall x y. (Show x, Show y) => Show (f x y))
+      => MaybePairF Classified a b -> Dict Show (f a b)
+    goMaybePairF FNothingPair     = Dict
+    goMaybePairF (FJustPair c c') = case ( go (classifiedType c)
+                                         , go (classifiedType c')
+                                         ) of
+                                      (Dict, Dict) -> Dict
 
 instance KnownConstr c => Show (UserDefined c) where
   showsPrec p x =

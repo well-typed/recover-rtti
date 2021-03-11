@@ -37,6 +37,7 @@ import qualified Data.ByteString       as BS.Strict
 import qualified Data.ByteString.Lazy  as BS.Lazy
 import qualified Data.ByteString.Short as BS.Short
 import qualified Data.Set              as Set
+import qualified Data.Map              as Map
 import qualified Data.Text             as Text.Strict
 import qualified Data.Text.Lazy        as Text.Lazy
 
@@ -233,6 +234,24 @@ arbitraryClassifiedGen typSz
                 (defaultClassifiedGen CC_Int)
             )
 
+          -- Map
+          -- Pick Int for the keys, but randomly for the values
+        , guard (typSz >= 1) >> (return $ do
+              Some b <- arbitraryClassifiedGen (typSz - 1)
+              genMaybePairF
+                CC_Map
+                (return Map.empty)
+                (\(SizedGen genX) (SizedGen genY) -> SizedGen $ \valSz -> do
+                   n <- choose (1, 5)
+                   Map.fromList <$> vectorOf n (
+                       (,) <$> genX (valSz `div` n `div` 2)
+                           <*> genY (valSz `div` n `div` 2)
+                     )
+                )
+                (defaultClassifiedGen CC_Int)
+                b
+            )
+
           -- User-defined
         , guard (typSz >= 1) >> (return $ do
               Some a <- arbitraryClassifiedGen (typSz - 1)
@@ -306,6 +325,20 @@ arbitraryClassifiedGen typSz
           , Some $ ClassifiedGen (cc (FRight cB)) (genRight genB)
           ]
 
+    genMaybePairF ::
+         ( forall x y. (Show x, Show y) => Show (f x y)
+         , forall x y. (Eq   x, Eq   y) => Eq   (f x y)
+         )
+      => (forall x y. MaybePairF ConcreteClassifier x y -> ConcreteClassifier (f x y))
+      -> Gen (f Void Void)
+      -> (SizedGen a -> SizedGen b -> SizedGen (f a b))
+      -> ClassifiedGen a -> ClassifiedGen b -> Gen (Some ClassifiedGen)
+    genMaybePairF cc genNothing genJust (ClassifiedGen cA genA) (ClassifiedGen cB genB) =
+        elements [
+            Some $ ClassifiedGen (cc FNothingPair)      (ignoreSize $ genNothing)
+          , Some $ ClassifiedGen (cc (FJustPair cA cB)) (genJust genA genB)
+          ]
+
     genF ::
          ( forall x. Show x => Show (f x)
          , forall x. Eq   x => Eq   (f x)
@@ -357,6 +390,7 @@ arbitraryClassifiedGen typSz
          C_List{}   -> ()
          C_Ratio{}  -> ()
          C_Set{}    -> ()
+         C_Map{}    -> ()
          C_Tuple{}  -> ()
 
          -- Reference cells

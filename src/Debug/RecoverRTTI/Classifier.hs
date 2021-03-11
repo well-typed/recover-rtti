@@ -10,12 +10,14 @@ module Debug.RecoverRTTI.Classifier (
     -- * Partial information
   , MaybeF(..)
   , EitherF(..)
+  , MaybePairF(..)
   ) where
 
 import Data.Int
 import Data.Kind
 import Data.Ratio
 import Data.Set (Set)
+import Data.Map (Map)
 import Data.SOP
 import Data.Void
 import Data.Word
@@ -84,11 +86,12 @@ data Classifier (a :: Type) :: Type where
 
   -- Compound
 
-  C_Maybe  :: MaybeF  Classified a   -> Classifier (Maybe a)
-  C_Either :: EitherF Classified a b -> Classifier (Either a b)
-  C_List   :: MaybeF  Classified a   -> Classifier [a]
-  C_Ratio  :: Classified a           -> Classifier (Ratio a)
-  C_Set    :: MaybeF Classified a    -> Classifier (Set a)
+  C_Maybe  :: MaybeF     Classified a   -> Classifier (Maybe a)
+  C_Either :: EitherF    Classified a b -> Classifier (Either a b)
+  C_List   :: MaybeF     Classified a   -> Classifier [a]
+  C_Ratio  ::            Classified a   -> Classifier (Ratio a)
+  C_Set    :: MaybeF     Classified a   -> Classifier (Set a)
+  C_Map    :: MaybePairF Classified a b -> Classifier (Map a b)
 
   C_Tuple ::
        (SListI xs, IsValidSize (Length xs))
@@ -125,3 +128,7 @@ data MaybeF f a where
 data EitherF f a b where
   FLeft  :: f a -> EitherF f a Void
   FRight :: f b -> EitherF f Void b
+
+data MaybePairF f a b where
+  FNothingPair :: MaybePairF f Void Void
+  FJustPair    :: f a -> f b -> MaybePairF f a b

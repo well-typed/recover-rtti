@@ -113,11 +113,12 @@ reclassify = go
 
       -- Compound
 
-      C_Maybe  c' -> goMaybeF  fmap        CC_Maybe  c'
-      C_Either c' -> goEitherF bimap       CC_Either c'
-      C_List   c' -> goMaybeF  fmap        CC_List   c'
-      C_Ratio  c' -> goF       coerceRatio CC_Ratio  c'
-      C_Set    c' -> goMaybeF  coerceSet   CC_Set    c'
+      C_Maybe  c' -> goMaybeF     fmap        CC_Maybe  c'
+      C_Either c' -> goEitherF    bimap       CC_Either c'
+      C_List   c' -> goMaybeF     fmap        CC_List   c'
+      C_Ratio  c' -> goF          coerceRatio CC_Ratio  c'
+      C_Set    c' -> goMaybeF     coerceSet   CC_Set    c'
+      C_Map    c' -> goMaybePairF coerceMap   CC_Map    c'
 
       C_Tuple (Classifiers cs) ->
         reclassifyTuple <$> (hsequence' (hmap (Comp . reclassify) cs))
@@ -154,8 +155,9 @@ reclassify = go
     goMaybeF coerce cc (FJust x') =
         aux <$> reclassify x'
       where
-        aux :: Reclassified a -> Reclassified (f a)
-        aux (Reclassified c f) = Reclassified (cc (FJust c)) (coerce f)
+        aux :: Reclassified x -> Reclassified (f x)
+        aux (Reclassified c_x f_x) =
+            Reclassified (cc (FJust c_x)) (coerce f_x)
 
     goEitherF :: forall f a b.
          (forall x x' y y'. (x -> x') -> (y -> y') -> f x y -> f x' y')
@@ -165,13 +167,29 @@ reclassify = go
     goEitherF coerce cc (FLeft x') =
         aux <$> reclassify x'
       where
-        aux :: Reclassified a -> Reclassified (f a Void)
-        aux (Reclassified c f) = Reclassified (cc (FLeft c)) (coerce f id)
-    goEitherF coerce cc (FRight x') =
-        aux <$> reclassify x'
+        aux :: Reclassified x -> Reclassified (f x Void)
+        aux (Reclassified c_x f_x) =
+            Reclassified (cc (FLeft c_x)) (coerce f_x id)
+    goEitherF coerce cc (FRight y') =
+        aux <$> reclassify y'
       where
-        aux :: Reclassified b -> Reclassified (f Void b)
-        aux (Reclassified c f) = Reclassified (cc (FRight c)) (coerce id f)
+        aux :: Reclassified y -> Reclassified (f Void y)
+        aux (Reclassified c_y f_y) =
+            Reclassified (cc (FRight c_y)) (coerce id f_y)
+
+    goMaybePairF :: forall f a b.
+         (forall x x' y y'. (x -> x') -> (y -> y') -> f x y -> f x' y')
+      -> (forall x y. MaybePairF ConcreteClassifier x y -> ConcreteClassifier (f x y))
+      -> MaybePairF Classified a b
+      -> Except String (Reclassified (f a b))
+    goMaybePairF _ cc FNothingPair =
+        return $ Reclassified (cc FNothingPair) id
+    goMaybePairF coerce cc (FJustPair x' y') =
+        aux <$> reclassify x' <*> reclassify y'
+      where
+        aux :: Reclassified x -> Reclassified y -> Reclassified (f x y)
+        aux (Reclassified c_x f_x) (Reclassified c_y f_y) =
+            Reclassified (cc (FJustPair c_x c_y)) (coerce f_x f_y)
 
     goF :: forall f a.
          (forall x x'. (x -> x') -> f x -> f x')
@@ -181,8 +199,9 @@ reclassify = go
     goF coerce cc x' =
         aux <$> reclassify x'
       where
-        aux :: Reclassified a -> Reclassified (f a)
-        aux (Reclassified c f) = Reclassified (cc c) (coerce f)
+        aux :: Reclassified x -> Reclassified (f x)
+        aux (Reclassified c_x f_x) = 
+            Reclassified (cc c_x) (coerce f_x)
 
 reclassifyTuple ::
      (SListI xs, IsValidSize (Length xs))
@@ -218,8 +237,8 @@ coerceRatio f (x :% y) = f x :% f y
 coerceSet :: (x -> x') -> Set x -> Set x'
 coerceSet f = Set.fromDistinctAscList . map f . Set.toAscList
 
-_coerceMap :: (x -> x') -> (y -> y') -> Map x y -> Map x' y'
-_coerceMap f g = Map.fromDistinctAscList . map (bimap f g) . Map.toAscList
+coerceMap :: (x -> x') -> (y -> y') -> Map x y -> Map x' y'
+coerceMap f g = Map.fromDistinctAscList . map (bimap f g) . Map.toAscList
 
 {-------------------------------------------------------------------------------
   When we reclassify values of user-defined types with type arguments, we need
