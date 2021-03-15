@@ -8,7 +8,8 @@
 {-# LANGUAGE TypeOperators        #-}
 {-# LANGUAGE UndecidableInstances #-}
 
-module Debug.RecoverRTTI.Util.TypeLevel (
+-- | Generic type-level utilities
+module Debug.RecoverRTTI.TypeLevel (
     -- * Singletons
     Sing(..)
   , SingI(..)

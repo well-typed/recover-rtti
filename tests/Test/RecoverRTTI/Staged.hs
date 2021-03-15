@@ -49,7 +49,7 @@ import qualified Data.Map as Map
 import qualified Data.Set as Set
 
 import Debug.RecoverRTTI
-import Debug.RecoverRTTI.Util.TypeLevel
+import Debug.RecoverRTTI.TypeLevel
 
 import Test.RecoverRTTI.ConcreteClassifier
 import Test.RecoverRTTI.UserDefined

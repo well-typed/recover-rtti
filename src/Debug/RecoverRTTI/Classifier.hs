@@ -35,9 +35,9 @@ import qualified Data.Text.Lazy        as Text.Lazy
 
 import Debug.RecoverRTTI.Constr
 import Debug.RecoverRTTI.Tuple
+import Debug.RecoverRTTI.TypeLevel
 import Debug.RecoverRTTI.UserDefined
 import Debug.RecoverRTTI.Wrappers
-import Debug.RecoverRTTI.Util.TypeLevel
 
 {-------------------------------------------------------------------------------
   Classifier

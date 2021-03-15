@@ -28,7 +28,7 @@ import Data.Proxy
 import Data.SOP
 import GHC.TypeLits (KnownSymbol, SomeSymbol(..), someSymbolVal)
 
-import Debug.RecoverRTTI.Util.TypeLevel
+import Debug.RecoverRTTI.TypeLevel
 
 {-------------------------------------------------------------------------------
   Existentials

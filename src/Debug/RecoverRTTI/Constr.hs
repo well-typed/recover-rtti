@@ -44,8 +44,8 @@ import Data.Type.Equality
 import GHC.Generics
 import GHC.TypeLits
 
+import Debug.RecoverRTTI.TypeLevel
 import Debug.RecoverRTTI.Util
-import Debug.RecoverRTTI.Util.TypeLevel
 
 {-------------------------------------------------------------------------------
   Type-level metadata

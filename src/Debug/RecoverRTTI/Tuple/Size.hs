@@ -24,8 +24,8 @@ module Debug.RecoverRTTI.Tuple.Size (
 import Data.Proxy
 import Data.SOP.Dict
 
+import Debug.RecoverRTTI.TypeLevel
 import Debug.RecoverRTTI.Util
-import Debug.RecoverRTTI.Util.TypeLevel
 
 {-------------------------------------------------------------------------------
   Not generated

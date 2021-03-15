@@ -18,7 +18,7 @@ import Control.Monad
 import Data.List (isPrefixOf)
 
 import Debug.RecoverRTTI.FlatClosure
-import Debug.RecoverRTTI.Util.TypeLevel
+import Debug.RecoverRTTI.TypeLevel
 
 {-------------------------------------------------------------------------------
   Packages

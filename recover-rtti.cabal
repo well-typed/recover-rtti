@@ -24,7 +24,7 @@ Tested-With: GHC ==8.8.4 || ==8.10.4 || ==9.0.1
 
 library
     exposed-modules:  Debug.RecoverRTTI
-                      Debug.RecoverRTTI.Util.TypeLevel
+                      Debug.RecoverRTTI.TypeLevel
 
     other-modules:    Debug.RecoverRTTI.Classifier
                       Debug.RecoverRTTI.Classify

@@ -47,9 +47,9 @@ import Debug.RecoverRTTI.Constr
 import Debug.RecoverRTTI.FlatClosure
 import Debug.RecoverRTTI.Modules
 import Debug.RecoverRTTI.Tuple
+import Debug.RecoverRTTI.TypeLevel
 import Debug.RecoverRTTI.UserDefined
 import Debug.RecoverRTTI.Util
-import Debug.RecoverRTTI.Util.TypeLevel
 
 {-------------------------------------------------------------------------------
   Classification

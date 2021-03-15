@@ -40,7 +40,7 @@ import qualified Data.Text             as Text.Strict
 import qualified Data.Text.Lazy        as Text.Lazy
 
 import Debug.RecoverRTTI
-import Debug.RecoverRTTI.Util.TypeLevel
+import Debug.RecoverRTTI.TypeLevel
 
 import Test.RecoverRTTI.UserDefined
 

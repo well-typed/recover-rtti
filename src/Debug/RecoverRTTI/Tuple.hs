@@ -23,7 +23,7 @@ import Data.SOP hiding (NS(..))
 
 import Debug.RecoverRTTI.Tuple.Recursive
 import Debug.RecoverRTTI.Tuple.Size
-import Debug.RecoverRTTI.Util.TypeLevel
+import Debug.RecoverRTTI.TypeLevel
 
 {-------------------------------------------------------------------------------
   Wrapped tuple
