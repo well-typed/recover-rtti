@@ -16,8 +16,6 @@ module Debug.RecoverRTTI.Util (
   , elimKnownSymbol
     -- * Constraints
   , keepRedundantConstraint
-    -- * Traversable
-  , checkEmptyTraversable
     -- * Lists
   , dropEnds
     -- * SOP
@@ -28,7 +26,6 @@ module Debug.RecoverRTTI.Util (
 import Data.Kind
 import Data.Proxy
 import Data.SOP
-import Data.Void
 import GHC.TypeLits (KnownSymbol, SomeSymbol(..), someSymbolVal)
 
 import Debug.RecoverRTTI.Util.TypeLevel
@@ -58,17 +55,6 @@ elimKnownSymbol s k =
 -- >     _ = keepRedundantConstraint (Proxy @ConstraintUsefulForDebugging))
 keepRedundantConstraint :: c => proxy c -> ()
 keepRedundantConstraint _ = ()
-
-{-------------------------------------------------------------------------------
-  Traversable
--------------------------------------------------------------------------------}
-
--- | Check if a traversable data structure is empty
---
--- Returns evidence: an element of the data-structure if it's non-empty,
--- or evidence that it is empty otherwise.
-checkEmptyTraversable :: Traversable t => t a -> Either a (t Void)
-checkEmptyTraversable = traverse Left
 
 {-------------------------------------------------------------------------------
   Lists

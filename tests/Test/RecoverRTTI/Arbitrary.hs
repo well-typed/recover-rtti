@@ -52,7 +52,6 @@ import qualified Data.Vector           as Vector
 import Test.QuickCheck hiding (classify, NonEmpty)
 
 import Debug.RecoverRTTI
-import Debug.RecoverRTTI.Util
 import Debug.RecoverRTTI.Util.TypeLevel
 
 import Test.RecoverRTTI.ConcreteClassifier

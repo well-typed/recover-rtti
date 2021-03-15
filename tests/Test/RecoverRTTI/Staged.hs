@@ -49,7 +49,6 @@ import qualified Data.Map as Map
 import qualified Data.Set as Set
 
 import Debug.RecoverRTTI
-import Debug.RecoverRTTI.Util
 import Debug.RecoverRTTI.Util.TypeLevel
 
 import Test.RecoverRTTI.ConcreteClassifier
@@ -338,3 +337,21 @@ firstMatch err = go
     go :: [Except e (Maybe a)] -> Except e a
     go []     = throwError err
     go (x:xs) = x >>= maybe (go xs) return
+
+bimapTuple ::
+      ( SListI xs
+      , SListI ys
+      , IsValidSize (Length (x ': xs))
+      , Length xs ~ Length ys
+      )
+   => (x -> y)
+   -> (WrappedTuple xs -> WrappedTuple ys)
+   -> WrappedTuple (x ': xs) -> WrappedTuple (y ': ys)
+bimapTuple f g (TCons x xs) = TCons (f x) (g xs)
+
+-- | Check if a traversable data structure is empty
+--
+-- Returns evidence: an element of the data-structure if it's non-empty,
+-- or evidence that it is empty otherwise.
+checkEmptyTraversable :: Traversable t => t a -> Either a (t Void)
+checkEmptyTraversable = traverse Left

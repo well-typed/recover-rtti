@@ -40,6 +40,11 @@ smallerIsValid' = \(ValidSize (SS n) tooBig) -> ValidSize n $ aux tooBig
     aux :: (TooBig ('S n) -> r) -> TooBig n -> r
     aux tooBig TooBig = tooBig (TooBig :: TooBig ('S n))
 
+-- | Smaller tuple sizes are always valid
+--
+-- This function is primarily useful when doing recursion on tuples: we may have
+-- in scope evidence that @('S n)@ is a valid tuple size, and need to know that
+-- @n@ is a valid tuple size in order to be able to make the recursive call.
 smallerIsValid :: forall n r.
      IsValidSize ('S n)
   => Proxy ('S n)
@@ -52,6 +57,11 @@ smallerIsValid _ k =
     valid :: ValidSize ('S n)
     valid = isValidSize
 
+-- | Valid tuple sizes
+--
+-- GHC does not support tuples larger than 62 fields. We do allow for tuples of
+-- zero size (which we interpret as unit @()@) and tuples of size one
+-- (where @Tuple '[x] ~ x@).
 class SingI n => IsValidSize n where
   isValidSize :: ValidSize n
 
@@ -59,9 +69,11 @@ class SingI n => IsValidSize n where
   Generated
 -------------------------------------------------------------------------------}
 
+-- | Tuples with too many fields (more than 62)
 data TooBig (n :: Nat) where
   TooBig :: TooBig ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S n)))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))
 
+-- | Lift term-level evidence to type-level
 liftValidSize :: forall n. ValidSize n -> Dict IsValidSize n
 liftValidSize (ValidSize n notTooBig) = go n
   where
@@ -384,6 +396,7 @@ instance IsValidSize ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S
 instance IsValidSize ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S 'Z)))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))) where
   isValidSize = ValidSize sing $ \case
 
+-- | Check the given size is a valid tuple size
 toValidSize :: Int -> Maybe (Some ValidSize)
 toValidSize = go
   where

@@ -11,8 +11,6 @@
 module Debug.RecoverRTTI.Tuple (
     -- * Wrapped tuple
     WrappedTuple(WrappedTuple, TNil, TCons)
-    -- * Auxiliary
-  , bimapTuple
     -- * Conversion between tuples and NP
   , tupleFromNP
   , tupleToNP
@@ -35,6 +33,11 @@ import Debug.RecoverRTTI.Util.TypeLevel
   wrapped tuple.
 -------------------------------------------------------------------------------}
 
+-- | Inductive tuple
+--
+-- Inductive view on tuples that can be constructed with or pattern matched on
+-- using 'TNil' and 'TCons'. The underlying representation is a /true/ tuple
+-- however; for example, @Tuple '[Int, Bool, Char] ~ (Int, Bool, Char)@.
 newtype WrappedTuple xs = WrappedTuple (Tuple xs)
 
 pattern TNil ::
@@ -54,21 +57,6 @@ pattern TCons x xs <- (viewWrapped -> TupleNonEmpty x xs)
     TCons x xs = consWrapped (x, xs)
 
 {-# COMPLETE TNil, TCons #-}
-
-{-------------------------------------------------------------------------------
-  Auxiliary
--------------------------------------------------------------------------------}
-
-bimapTuple ::
-      ( SListI xs
-      , SListI ys
-      , IsValidSize (Length (x ': xs))
-      , Length xs ~ Length ys
-      )
-   => (x -> y)
-   -> (WrappedTuple xs -> WrappedTuple ys)
-   -> WrappedTuple (x ': xs) -> WrappedTuple (y ': ys)
-bimapTuple f g (TCons x xs) = TCons (f x) (g xs)
 
 {-------------------------------------------------------------------------------
   Conversion to/from NP

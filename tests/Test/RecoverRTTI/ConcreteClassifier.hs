@@ -40,7 +40,6 @@ import qualified Data.Text             as Text.Strict
 import qualified Data.Text.Lazy        as Text.Lazy
 
 import Debug.RecoverRTTI
-import Debug.RecoverRTTI.Util
 import Debug.RecoverRTTI.Util.TypeLevel
 
 import Test.RecoverRTTI.UserDefined
@@ -209,7 +208,7 @@ classifierSize = go
     -- User-defined
     go (CC_User_NonRec   c) = 1 + goMaybeF c
     go (CC_User_Rec      c) = 1 + goMaybeF c
-    go (CC_User_Unlifted c) = 1 + goMaybeF c 
+    go (CC_User_Unlifted c) = 1 + goMaybeF c
 
     goMaybeF :: MaybeF ConcreteClassifier a -> Int
     goMaybeF FNothing  = 0

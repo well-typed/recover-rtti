@@ -2,7 +2,7 @@
 
 module Test.RecoverRTTI.Sanity (tests) where
 
-import Debug.RecoverRTTI.Util
+import Debug.RecoverRTTI
 
 import Test.Tasty
 import Test.Tasty.QuickCheck

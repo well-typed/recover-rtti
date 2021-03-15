@@ -24,22 +24,21 @@ Tested-With: GHC ==8.8.4 || ==8.10.4 || ==9.0.1
 
 library
     exposed-modules:  Debug.RecoverRTTI
-
-                      -- Other modules exported primarily for the tests
-                      Debug.RecoverRTTI.FlatClosure
-                      Debug.RecoverRTTI.Util
                       Debug.RecoverRTTI.Util.TypeLevel
 
     other-modules:    Debug.RecoverRTTI.Classifier
                       Debug.RecoverRTTI.Classify
                       Debug.RecoverRTTI.ClosureTree
                       Debug.RecoverRTTI.Constr
+                      Debug.RecoverRTTI.FlatClosure
                       Debug.RecoverRTTI.Modules
                       Debug.RecoverRTTI.Tuple
                       Debug.RecoverRTTI.Tuple.Recursive
                       Debug.RecoverRTTI.Tuple.Size
                       Debug.RecoverRTTI.UserDefined
+                      Debug.RecoverRTTI.Util
                       Debug.RecoverRTTI.Wrappers
+
     build-depends:    base        >= 4.13  && < 4.16
                     , aeson       >= 1.5   && < 1.6
                     , bytestring  >= 0.10  && < 0.11

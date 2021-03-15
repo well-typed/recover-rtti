@@ -23,6 +23,10 @@ module Debug.RecoverRTTI.Constr (
   , knownConstr
   , prettyKnownConstr
   , elimKnownConstr
+    -- | Type-level extracts
+  , ConstrPkg
+  , ConstrModl
+  , ConstrName
     -- | Compute all known constructors
   , Constrs
   , GConstrs
@@ -47,10 +51,11 @@ import Debug.RecoverRTTI.Util.TypeLevel
   Type-level metadata
 -------------------------------------------------------------------------------}
 
+-- | Information about a constructor
 data Constr a = Constr {
-      constrPkg  :: a
-    , constrModl :: a
-    , constrName :: a
+      constrPkg  :: a  -- ^ Package
+    , constrModl :: a  -- ^ Module
+    , constrName :: a  -- ^ Constructor name
     }
   deriving (Show, Eq)
 
@@ -170,9 +175,11 @@ type family ConstrOf (a :: Type) (c :: Constr Symbol) :: Constraint where
                   )
           ))
 
+-- | Evidence that @c@ is a constructor of @a@
 data IsConstrOf (a :: Type) (c :: Constr Symbol) where
   IsConstrOf :: Elem c (Constrs a) ~ 'True => IsConstrOf a c
 
+-- | Check if @c@ is a constructof of @a@
 checkIsConstrOf :: forall (a :: Type) (c :: Constr Symbol).
       SingI (Constrs a)
    => Sing c -> Maybe (IsConstrOf a c)

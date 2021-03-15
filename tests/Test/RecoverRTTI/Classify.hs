@@ -24,7 +24,6 @@ import Test.Tasty
 import Test.Tasty.QuickCheck hiding (classify, NonEmpty)
 
 import Debug.RecoverRTTI
-import Debug.RecoverRTTI.Util
 
 import Test.RecoverRTTI.Arbitrary
 import Test.RecoverRTTI.ConcreteClassifier
