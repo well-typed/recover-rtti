@@ -412,7 +412,7 @@ fromUserDefined = \(UserDefined x) -> unsafePerformIO $ go x
 --   what the /derived/ show instance would have done.
 -- * Record field names are not known at runtime, so they are not shown.
 -- * UNPACKed data is not visible to this library (if you compile with @-O0@
---   @gch@ will not unpack data, so that might be a workaround if necessary).
+--   @ghc@ will not unpack data, so that might be a workaround if necessary).
 --
 -- If classification fails, we show the actual closure.
 anythingToString :: forall a. a -> String
