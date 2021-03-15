@@ -53,8 +53,6 @@ module Debug.RecoverRTTI (
   , smallerIsValid
   , toValidSize
   , liftValidSize
-    -- Singleton instances
-  , Sing(..)
   ) where
 
 import Debug.RecoverRTTI.Classifier
