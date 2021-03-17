@@ -45,6 +45,7 @@ import qualified Data.Map                    as Map
 import qualified Data.Sequence               as Seq
 import qualified Data.Set                    as Set
 import qualified Data.Tree                   as Tree
+import qualified Data.Vector                 as Vector.Boxed
 
 import Debug.RecoverRTTI.Classifier
 import Debug.RecoverRTTI.Constr
@@ -221,6 +222,10 @@ classifyIO x = do
       (inKnownModule DataHashMapInternalArray -> Just "Array") ->
         mustBe <$> classifyHMArray (unsafeCoerce x)
 
+      -- Boxed vectors
+      (inKnownModule DataVector -> Just "Vector") ->
+        mustBe <$> classifyVectorBoxed (unsafeCoerce x)
+
       --
       -- Reference cells
       --
@@ -268,7 +273,9 @@ classify = unsafePerformIO . runExceptT . classifyIO
   Classification for compound types
 -------------------------------------------------------------------------------}
 
-classifyMaybe :: Maybe a -> ExceptT Closure IO (Classifier (Maybe a))
+classifyMaybe ::
+     Maybe a
+  -> ExceptT Closure IO (Classifier (Maybe a))
 classifyMaybe x =
     case x of
       Nothing -> return $ mustBe $ C_Maybe FNothing
@@ -276,7 +283,9 @@ classifyMaybe x =
         cx <- classifyIO x'
         return $ mustBe $ C_Maybe (FJust (Classified cx x'))
 
-classifyEither :: Either a b -> ExceptT Closure IO (Classifier (Either a b))
+classifyEither ::
+     Either a b
+  -> ExceptT Closure IO (Classifier (Either a b))
 classifyEither x =
     case x of
       Left x' -> do
@@ -286,7 +295,9 @@ classifyEither x =
         cy <- classifyIO y'
         return $ mustBe $ C_Either (FRight (Classified cy y'))
 
-classifyList :: [a] -> ExceptT Closure IO (Classifier [a])
+classifyList ::
+     [a]
+  -> ExceptT Closure IO (Classifier [a])
 classifyList x =
     case x of
       []   -> return $ mustBe $ C_List FNothing
@@ -296,12 +307,16 @@ classifyList x =
           C_Char     -> mustBe $ C_String
           _otherwise -> mustBe $ C_List (FJust (Classified cx x'))
 
-classifyRatio :: Ratio a -> ExceptT Closure IO (Classifier (Ratio a))
+classifyRatio ::
+     Ratio a
+  -> ExceptT Closure IO (Classifier (Ratio a))
 classifyRatio (x' :% _) = do
     cx <- classifyIO x'
     return $ mustBe $ C_Ratio (Classified cx x')
 
-classifySet :: Set a -> ExceptT Closure IO (Classifier (Set a))
+classifySet ::
+     Set a
+  -> ExceptT Closure IO (Classifier (Set a))
 classifySet x =
     case Set.lookupMin x of
       Nothing -> return $ mustBe $ C_Set FNothing
@@ -309,7 +324,9 @@ classifySet x =
         cx <- classifyIO x'
         return $ mustBe $ C_Set (FJust (Classified cx x'))
 
-classifyMap :: Map a b -> ExceptT Closure IO (Classifier (Map a b))
+classifyMap ::
+     Map a b
+  -> ExceptT Closure IO (Classifier (Map a b))
 classifyMap x =
     case Map.lookupMin x of
       Nothing       -> return $ mustBe $ C_Map FNothingPair
@@ -318,7 +335,9 @@ classifyMap x =
         cy <- classifyIO y'
         return $ mustBe $ C_Map (FJustPair (Classified cx x') (Classified cy y'))
 
-classifyIntMap :: IntMap a -> ExceptT Closure IO (Classifier (IntMap a))
+classifyIntMap ::
+     IntMap a
+  -> ExceptT Closure IO (Classifier (IntMap a))
 classifyIntMap x =
     case IntMap.minView x of
       Nothing      -> return $ mustBe $ C_IntMap FNothing
@@ -326,7 +345,9 @@ classifyIntMap x =
         cx <- classifyIO x'
         return $ mustBe $ C_IntMap (FJust (Classified cx x'))
 
-classifySequence :: Seq a -> ExceptT Closure IO (Classifier (Seq a))
+classifySequence ::
+     Seq a
+  -> ExceptT Closure IO (Classifier (Seq a))
 classifySequence x =
     case Seq.viewl x of
       Seq.EmptyL  -> return $ mustBe $ C_Sequence FNothing
@@ -334,14 +355,18 @@ classifySequence x =
         cx <- classifyIO x'
         return $ mustBe $ C_Sequence (FJust (Classified cx x'))
 
-classifyTree :: Tree a -> ExceptT Closure IO (Classifier (Tree a))
+classifyTree ::
+     Tree a
+  -> ExceptT Closure IO (Classifier (Tree a))
 classifyTree x =
     case x of
       Tree.Node x' _ -> do
         cx <- classifyIO x'
         return $ mustBe $ C_Tree (Classified cx x')
 
-classifyHashMap :: HashMap a b -> ExceptT Closure IO (Classifier (HashMap a b))
+classifyHashMap ::
+     HashMap a b
+  -> ExceptT Closure IO (Classifier (HashMap a b))
 classifyHashMap x =
     case HashMap.toList x of
       []           -> return $ mustBe $ C_HashMap FNothingPair
@@ -352,7 +377,9 @@ classifyHashMap x =
           C_Unit     -> mustBe $ C_HashSet (Classified cx x')
           _otherwise -> mustBe $ C_HashMap (FJustPair (Classified cx x') (Classified cy y'))
 
-classifyHMArray :: HashMap.Array a -> ExceptT Closure IO (Classifier (Tree a))
+classifyHMArray ::
+     HashMap.Array a
+  -> ExceptT Closure IO (Classifier (Tree a))
 classifyHMArray x =
     if HashMap.Array.length x == 0
       then return $ mustBe $ C_HM_Array FNothing
@@ -360,6 +387,17 @@ classifyHMArray x =
         let x' = HashMap.Array.index x 0
         cx <- classifyIO x'
         return $ mustBe $ C_HM_Array (FJust (Classified cx x'))
+
+classifyVectorBoxed ::
+     Vector.Boxed.Vector a
+  -> ExceptT Closure IO (Classifier (Vector.Boxed.Vector a))
+classifyVectorBoxed x =
+    if Vector.Boxed.length x == 0
+      then return $ mustBe $ C_Vector_Boxed FNothing
+      else do
+        let x' = Vector.Boxed.head x
+        cx <- classifyIO x'
+        return $ mustBe $ C_Vector_Boxed (FJust (Classified cx x'))
 
 classifyTuple ::
      (SListI xs, IsValidSize (Length xs))
@@ -547,19 +585,20 @@ canShowClassified = go
     -- Compound
     --
 
-    go (C_Maybe    c) = goMaybeF     c
-    go (C_Either   c) = goEitherF    c
-    go (C_List     c) = goMaybeF     c
-    go (C_Ratio    c) = goF          c
-    go (C_Set      c) = goMaybeF     c
-    go (C_Map      c) = goMaybePairF c
-    go  C_IntSet      = Dict
-    go (C_IntMap   c) = goMaybeF     c
-    go (C_Sequence c) = goMaybeF     c
-    go (C_Tree     c) = goF          c
-    go (C_HashSet  c) = goF          c
-    go (C_HashMap  c) = goMaybePairF c
-    go (C_HM_Array c) = goMaybeF     c
+    go (C_Maybe        c) = goMaybeF     c
+    go (C_Either       c) = goEitherF    c
+    go (C_List         c) = goMaybeF     c
+    go (C_Ratio        c) = goF          c
+    go (C_Set          c) = goMaybeF     c
+    go (C_Map          c) = goMaybePairF c
+    go  C_IntSet          = Dict
+    go (C_IntMap       c) = goMaybeF     c
+    go (C_Sequence     c) = goMaybeF     c
+    go (C_Tree         c) = goF          c
+    go (C_HashSet      c) = goF          c
+    go (C_HashMap      c) = goMaybePairF c
+    go (C_HM_Array     c) = goMaybeF     c
+    go (C_Vector_Boxed c) = goMaybeF     c
 
     go (C_Tuple (Classifiers cs)) =
         case all_NP (hmap (canShowClassified . classifiedType) cs) of

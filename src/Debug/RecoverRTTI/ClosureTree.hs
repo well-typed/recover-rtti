@@ -14,8 +14,8 @@ showClosureTree :: Int -> a -> IO String
 showClosureTree = \d -> go d 0 . asBox
   where
     go :: Int -> Int -> Box -> IO String
-    go 0 _ _          = return ""
-    go d i x@(Box !_) = do
+    go 0 _ _ = return ""
+    go d i x = do
         closure <- getBoxedClosureData x
         render closure <$> mapM (go (d - 1) (i + 2)) (allClosures closure)
       where

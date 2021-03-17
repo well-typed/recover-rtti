@@ -51,7 +51,7 @@ import qualified Data.Set                    as Set
 import qualified Data.Text                   as Text.Strict
 import qualified Data.Text.Lazy              as Text.Lazy
 import qualified Data.Tree                   as Tree
-import qualified Data.Vector                 as Vector
+import qualified Data.Vector                 as Vector.Boxed
 
 import Test.QuickCheck hiding (classify, NonEmpty)
 
@@ -319,6 +319,16 @@ arbitraryClassifiedGen typSz
                 a
             )
 
+          -- Boxed vectors
+        , guard (typSz >= 1) >> (return $ do
+              Some a <- arbitraryClassifiedGen (typSz - 1)
+              genMaybeF
+                CC_Vector_Boxed
+                (return Vector.Boxed.empty)
+                (genListLike Vector.Boxed.fromList)
+                a
+            )
+
           --
           -- User-defined
           --
@@ -405,20 +415,21 @@ arbitraryClassifiedGen typSz
 
          -- Compound
 
-         C_Maybe{}    -> ()
-         C_Either{}   -> ()
-         C_List{}     -> ()
-         C_Ratio{}    -> ()
-         C_Set{}      -> ()
-         C_Map{}      -> ()
-         C_IntSet{}   -> ()
-         C_IntMap{}   -> ()
-         C_Tuple{}    -> ()
-         C_Sequence{} -> ()
-         C_Tree{}     -> ()
-         C_HashSet{}  -> ()
-         C_HashMap{}  -> ()
-         C_HM_Array{} -> ()
+         C_Maybe{}        -> ()
+         C_Either{}       -> ()
+         C_List{}         -> ()
+         C_Ratio{}        -> ()
+         C_Set{}          -> ()
+         C_Map{}          -> ()
+         C_IntSet{}       -> ()
+         C_IntMap{}       -> ()
+         C_Tuple{}        -> ()
+         C_Sequence{}     -> ()
+         C_Tree{}         -> ()
+         C_HashSet{}      -> ()
+         C_HashMap{}      -> ()
+         C_HM_Array{}     -> ()
+         C_Vector_Boxed{} -> ()
 
          -- Reference cells
 
@@ -593,7 +604,7 @@ arbitraryAesonValue = SizedGen $ go
     recursive :: Int -> [Gen Aeson.Value]
     recursive sz = [
           do n <- choose (0, 5)
-             Aeson.Array . Vector.fromList <$> replicateM n (go (sz `div` n))
+             Aeson.Array . Vector.Boxed.fromList <$> replicateM n (go (sz `div` n))
         , do n <- choose (0, 5)
              Aeson.object <$> replicateM n (
                      (Aeson..=)

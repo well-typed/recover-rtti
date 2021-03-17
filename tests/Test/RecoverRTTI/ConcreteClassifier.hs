@@ -41,6 +41,7 @@ import qualified Data.ByteString.Short       as BS.Short
 import qualified Data.HashMap.Internal.Array as HashMap (Array)
 import qualified Data.Text                   as Text.Strict
 import qualified Data.Text.Lazy              as Text.Lazy
+import qualified Data.Vector                 as Vector.Boxed
 
 import Debug.RecoverRTTI
 import Debug.RecoverRTTI.TypeLevel
@@ -97,19 +98,20 @@ data ConcreteClassifier (a :: Type) :: Type where
 
     -- Compound
 
-    CC_Maybe    :: MaybeF     ConcreteClassifier a   -> ConcreteClassifier (Maybe a)
-    CC_Either   :: EitherF    ConcreteClassifier a b -> ConcreteClassifier (Either a b)
-    CC_List     :: MaybeF     ConcreteClassifier a   -> ConcreteClassifier [a]
-    CC_Ratio    ::            ConcreteClassifier a   -> ConcreteClassifier (Ratio a)
-    CC_Set      :: MaybeF     ConcreteClassifier a   -> ConcreteClassifier (Set a)
-    CC_Map      :: MaybePairF ConcreteClassifier a b -> ConcreteClassifier (Map a b)
-    CC_IntSet   ::                                      ConcreteClassifier IntSet
-    CC_IntMap   :: MaybeF     ConcreteClassifier a   -> ConcreteClassifier (IntMap a)
-    CC_Sequence :: MaybeF     ConcreteClassifier a   -> ConcreteClassifier (Seq a)
-    CC_Tree     ::            ConcreteClassifier a   -> ConcreteClassifier (Tree a)
-    CC_HashSet  ::            ConcreteClassifier a   -> ConcreteClassifier (HashSet a)
-    CC_HashMap  :: MaybePairF ConcreteClassifier a b -> ConcreteClassifier (HashMap a b)
-    CC_HM_Array :: MaybeF     ConcreteClassifier a   -> ConcreteClassifier (HashMap.Array a)
+    CC_Maybe        :: MaybeF     ConcreteClassifier a   -> ConcreteClassifier (Maybe a)
+    CC_Either       :: EitherF    ConcreteClassifier a b -> ConcreteClassifier (Either a b)
+    CC_List         :: MaybeF     ConcreteClassifier a   -> ConcreteClassifier [a]
+    CC_Ratio        ::            ConcreteClassifier a   -> ConcreteClassifier (Ratio a)
+    CC_Set          :: MaybeF     ConcreteClassifier a   -> ConcreteClassifier (Set a)
+    CC_Map          :: MaybePairF ConcreteClassifier a b -> ConcreteClassifier (Map a b)
+    CC_IntSet       ::                                      ConcreteClassifier IntSet
+    CC_IntMap       :: MaybeF     ConcreteClassifier a   -> ConcreteClassifier (IntMap a)
+    CC_Sequence     :: MaybeF     ConcreteClassifier a   -> ConcreteClassifier (Seq a)
+    CC_Tree         ::            ConcreteClassifier a   -> ConcreteClassifier (Tree a)
+    CC_HashSet      ::            ConcreteClassifier a   -> ConcreteClassifier (HashSet a)
+    CC_HashMap      :: MaybePairF ConcreteClassifier a b -> ConcreteClassifier (HashMap a b)
+    CC_HM_Array     :: MaybeF     ConcreteClassifier a   -> ConcreteClassifier (HashMap.Array a)
+    CC_Vector_Boxed :: MaybeF     ConcreteClassifier a   -> ConcreteClassifier (Vector.Boxed.Vector a)
 
     CC_Tuple ::
          (SListI xs, IsValidSize (Length xs))
@@ -189,19 +191,20 @@ classifierSize = go
 
     -- Compound
 
-    go (CC_Maybe    c) = 1 + goMaybeF     c
-    go (CC_Either   c) = 1 + goEitherF    c
-    go (CC_List     c) = 1 + goMaybeF     c
-    go (CC_Ratio    c) = 1 + go           c
-    go (CC_Set      c) = 1 + goMaybeF     c
-    go (CC_Map      c) = 1 + goMaybePairF c
-    go  CC_IntSet      = 1
-    go (CC_IntMap   c) = 1 + goMaybeF     c
-    go (CC_Sequence c) = 1 + goMaybeF     c
-    go (CC_Tree     c) = 1 + go           c
-    go (CC_HashSet  c) = 1 + go           c
-    go (CC_HashMap  c) = 1 + goMaybePairF c
-    go (CC_HM_Array c) = 1 + goMaybeF     c
+    go (CC_Maybe        c) = 1 + goMaybeF     c
+    go (CC_Either       c) = 1 + goEitherF    c
+    go (CC_List         c) = 1 + goMaybeF     c
+    go (CC_Ratio        c) = 1 + go           c
+    go (CC_Set          c) = 1 + goMaybeF     c
+    go (CC_Map          c) = 1 + goMaybePairF c
+    go  CC_IntSet          = 1
+    go (CC_IntMap       c) = 1 + goMaybeF     c
+    go (CC_Sequence     c) = 1 + goMaybeF     c
+    go (CC_Tree         c) = 1 + go           c
+    go (CC_HashSet      c) = 1 + go           c
+    go (CC_HashMap      c) = 1 + goMaybePairF c
+    go (CC_HM_Array     c) = 1 + goMaybeF     c
+    go (CC_Vector_Boxed c) = 1 + goMaybeF     c
 
     go (CC_Tuple (ConcreteClassifiers cs)) =
         1 + sum (hcollapse (hmap (K . go) cs))
@@ -295,19 +298,20 @@ sameConcreteClassifier = go
 
     -- Compound
 
-    go (CC_Maybe    c) (CC_Maybe    c') = goMaybeF     c c'
-    go (CC_Either   c) (CC_Either   c') = goEitherF    c c'
-    go (CC_List     c) (CC_List     c') = goMaybeF     c c'
-    go (CC_Ratio    c) (CC_Ratio    c') = goF          c c'
-    go (CC_Set      c) (CC_Set      c') = goMaybeF     c c'
-    go (CC_Map      c) (CC_Map      c') = goMaybePairF c c'
-    go  CC_IntSet       CC_IntSet       = Just Refl
-    go (CC_IntMap   c) (CC_IntMap   c') = goMaybeF     c c'
-    go (CC_Sequence c) (CC_Sequence c') = goMaybeF     c c'
-    go (CC_Tree     c) (CC_Tree     c') = goF          c c'
-    go (CC_HashSet  c) (CC_HashSet  c') = goF          c c'
-    go (CC_HashMap  c) (CC_HashMap  c') = goMaybePairF c c'
-    go (CC_HM_Array c) (CC_HM_Array c') = goMaybeF     c c'
+    go (CC_Maybe        c) (CC_Maybe        c') = goMaybeF     c c'
+    go (CC_Either       c) (CC_Either       c') = goEitherF    c c'
+    go (CC_List         c) (CC_List         c') = goMaybeF     c c'
+    go (CC_Ratio        c) (CC_Ratio        c') = goF          c c'
+    go (CC_Set          c) (CC_Set          c') = goMaybeF     c c'
+    go (CC_Map          c) (CC_Map          c') = goMaybePairF c c'
+    go  CC_IntSet           CC_IntSet           = Just Refl
+    go (CC_IntMap       c) (CC_IntMap       c') = goMaybeF     c c'
+    go (CC_Sequence     c) (CC_Sequence     c') = goMaybeF     c c'
+    go (CC_Tree         c) (CC_Tree         c') = goF          c c'
+    go (CC_HashSet      c) (CC_HashSet      c') = goF          c c'
+    go (CC_HashMap      c) (CC_HashMap      c') = goMaybePairF c c'
+    go (CC_HM_Array     c) (CC_HM_Array     c') = goMaybeF     c c'
+    go (CC_Vector_Boxed c) (CC_Vector_Boxed c') = goMaybeF     c c'
 
     go (CC_Tuple (ConcreteClassifiers cs))
        (CC_Tuple (ConcreteClassifiers cs')) = (\Refl -> Refl) <$> goList cs cs'
@@ -410,20 +414,21 @@ sameConcreteClassifier = go
 
         -- Compound
 
-        CC_Maybe{}    -> ()
-        CC_Either{}   -> ()
-        CC_List{}     -> ()
-        CC_Ratio{}    -> ()
-        CC_Set{}      -> ()
-        CC_Map{}      -> ()
-        CC_IntSet{}   -> ()
-        CC_IntMap{}   -> ()
-        CC_Tuple{}    -> ()
-        CC_Sequence{} -> ()
-        CC_Tree{}     -> ()
-        CC_HashSet{}  -> ()
-        CC_HashMap{}  -> ()
-        CC_HM_Array{} -> ()
+        CC_Maybe{}        -> ()
+        CC_Either{}       -> ()
+        CC_List{}         -> ()
+        CC_Ratio{}        -> ()
+        CC_Set{}          -> ()
+        CC_Map{}          -> ()
+        CC_IntSet{}       -> ()
+        CC_IntMap{}       -> ()
+        CC_Tuple{}        -> ()
+        CC_Sequence{}     -> ()
+        CC_Tree{}         -> ()
+        CC_HashSet{}      -> ()
+        CC_HashMap{}      -> ()
+        CC_HM_Array{}     -> ()
+        CC_Vector_Boxed{} -> ()
 
         -- Reference cells
 

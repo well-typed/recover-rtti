@@ -131,19 +131,20 @@ reclassify = go
 
       -- Compound
 
-      C_Maybe    c' -> goMaybeF     fmap          CC_Maybe    c'
-      C_Either   c' -> goEitherF    bimap         CC_Either   c'
-      C_List     c' -> goMaybeF     fmap          CC_List     c'
-      C_Ratio    c' -> goF          coerceRatio   CC_Ratio    c'
-      C_Set      c' -> goMaybeF     coerceSet     CC_Set      c'
-      C_Map      c' -> goMaybePairF coerceMap     CC_Map      c'
-      C_IntSet      -> return $ Reclassified CC_IntSet id
-      C_IntMap   c' -> goMaybeF     fmap          CC_IntMap   c'
-      C_Sequence c' -> goMaybeF     fmap          CC_Sequence c'
-      C_Tree     c' -> goF          fmap          CC_Tree     c'
-      C_HashSet  c' -> goF          coerceHashSet CC_HashSet  c'
-      C_HashMap  c' -> goMaybePairF coerceHashMap CC_HashMap  c'
-      C_HM_Array c' -> goMaybeF     coerceHMArray CC_HM_Array c'
+      C_Maybe        c' -> goMaybeF     fmap          CC_Maybe        c'
+      C_Either       c' -> goEitherF    bimap         CC_Either       c'
+      C_List         c' -> goMaybeF     fmap          CC_List         c'
+      C_Ratio        c' -> goF          coerceRatio   CC_Ratio        c'
+      C_Set          c' -> goMaybeF     coerceSet     CC_Set          c'
+      C_Map          c' -> goMaybePairF coerceMap     CC_Map          c'
+      C_IntSet          -> return $ Reclassified CC_IntSet id
+      C_IntMap       c' -> goMaybeF     fmap          CC_IntMap       c'
+      C_Sequence     c' -> goMaybeF     fmap          CC_Sequence     c'
+      C_Tree         c' -> goF          fmap          CC_Tree         c'
+      C_HashSet      c' -> goF          coerceHashSet CC_HashSet      c'
+      C_HashMap      c' -> goMaybePairF coerceHashMap CC_HashMap      c'
+      C_HM_Array     c' -> goMaybeF     coerceHMArray CC_HM_Array     c'
+      C_Vector_Boxed c' -> goMaybeF     fmap          CC_Vector_Boxed c'
 
       C_Tuple (Classifiers cs) ->
         reclassifyTuple <$> (hsequence' (hmap (Comp . reclassify) cs))

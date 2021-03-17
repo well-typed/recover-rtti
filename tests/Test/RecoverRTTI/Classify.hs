@@ -22,6 +22,7 @@ import qualified Data.Map                    as Map
 import qualified Data.Sequence               as Seq
 import qualified Data.Set                    as Set
 import qualified Data.Tree                   as Tree
+import qualified Data.Vector                 as Vector.Boxed
 
 import Test.Tasty
 import Test.Tasty.QuickCheck hiding (classify, NonEmpty)
@@ -128,11 +129,14 @@ prop_constants = withMaxSuccess 1 $ conjoin [
 
     , compareClassifier $ Value (CC_HashSet CC_Int) (HashSet.fromList [1, 2, 3])
 
-    , compareClassifier $ Value (CC_HashMap FNothingPair)               HashMap.empty
+    , compareClassifier $ Value (CC_HashMap FNothingPair)                HashMap.empty
     , compareClassifier $ Value (CC_HashMap (FJustPair CC_Int CC_Char)) (HashMap.fromList [(1, 'a'), (2, 'b')])
 
     , compareClassifier $ Value (CC_HM_Array FNothing)       (HashMap.Array.fromList 0 [])
     , compareClassifier $ Value (CC_HM_Array (FJust CC_Int)) (HashMap.Array.fromList 2 [1, 2])
+
+    , compareClassifier $ Value (CC_Vector_Boxed FNothing)        Vector.Boxed.empty
+    , compareClassifier $ Value (CC_Vector_Boxed (FJust CC_Int)) (Vector.Boxed.fromList [1, 2, 3])
 
       -- Reference cells
 
@@ -191,20 +195,21 @@ prop_constants = withMaxSuccess 1 $ conjoin [
 
         -- Compound
 
-        CC_Maybe{}    -> ()
-        CC_Either{}   -> ()
-        CC_List{}     -> ()
-        CC_Ratio{}    -> ()
-        CC_Set{}      -> ()
-        CC_Map{}      -> ()
-        CC_IntSet{}   -> ()
-        CC_IntMap{}   -> ()
-        CC_Sequence{} -> ()
-        CC_Tree{}     -> ()
-        CC_Tuple{}    -> ()
-        CC_HashSet{}  -> ()
-        CC_HashMap{}  -> ()
-        CC_HM_Array{} -> ()
+        CC_Maybe{}        -> ()
+        CC_Either{}       -> ()
+        CC_List{}         -> ()
+        CC_Ratio{}        -> ()
+        CC_Set{}          -> ()
+        CC_Map{}          -> ()
+        CC_IntSet{}       -> ()
+        CC_IntMap{}       -> ()
+        CC_Sequence{}     -> ()
+        CC_Tree{}         -> ()
+        CC_Tuple{}        -> ()
+        CC_HashSet{}      -> ()
+        CC_HashMap{}      -> ()
+        CC_HM_Array{}     -> ()
+        CC_Vector_Boxed{} -> ()
 
         -- Functions
 
