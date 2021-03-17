@@ -26,7 +26,7 @@ module Debug.RecoverRTTI (
   , Some(..)
     -- ** Constructor information
   , Constr(..)
-    -- ** Type-level constructor informatino
+    -- ** Type-level constructor information
   , ConstrPkg
   , ConstrModl
   , ConstrName
