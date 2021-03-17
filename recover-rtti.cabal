@@ -1,6 +1,6 @@
 cabal-version:      2.4
 name:               recover-rtti
-version:            0.2.0.0
+version:            0.2.1.0
 synopsis:           Recover run-time type information from the GHC heap
 description:        The main function in this package is 'classify', which looks
                     at the GHC heap to recover type information about arbitrary
