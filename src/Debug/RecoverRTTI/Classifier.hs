@@ -14,6 +14,8 @@ module Debug.RecoverRTTI.Classifier (
   ) where
 
 import Data.Aeson (Value)
+import Data.HashMap.Lazy (HashMap)
+import Data.HashSet (HashSet)
 import Data.Int
 import Data.IntMap (IntMap)
 import Data.IntSet (IntSet)
@@ -27,11 +29,12 @@ import Data.Tree (Tree)
 import Data.Void
 import Data.Word
 
-import qualified Data.ByteString       as BS.Strict
-import qualified Data.ByteString.Lazy  as BS.Lazy
-import qualified Data.ByteString.Short as BS.Short
-import qualified Data.Text             as Text.Strict
-import qualified Data.Text.Lazy        as Text.Lazy
+import qualified Data.ByteString             as BS.Strict
+import qualified Data.ByteString.Lazy        as BS.Lazy
+import qualified Data.ByteString.Short       as BS.Short
+import qualified Data.HashMap.Internal.Array as HashMap (Array)
+import qualified Data.Text                   as Text.Strict
+import qualified Data.Text.Lazy              as Text.Lazy
 
 import Debug.RecoverRTTI.Constr
 import Debug.RecoverRTTI.Tuple
@@ -94,6 +97,12 @@ data Classifier (a :: Type) :: Type where
   C_Value :: Classifier Value
 
   -- Compound
+  --
+  -- NOTE: C_HashSet requires an argument; 'HashSet' and 'HashMap' cannot be
+  -- distinguished from just looking at the heap ('HashSet' is a newtype
+  -- around 'HashMap'), and so we classify a 'HashMap' with value type @()@
+  -- as a 'HashSet'; however, we can only do this of course if we have at
+  -- least one element.
 
   C_Maybe    :: MaybeF     Classified a   -> Classifier (Maybe a)
   C_Either   :: EitherF    Classified a b -> Classifier (Either a b)
@@ -105,6 +114,9 @@ data Classifier (a :: Type) :: Type where
   C_IntMap   :: MaybeF     Classified a   -> Classifier (IntMap a)
   C_Sequence :: MaybeF     Classified a   -> Classifier (Seq a)
   C_Tree     ::            Classified a   -> Classifier (Tree a)
+  C_HashSet  ::            Classified a   -> Classifier (HashSet a)
+  C_HashMap  :: MaybePairF Classified a b -> Classifier (HashMap a b)
+  C_HM_Array :: MaybeF     Classified a   -> Classifier (HashMap.Array a)
 
   C_Tuple ::
        (SListI xs, IsValidSize (Length xs))

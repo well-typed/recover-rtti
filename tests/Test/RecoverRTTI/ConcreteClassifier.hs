@@ -18,6 +18,8 @@ module Test.RecoverRTTI.ConcreteClassifier (
   , Value(..)
   ) where
 
+import Data.HashMap.Lazy (HashMap)
+import Data.HashSet (HashSet)
 import Data.Int
 import Data.IntMap (IntMap)
 import Data.IntSet (IntSet)
@@ -32,12 +34,13 @@ import Data.Tree (Tree)
 import Data.Type.Equality
 import Data.Word
 
-import qualified Data.Aeson            as Aeson
-import qualified Data.ByteString       as BS.Strict
-import qualified Data.ByteString.Lazy  as BS.Lazy
-import qualified Data.ByteString.Short as BS.Short
-import qualified Data.Text             as Text.Strict
-import qualified Data.Text.Lazy        as Text.Lazy
+import qualified Data.Aeson                  as Aeson
+import qualified Data.ByteString             as BS.Strict
+import qualified Data.ByteString.Lazy        as BS.Lazy
+import qualified Data.ByteString.Short       as BS.Short
+import qualified Data.HashMap.Internal.Array as HashMap (Array)
+import qualified Data.Text                   as Text.Strict
+import qualified Data.Text.Lazy              as Text.Lazy
 
 import Debug.RecoverRTTI
 import Debug.RecoverRTTI.TypeLevel
@@ -104,6 +107,9 @@ data ConcreteClassifier (a :: Type) :: Type where
     CC_IntMap   :: MaybeF     ConcreteClassifier a   -> ConcreteClassifier (IntMap a)
     CC_Sequence :: MaybeF     ConcreteClassifier a   -> ConcreteClassifier (Seq a)
     CC_Tree     ::            ConcreteClassifier a   -> ConcreteClassifier (Tree a)
+    CC_HashSet  ::            ConcreteClassifier a   -> ConcreteClassifier (HashSet a)
+    CC_HashMap  :: MaybePairF ConcreteClassifier a b -> ConcreteClassifier (HashMap a b)
+    CC_HM_Array :: MaybeF     ConcreteClassifier a   -> ConcreteClassifier (HashMap.Array a)
 
     CC_Tuple ::
          (SListI xs, IsValidSize (Length xs))
@@ -193,6 +199,9 @@ classifierSize = go
     go (CC_IntMap   c) = 1 + goMaybeF     c
     go (CC_Sequence c) = 1 + goMaybeF     c
     go (CC_Tree     c) = 1 + go           c
+    go (CC_HashSet  c) = 1 + go           c
+    go (CC_HashMap  c) = 1 + goMaybePairF c
+    go (CC_HM_Array c) = 1 + goMaybeF     c
 
     go (CC_Tuple (ConcreteClassifiers cs)) =
         1 + sum (hcollapse (hmap (K . go) cs))
@@ -296,6 +305,9 @@ sameConcreteClassifier = go
     go (CC_IntMap   c) (CC_IntMap   c') = goMaybeF     c c'
     go (CC_Sequence c) (CC_Sequence c') = goMaybeF     c c'
     go (CC_Tree     c) (CC_Tree     c') = goF          c c'
+    go (CC_HashSet  c) (CC_HashSet  c') = goF          c c'
+    go (CC_HashMap  c) (CC_HashMap  c') = goMaybePairF c c'
+    go (CC_HM_Array c) (CC_HM_Array c') = goMaybeF     c c'
 
     go (CC_Tuple (ConcreteClassifiers cs))
        (CC_Tuple (ConcreteClassifiers cs')) = (\Refl -> Refl) <$> goList cs cs'
@@ -409,6 +421,9 @@ sameConcreteClassifier = go
         CC_Tuple{}    -> ()
         CC_Sequence{} -> ()
         CC_Tree{}     -> ()
+        CC_HashSet{}  -> ()
+        CC_HashMap{}  -> ()
+        CC_HM_Array{} -> ()
 
         -- Reference cells
 

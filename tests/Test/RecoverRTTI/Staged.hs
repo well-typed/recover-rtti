@@ -35,6 +35,8 @@ module Test.RecoverRTTI.Staged (
 
 import Control.Monad.Except
 import Data.Bifunctor
+import Data.HashMap.Lazy (HashMap)
+import Data.HashSet (HashSet)
 import Data.Kind
 import Data.Map (Map)
 import Data.Set (Set)
@@ -44,9 +46,12 @@ import Data.Void
 import GHC.Exts (Any)
 import GHC.Real
 import GHC.TypeLits
+import Unsafe.Coerce (unsafeCoerce)
 
-import qualified Data.Map as Map
-import qualified Data.Set as Set
+import qualified Data.HashMap.Internal.Array as HashMap (Array)
+import qualified Data.HashMap.Internal.Array as HashMap.Array
+import qualified Data.Map                    as Map
+import qualified Data.Set                    as Set
 
 import Debug.RecoverRTTI
 import Debug.RecoverRTTI.TypeLevel
@@ -126,16 +131,19 @@ reclassify = go
 
       -- Compound
 
-      C_Maybe    c' -> goMaybeF     fmap        CC_Maybe    c'
-      C_Either   c' -> goEitherF    bimap       CC_Either   c'
-      C_List     c' -> goMaybeF     fmap        CC_List     c'
-      C_Ratio    c' -> goF          coerceRatio CC_Ratio    c'
-      C_Set      c' -> goMaybeF     coerceSet   CC_Set      c'
-      C_Map      c' -> goMaybePairF coerceMap   CC_Map      c'
+      C_Maybe    c' -> goMaybeF     fmap          CC_Maybe    c'
+      C_Either   c' -> goEitherF    bimap         CC_Either   c'
+      C_List     c' -> goMaybeF     fmap          CC_List     c'
+      C_Ratio    c' -> goF          coerceRatio   CC_Ratio    c'
+      C_Set      c' -> goMaybeF     coerceSet     CC_Set      c'
+      C_Map      c' -> goMaybePairF coerceMap     CC_Map      c'
       C_IntSet      -> return $ Reclassified CC_IntSet id
-      C_IntMap   c' -> goMaybeF     fmap        CC_IntMap   c'
-      C_Sequence c' -> goMaybeF     fmap        CC_Sequence c'
-      C_Tree     c' -> goF          fmap        CC_Tree     c'
+      C_IntMap   c' -> goMaybeF     fmap          CC_IntMap   c'
+      C_Sequence c' -> goMaybeF     fmap          CC_Sequence c'
+      C_Tree     c' -> goF          fmap          CC_Tree     c'
+      C_HashSet  c' -> goF          coerceHashSet CC_HashSet  c'
+      C_HashMap  c' -> goMaybePairF coerceHashMap CC_HashMap  c'
+      C_HM_Array c' -> goMaybeF     coerceHMArray CC_HM_Array c'
 
       C_Tuple (Classifiers cs) ->
         reclassifyTuple <$> (hsequence' (hmap (Comp . reclassify) cs))
@@ -253,6 +261,18 @@ coerceSet f = Set.fromDistinctAscList . map f . Set.toAscList
 
 coerceMap :: (x -> x') -> (y -> y') -> Map x y -> Map x' y'
 coerceMap f g = Map.fromDistinctAscList . map (bimap f g) . Map.toAscList
+
+coerceHMArray :: (x -> x') -> HashMap.Array x -> HashMap.Array x'
+coerceHMArray f arr =
+    let xs = HashMap.Array.toList arr
+    in HashMap.Array.fromList (length xs) (map f xs)
+
+-- Unfortunately, coercion on HashSet/HashMap is not expressible using its API
+coerceHashSet :: (x -> x') -> HashSet x -> HashSet x'
+coerceHashSet _ = unsafeCoerce
+
+coerceHashMap :: (x -> x') -> (y -> y') -> HashMap x y -> HashMap x' y'
+coerceHashMap _ _ = unsafeCoerce
 
 {-------------------------------------------------------------------------------
   When we reclassify values of user-defined types with type arguments, we need

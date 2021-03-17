@@ -23,6 +23,7 @@ module Debug.RecoverRTTI.Classify (
   ) where
 
 import Control.Monad.Except
+import Data.HashMap.Lazy (HashMap)
 import Data.IntMap (IntMap)
 import Data.Map (Map)
 import Data.Sequence (Seq)
@@ -30,17 +31,20 @@ import Data.Set (Set)
 import Data.SOP
 import Data.SOP.Dict
 import Data.Tree (Tree)
+import GHC.Exts.Heap (Closure)
 import GHC.Real
 import GHC.Stack
-import GHC.Exts.Heap (Closure)
 import System.IO.Unsafe (unsafePerformIO)
 import Unsafe.Coerce (unsafeCoerce)
 
-import qualified Data.IntMap   as IntMap
-import qualified Data.Map      as Map
-import qualified Data.Sequence as Seq
-import qualified Data.Set      as Set
-import qualified Data.Tree     as Tree
+import qualified Data.HashMap.Internal.Array as HashMap (Array)
+import qualified Data.HashMap.Internal.Array as HashMap.Array
+import qualified Data.HashMap.Lazy           as HashMap
+import qualified Data.IntMap                 as IntMap
+import qualified Data.Map                    as Map
+import qualified Data.Sequence               as Seq
+import qualified Data.Set                    as Set
+import qualified Data.Tree                   as Tree
 
 import Debug.RecoverRTTI.Classifier
 import Debug.RecoverRTTI.Constr
@@ -198,6 +202,25 @@ classifyIO x = do
         case liftValidSize validSize of
           Dict -> mustBe <$> classifyTuple ptrs
 
+      -- HashMap
+      --
+      -- This could also be a HashSet, which is a newtype around a HashMap;
+      -- we distinguish in 'classifyHashMap'.
+      (inKnownModule DataHashMapInternal -> Just "Empty") ->
+        mustBe <$> classifyHashMap (unsafeCoerce x)
+      (inKnownModule DataHashMapInternal -> Just "BitmapIndexed") ->
+        mustBe <$> classifyHashMap (unsafeCoerce x)
+      (inKnownModule DataHashMapInternal -> Just "Leaf") ->
+        mustBe <$> classifyHashMap (unsafeCoerce x)
+      (inKnownModule DataHashMapInternal -> Just "Full") ->
+        mustBe <$> classifyHashMap (unsafeCoerce x)
+      (inKnownModule DataHashMapInternal -> Just "Collision") ->
+        mustBe <$> classifyHashMap (unsafeCoerce x)
+
+      -- HashMap's internal Array type
+      (inKnownModule DataHashMapInternalArray -> Just "Array") ->
+        mustBe <$> classifyHMArray (unsafeCoerce x)
+
       --
       -- Reference cells
       --
@@ -288,12 +311,12 @@ classifySet x =
 
 classifyMap :: Map a b -> ExceptT Closure IO (Classifier (Map a b))
 classifyMap x =
-   case Map.lookupMin x of
-     Nothing       -> return $ mustBe $ C_Map FNothingPair
-     Just (x', y') -> do
-       cx <- classifyIO x'
-       cy <- classifyIO y'
-       return $ mustBe $ C_Map (FJustPair (Classified cx x') (Classified cy y'))
+    case Map.lookupMin x of
+      Nothing       -> return $ mustBe $ C_Map FNothingPair
+      Just (x', y') -> do
+        cx <- classifyIO x'
+        cy <- classifyIO y'
+        return $ mustBe $ C_Map (FJustPair (Classified cx x') (Classified cy y'))
 
 classifyIntMap :: IntMap a -> ExceptT Closure IO (Classifier (IntMap a))
 classifyIntMap x =
@@ -317,6 +340,26 @@ classifyTree x =
       Tree.Node x' _ -> do
         cx <- classifyIO x'
         return $ mustBe $ C_Tree (Classified cx x')
+
+classifyHashMap :: HashMap a b -> ExceptT Closure IO (Classifier (HashMap a b))
+classifyHashMap x =
+    case HashMap.toList x of
+      []           -> return $ mustBe $ C_HashMap FNothingPair
+      ((x', y'):_) -> do
+        cx <- classifyIO x'
+        cy <- classifyIO y'
+        return $ case cy of
+          C_Unit     -> mustBe $ C_HashSet (Classified cx x')
+          _otherwise -> mustBe $ C_HashMap (FJustPair (Classified cx x') (Classified cy y'))
+
+classifyHMArray :: HashMap.Array a -> ExceptT Closure IO (Classifier (Tree a))
+classifyHMArray x =
+    if HashMap.Array.length x == 0
+      then return $ mustBe $ C_HM_Array FNothing
+      else do
+        let x' = HashMap.Array.index x 0
+        cx <- classifyIO x'
+        return $ mustBe $ C_HM_Array (FJust (Classified cx x'))
 
 classifyTuple ::
      (SListI xs, IsValidSize (Length xs))
@@ -514,6 +557,9 @@ canShowClassified = go
     go (C_IntMap   c) = goMaybeF     c
     go (C_Sequence c) = goMaybeF     c
     go (C_Tree     c) = goF          c
+    go (C_HashSet  c) = goF          c
+    go (C_HashMap  c) = goMaybePairF c
+    go (C_HM_Array c) = goMaybeF     c
 
     go (C_Tuple (Classifiers cs)) =
         case all_NP (hmap (canShowClassified . classifiedType) cs) of

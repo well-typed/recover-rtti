@@ -12,13 +12,16 @@ import Data.Ratio
 import Data.SOP
 import Data.Type.Equality
 
-import qualified Data.Aeson    as Aeson
-import qualified Data.IntMap   as IntMap
-import qualified Data.IntSet   as IntSet
-import qualified Data.Map      as Map
-import qualified Data.Sequence as Seq
-import qualified Data.Set      as Set
-import qualified Data.Tree     as Tree
+import qualified Data.Aeson                  as Aeson
+import qualified Data.HashMap.Internal.Array as HashMap.Array
+import qualified Data.HashMap.Lazy           as HashMap
+import qualified Data.HashSet                as HashSet
+import qualified Data.IntMap                 as IntMap
+import qualified Data.IntSet                 as IntSet
+import qualified Data.Map                    as Map
+import qualified Data.Sequence               as Seq
+import qualified Data.Set                    as Set
+import qualified Data.Tree                   as Tree
 
 import Test.Tasty
 import Test.Tasty.QuickCheck hiding (classify, NonEmpty)
@@ -123,6 +126,14 @@ prop_constants = withMaxSuccess 1 $ conjoin [
 
     , compareClassifier $ Value (CC_Tree CC_Int) (Tree.Node 1 [])
 
+    , compareClassifier $ Value (CC_HashSet CC_Int) (HashSet.fromList [1, 2, 3])
+
+    , compareClassifier $ Value (CC_HashMap FNothingPair)               HashMap.empty
+    , compareClassifier $ Value (CC_HashMap (FJustPair CC_Int CC_Char)) (HashMap.fromList [(1, 'a'), (2, 'b')])
+
+    , compareClassifier $ Value (CC_HM_Array FNothing)       (HashMap.Array.fromList 0 [])
+    , compareClassifier $ Value (CC_HM_Array (FJust CC_Int)) (HashMap.Array.fromList 2 [1, 2])
+
       -- Reference cells
 
     , compareClassifier $ Value CC_STRef exampleIORef
@@ -191,6 +202,9 @@ prop_constants = withMaxSuccess 1 $ conjoin [
         CC_Sequence{} -> ()
         CC_Tree{}     -> ()
         CC_Tuple{}    -> ()
+        CC_HashSet{}  -> ()
+        CC_HashMap{}  -> ()
+        CC_HM_Array{} -> ()
 
         -- Functions
 

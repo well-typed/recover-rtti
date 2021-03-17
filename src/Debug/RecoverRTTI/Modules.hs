@@ -33,6 +33,7 @@ data KnownPkg =
   | PkgGhcBignum
   | PkgContainers
   | PkgAeson
+  | PkgUnorderedContainers
 
 data family KnownModule (pkg :: KnownPkg)
 
@@ -41,23 +42,25 @@ data family KnownModule (pkg :: KnownPkg)
 -------------------------------------------------------------------------------}
 
 data instance Sing (pkg :: KnownPkg) where
-  SGhcPrim        :: Sing 'PkgGhcPrim
-  SBase           :: Sing 'PkgBase
-  SByteString     :: Sing 'PkgByteString
-  SText           :: Sing 'PkgText
-  SIntegerWiredIn :: Sing 'PkgIntegerWiredIn
-  SGhcBignum      :: Sing 'PkgGhcBignum
-  SContainers     :: Sing 'PkgContainers
-  SAeson          :: Sing 'PkgAeson
+  SGhcPrim             :: Sing 'PkgGhcPrim
+  SBase                :: Sing 'PkgBase
+  SByteString          :: Sing 'PkgByteString
+  SText                :: Sing 'PkgText
+  SIntegerWiredIn      :: Sing 'PkgIntegerWiredIn
+  SGhcBignum           :: Sing 'PkgGhcBignum
+  SContainers          :: Sing 'PkgContainers
+  SAeson               :: Sing 'PkgAeson
+  SUnorderedContainers :: Sing 'PkgUnorderedContainers
 
-instance SingI 'PkgGhcPrim        where sing = SGhcPrim
-instance SingI 'PkgBase           where sing = SBase
-instance SingI 'PkgByteString     where sing = SByteString
-instance SingI 'PkgText           where sing = SText
-instance SingI 'PkgIntegerWiredIn where sing = SIntegerWiredIn
-instance SingI 'PkgGhcBignum      where sing = SGhcBignum
-instance SingI 'PkgContainers     where sing = SContainers
-instance SingI 'PkgAeson          where sing = SAeson
+instance SingI 'PkgGhcPrim             where sing = SGhcPrim
+instance SingI 'PkgBase                where sing = SBase
+instance SingI 'PkgByteString          where sing = SByteString
+instance SingI 'PkgText                where sing = SText
+instance SingI 'PkgIntegerWiredIn      where sing = SIntegerWiredIn
+instance SingI 'PkgGhcBignum           where sing = SGhcBignum
+instance SingI 'PkgContainers          where sing = SContainers
+instance SingI 'PkgAeson               where sing = SAeson
+instance SingI 'PkgUnorderedContainers where sing = SUnorderedContainers
 
 {-------------------------------------------------------------------------------
   Modules in @ghc-pri@
@@ -132,6 +135,14 @@ data instance KnownModule 'PkgAeson =
     DataAesonTypesInternal
 
 {-------------------------------------------------------------------------------
+  Modules in @unordered-containers@
+-------------------------------------------------------------------------------}
+
+data instance KnownModule 'PkgUnorderedContainers =
+    DataHashMapInternal
+  | DataHashMapInternalArray
+
+{-------------------------------------------------------------------------------
   Matching
 -------------------------------------------------------------------------------}
 
@@ -155,37 +166,40 @@ inKnownModuleNested = go sing
     go _ _ _otherClosure = Nothing
 
     namePkg :: Sing (pkg :: KnownPkg) -> String
-    namePkg SGhcPrim        = "ghc-prim"
-    namePkg SBase           = "base"
-    namePkg SByteString     = "bytestring"
-    namePkg SText           = "text"
-    namePkg SIntegerWiredIn = "integer-wired-in"
-    namePkg SGhcBignum      = "ghc-bignum"
-    namePkg SContainers     = "containers"
-    namePkg SAeson          = "aeson"
+    namePkg SGhcPrim             = "ghc-prim"
+    namePkg SBase                = "base"
+    namePkg SByteString          = "bytestring"
+    namePkg SText                = "text"
+    namePkg SIntegerWiredIn      = "integer-wired-in"
+    namePkg SGhcBignum           = "ghc-bignum"
+    namePkg SContainers          = "containers"
+    namePkg SAeson               = "aeson"
+    namePkg SUnorderedContainers = "unordered-containers"
 
     nameModl :: Sing (pkg :: KnownPkg) -> KnownModule pkg -> String
-    nameModl SGhcPrim        GhcTypes                    = "GHC.Types"
-    nameModl SGhcPrim        GhcTuple                    = "GHC.Tuple"
-    nameModl SBase           GhcInt                      = "GHC.Int"
-    nameModl SBase           GhcWord                     = "GHC.Word"
-    nameModl SBase           GhcSTRef                    = "GHC.STRef"
-    nameModl SBase           GhcMVar                     = "GHC.MVar"
-    nameModl SBase           GhcConcSync                 = "GHC.Conc.Sync"
-    nameModl SBase           GhcMaybe                    = "GHC.Maybe"
-    nameModl SBase           GhcReal                     = "GHC.Real"
-    nameModl SBase           DataEither                  = "Data.Either"
-    nameModl SByteString     DataByteStringInternal      = "Data.ByteString.Internal"
-    nameModl SByteString     DataByteStringLazyInternal  = "Data.ByteString.Lazy.Internal"
-    nameModl SByteString     DataByteStringShortInternal = "Data.ByteString.Short.Internal"
-    nameModl SText           DataTextInternal            = "Data.Text.Internal"
-    nameModl SText           DataTextInternalLazy        = "Data.Text.Internal.Lazy"
-    nameModl SIntegerWiredIn GhcIntegerType              = "GHC.Integer.Type"
-    nameModl SGhcBignum      GhcNumInteger               = "GHC.Num.Integer"
-    nameModl SContainers     DataSetInternal             = "Data.Set.Internal"
-    nameModl SContainers     DataMapInternal             = "Data.Map.Internal"
-    nameModl SContainers     DataIntSetInternal          = "Data.IntSet.Internal"
-    nameModl SContainers     DataIntMapInternal          = "Data.IntMap.Internal"
-    nameModl SContainers     DataSequenceInternal        = "Data.Sequence.Internal"
-    nameModl SContainers     DataTree                    = "Data.Tree"
-    nameModl SAeson          DataAesonTypesInternal      = "Data.Aeson.Types.Internal"
+    nameModl SGhcPrim             GhcTypes                    = "GHC.Types"
+    nameModl SGhcPrim             GhcTuple                    = "GHC.Tuple"
+    nameModl SBase                GhcInt                      = "GHC.Int"
+    nameModl SBase                GhcWord                     = "GHC.Word"
+    nameModl SBase                GhcSTRef                    = "GHC.STRef"
+    nameModl SBase                GhcMVar                     = "GHC.MVar"
+    nameModl SBase                GhcConcSync                 = "GHC.Conc.Sync"
+    nameModl SBase                GhcMaybe                    = "GHC.Maybe"
+    nameModl SBase                GhcReal                     = "GHC.Real"
+    nameModl SBase                DataEither                  = "Data.Either"
+    nameModl SByteString          DataByteStringInternal      = "Data.ByteString.Internal"
+    nameModl SByteString          DataByteStringLazyInternal  = "Data.ByteString.Lazy.Internal"
+    nameModl SByteString          DataByteStringShortInternal = "Data.ByteString.Short.Internal"
+    nameModl SText                DataTextInternal            = "Data.Text.Internal"
+    nameModl SText                DataTextInternalLazy        = "Data.Text.Internal.Lazy"
+    nameModl SIntegerWiredIn      GhcIntegerType              = "GHC.Integer.Type"
+    nameModl SGhcBignum           GhcNumInteger               = "GHC.Num.Integer"
+    nameModl SContainers          DataSetInternal             = "Data.Set.Internal"
+    nameModl SContainers          DataMapInternal             = "Data.Map.Internal"
+    nameModl SContainers          DataIntSetInternal          = "Data.IntSet.Internal"
+    nameModl SContainers          DataIntMapInternal          = "Data.IntMap.Internal"
+    nameModl SContainers          DataSequenceInternal        = "Data.Sequence.Internal"
+    nameModl SContainers          DataTree                    = "Data.Tree"
+    nameModl SAeson               DataAesonTypesInternal      = "Data.Aeson.Types.Internal"
+    nameModl SUnorderedContainers DataHashMapInternal         = "Data.HashMap.Internal"
+    nameModl SUnorderedContainers DataHashMapInternalArray    = "Data.HashMap.Internal.Array"

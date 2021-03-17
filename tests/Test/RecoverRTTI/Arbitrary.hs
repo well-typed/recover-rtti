@@ -1,3 +1,4 @@
+{-# LANGUAGE ConstraintKinds       #-}
 {-# LANGUAGE DataKinds             #-}
 {-# LANGUAGE DeriveFunctor         #-}
 {-# LANGUAGE FlexibleContexts      #-}
@@ -36,18 +37,21 @@ import GHC.Real
 import System.IO.Unsafe (unsafePerformIO)
 import Unsafe.Coerce (unsafeCoerce)
 
-import qualified Data.Aeson            as Aeson
-import qualified Data.ByteString       as BS.Strict
-import qualified Data.ByteString.Lazy  as BS.Lazy
-import qualified Data.ByteString.Short as BS.Short
-import qualified Data.IntMap           as IntMap
-import qualified Data.Map              as Map
-import qualified Data.Sequence         as Seq
-import qualified Data.Set              as Set
-import qualified Data.Text             as Text.Strict
-import qualified Data.Text.Lazy        as Text.Lazy
-import qualified Data.Tree             as Tree
-import qualified Data.Vector           as Vector
+import qualified Data.Aeson                  as Aeson
+import qualified Data.ByteString             as BS.Strict
+import qualified Data.ByteString.Lazy        as BS.Lazy
+import qualified Data.ByteString.Short       as BS.Short
+import qualified Data.HashMap.Internal.Array as HashMap.Array
+import qualified Data.HashMap.Lazy           as HashMap
+import qualified Data.HashSet                as HashSet
+import qualified Data.IntMap                 as IntMap
+import qualified Data.Map                    as Map
+import qualified Data.Sequence               as Seq
+import qualified Data.Set                    as Set
+import qualified Data.Text                   as Text.Strict
+import qualified Data.Text.Lazy              as Text.Lazy
+import qualified Data.Tree                   as Tree
+import qualified Data.Vector                 as Vector
 
 import Test.QuickCheck hiding (classify, NonEmpty)
 
@@ -70,6 +74,9 @@ runSized n (SizedGen gen) = gen n
 
 ignoreSize :: Gen a -> SizedGen a
 ignoreSize gen = SizedGen $ \_sz -> gen
+
+arbitrarySizedGen :: Arbitrary a => SizedGen a
+arbitrarySizedGen = ignoreSize arbitrary
 
 {-------------------------------------------------------------------------------
   Arbitrary instance
@@ -196,13 +203,7 @@ arbitraryClassifiedGen typSz
                 (\case FJust CC_Char -> CC_String
                        c             -> CC_List c)
                 (return [])
-                (\(SizedGen gen) -> SizedGen $ \valSz -> do
-                   -- Pick number of list elements (don't generate empty list)
-                   n <- choose (1, 5)
-
-                   -- Then divide total size of each list element
-                   vectorOf n (gen (valSz `div` n))
-                )
+                (genListLike id)
                 a
             )
 
@@ -236,11 +237,7 @@ arbitraryClassifiedGen typSz
               genMaybeF
                 CC_Set
                 (return Set.empty)
-                -- Same strategy as for lists
-                (\(SizedGen gen) -> SizedGen $ \valSz -> do
-                   n <- choose (1, 5)
-                   Set.fromList <$> vectorOf n (gen (valSz `div` n))
-                )
+                (genListLike Set.fromList)
                 (defaultClassifiedGen CC_Int)
             )
 
@@ -251,13 +248,7 @@ arbitraryClassifiedGen typSz
               genMaybePairF
                 CC_Map
                 (return Map.empty)
-                (\(SizedGen genX) (SizedGen genY) -> SizedGen $ \valSz -> do
-                   n <- choose (1, 5)
-                   Map.fromList <$> vectorOf n (
-                       (,) <$> genX (valSz `div` n `div` 2)
-                           <*> genY (valSz `div` n `div` 2)
-                     )
-                )
+                (genMapLike Map.fromList)
                 (defaultClassifiedGen CC_Int)
                 b
             )
@@ -271,13 +262,7 @@ arbitraryClassifiedGen typSz
               genMaybeF
                 CC_IntMap
                 (return IntMap.empty)
-                (\(SizedGen genY) -> SizedGen $ \valSz -> do
-                   n <- choose (1, 5)
-                   IntMap.fromList <$> vectorOf n (
-                       (,) <$> arbitrary
-                           <*> genY (valSz `div` n)
-                     )
-                )
+                (genMapLike IntMap.fromList arbitrarySizedGen)
                 b
             )
 
@@ -287,22 +272,50 @@ arbitraryClassifiedGen typSz
               genMaybeF
                 CC_Sequence
                 (return Seq.empty)
-                (\(SizedGen genX) -> SizedGen $ \valSz -> do
-                   n <- choose (1, 5)
-                   Seq.fromList <$> vectorOf n (genX (valSz `div` n))
-                )
+                (genListLike Seq.fromList)
                 a
            )
 
           -- Tree
         , guard (typSz >= 1) >> (return $ do
               Some a <- arbitraryClassifiedGen (typSz - 1)
-              genF
-                CC_Tree
-                (\(SizedGen genX) -> SizedGen $ \valSz -> do
-                   n <- choose (1, 5)
-                   mkSomeTree <$> vectorOf n (genX (valSz `div` n))
-                )
+              genF CC_Tree (genListLike mkSomeTree) a
+            )
+
+          -- HashSet
+          -- Like Set, we need an Ord instance on the elements, so we pick Int
+          -- genListLike never generates the empty list, which is important:
+          -- an empty 'HashSet' would be misclassified as a 'HashMap'.
+        , (return $
+             genF
+               CC_HashSet
+               (genListLike HashSet.fromList)
+               (defaultClassifiedGen CC_Int)
+           )
+
+          -- HashMap
+        , guard (typSz >= 1) >> (return $ do
+              -- A map with @()@ values is classified as a @HashSet@
+              let isUnit :: Some ClassifiedGen -> Bool
+                  isUnit (Some (ClassifiedGen CC_Unit _)) = True
+                  isUnit _otherwise = False
+              Some b <- arbitraryClassifiedGen (typSz - 1) `suchThat` (not . isUnit)
+              genMaybePairF
+                CC_HashMap
+                (return HashMap.empty)
+                (genMapLike HashMap.fromList)
+                (defaultClassifiedGen CC_Int)
+                b
+            )
+
+          -- HashMap's internal array type
+        , guard (typSz >= 1) >> (return $ do
+              let mkArray xs = HashMap.Array.fromList (length xs) xs
+              Some a <- arbitraryClassifiedGen (typSz - 1)
+              genMaybeF
+                CC_HM_Array
+                (return $ mkArray [])
+                (genListLike mkArray)
                 a
             )
 
@@ -326,11 +339,7 @@ arbitraryClassifiedGen typSz
               genMaybeF
                 CC_User_Rec
                 (return RNil)
-                (\gen -> SizedGen $ \valSz -> do
-                  -- Similar strategy as for lists
-                  n <- choose (1, 5)
-                  recursiveFromList <$> vectorOf n (runSized (valSz `div` n) gen)
-                )
+                (genListLike recursiveFromList)
                 a
             )
 
@@ -355,60 +364,6 @@ arbitraryClassifiedGen typSz
                     }
             )
         ]
-
-    genMaybeF ::
-         ( forall x. Show x => Show (f x)
-         , forall x. Eq   x => Eq   (f x)
-         )
-      => (forall x. MaybeF ConcreteClassifier x -> ConcreteClassifier (f x))
-      -> Gen (f Void)
-      -> (SizedGen a -> SizedGen (f a))
-      -> ClassifiedGen a -> Gen (Some ClassifiedGen)
-    genMaybeF cc genNothing genJust (ClassifiedGen cA genA) =
-        elements [
-            Some $ ClassifiedGen (cc FNothing)   (ignoreSize $ genNothing)
-          , Some $ ClassifiedGen (cc (FJust cA)) (genJust genA)
-          ]
-
-    genEitherF ::
-         ( forall x y. (Show x, Show y) => Show (f x y)
-         , forall x y. (Eq   x, Eq   y) => Eq   (f x y)
-         )
-      => (forall x y. EitherF ConcreteClassifier x y -> ConcreteClassifier (f x y))
-      -> (SizedGen a -> SizedGen (f a Void))
-      -> (SizedGen b -> SizedGen (f Void b))
-      -> ClassifiedGen a
-      -> ClassifiedGen b
-      -> Gen (Some ClassifiedGen)
-    genEitherF cc genLeft genRight (ClassifiedGen cA genA) (ClassifiedGen cB genB) =
-        elements [
-            Some $ ClassifiedGen (cc (FLeft  cA)) (genLeft  genA)
-          , Some $ ClassifiedGen (cc (FRight cB)) (genRight genB)
-          ]
-
-    genMaybePairF ::
-         ( forall x y. (Show x, Show y) => Show (f x y)
-         , forall x y. (Eq   x, Eq   y) => Eq   (f x y)
-         )
-      => (forall x y. MaybePairF ConcreteClassifier x y -> ConcreteClassifier (f x y))
-      -> Gen (f Void Void)
-      -> (SizedGen a -> SizedGen b -> SizedGen (f a b))
-      -> ClassifiedGen a -> ClassifiedGen b -> Gen (Some ClassifiedGen)
-    genMaybePairF cc genNothing genJust (ClassifiedGen cA genA) (ClassifiedGen cB genB) =
-        elements [
-            Some $ ClassifiedGen (cc FNothingPair)      (ignoreSize $ genNothing)
-          , Some $ ClassifiedGen (cc (FJustPair cA cB)) (genJust genA genB)
-          ]
-
-    genF ::
-         ( forall x. Show x => Show (f x)
-         , forall x. Eq   x => Eq   (f x)
-         )
-      => (forall x. ConcreteClassifier x -> ConcreteClassifier (f x))
-      -> (SizedGen a -> SizedGen (f a))
-      -> ClassifiedGen a -> Gen (Some ClassifiedGen)
-    genF cc gen (ClassifiedGen cA genA) = return $
-        Some $ ClassifiedGen (cc cA) (gen genA)
 
     -- We check that we cover all cases of 'Classifier' rather than
     -- 'ConcreteClassifier': it is important that we generate test cases for
@@ -461,6 +416,9 @@ arbitraryClassifiedGen typSz
          C_Tuple{}    -> ()
          C_Sequence{} -> ()
          C_Tree{}     -> ()
+         C_HashSet{}  -> ()
+         C_HashMap{}  -> ()
+         C_HM_Array{} -> ()
 
          -- Reference cells
 
@@ -515,6 +473,77 @@ instance Arbitrary (Some Value) where
 
       -- For the values however we want to be able to generate larger trees
       Some . Value cc <$> runSized sz gen
+
+{-------------------------------------------------------------------------------
+  Helpers
+-------------------------------------------------------------------------------}
+
+genListLike :: ([a] -> x) -> SizedGen a -> SizedGen x
+genListLike f gen = SizedGen $ \valSz -> do
+    n <- choose (1, 5)
+    f <$> vectorOf n (runSized (valSz `div` n) gen)
+
+genMapLike :: ([(a, b)] -> x) -> SizedGen a -> SizedGen b -> SizedGen x
+genMapLike f (SizedGen genX) (SizedGen genY) = SizedGen $ \valSz -> do
+    n <- choose (1, 5)
+    f <$> vectorOf n (
+        (,) <$> genX (valSz `div` n `div` 2)
+            <*> genY (valSz `div` n `div` 2)
+      )
+
+genMaybeF ::
+     ( forall x. Show x => Show (f x)
+     , forall x. Eq   x => Eq   (f x)
+     )
+  => (forall x. MaybeF ConcreteClassifier x -> ConcreteClassifier (f x))
+  -> Gen (f Void)
+  -> (SizedGen a -> SizedGen (f a))
+  -> ClassifiedGen a -> Gen (Some ClassifiedGen)
+genMaybeF cc genNothing genJust (ClassifiedGen cA genA) =
+    elements [
+        Some $ ClassifiedGen (cc FNothing)   (ignoreSize $ genNothing)
+      , Some $ ClassifiedGen (cc (FJust cA)) (genJust genA)
+      ]
+
+genEitherF ::
+     ( forall x y. (Show x, Show y) => Show (f x y)
+     , forall x y. (Eq   x, Eq   y) => Eq   (f x y)
+     )
+  => (forall x y. EitherF ConcreteClassifier x y -> ConcreteClassifier (f x y))
+  -> (SizedGen a -> SizedGen (f a Void))
+  -> (SizedGen b -> SizedGen (f Void b))
+  -> ClassifiedGen a
+  -> ClassifiedGen b
+  -> Gen (Some ClassifiedGen)
+genEitherF cc genLeft genRight (ClassifiedGen cA genA) (ClassifiedGen cB genB) =
+    elements [
+        Some $ ClassifiedGen (cc (FLeft  cA)) (genLeft  genA)
+      , Some $ ClassifiedGen (cc (FRight cB)) (genRight genB)
+      ]
+
+genMaybePairF ::
+     ( forall x y. (Show x, Show y) => Show (f x y)
+     , forall x y. (Eq   x, Eq   y) => Eq   (f x y)
+     )
+  => (forall x y. MaybePairF ConcreteClassifier x y -> ConcreteClassifier (f x y))
+  -> Gen (f Void Void)
+  -> (SizedGen a -> SizedGen b -> SizedGen (f a b))
+  -> ClassifiedGen a -> ClassifiedGen b -> Gen (Some ClassifiedGen)
+genMaybePairF cc genNothing genJust (ClassifiedGen cA genA) (ClassifiedGen cB genB) =
+    elements [
+        Some $ ClassifiedGen (cc FNothingPair)      (ignoreSize $ genNothing)
+      , Some $ ClassifiedGen (cc (FJustPair cA cB)) (genJust genA genB)
+      ]
+
+genF ::
+     ( forall x. Show x => Show (f x)
+     , forall x. Eq   x => Eq   (f x)
+     )
+  => (forall x. ConcreteClassifier x -> ConcreteClassifier (f x))
+  -> (SizedGen a -> SizedGen (f a))
+  -> ClassifiedGen a -> Gen (Some ClassifiedGen)
+genF cc gen (ClassifiedGen cA genA) = return $
+    Some $ ClassifiedGen (cc cA) (gen genA)
 
 {-------------------------------------------------------------------------------
   Auxiliary tree functions
