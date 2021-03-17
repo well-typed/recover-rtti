@@ -21,25 +21,8 @@ module Debug.RecoverRTTI (
     -- * User-defined types
   , UserDefined -- opaque
     -- ** Classify constructor arguments
-  , KnownConstr
   , fromUserDefined
   , Some(..)
-    -- ** Constructor information
-  , Constr(..)
-    -- ** Type-level constructor information
-  , ConstrPkg
-  , ConstrModl
-  , ConstrName
-  , prettyKnownConstr
-    -- ** Casting
-  , unsafeCoerceUserDefined
-  , ConstrOf
-  , Constrs
-  , GConstrs
-  , GConstrsOfType
-    -- ** Constructor check
-  , checkIsConstrOf
-  , IsConstrOf(..)
     -- * Inductive tuples
   , WrappedTuple(..)
   , Tuple
@@ -53,12 +36,16 @@ module Debug.RecoverRTTI (
   , smallerIsValid
   , toValidSize
   , liftValidSize
+    -- * Type-level naturals
+  , Nat(..)
+  , SNat(..)
+  , KnownNat(..)
+  , Length
   ) where
 
 import Debug.RecoverRTTI.Classifier
 import Debug.RecoverRTTI.Classify
-import Debug.RecoverRTTI.Constr
+import Debug.RecoverRTTI.Nat
 import Debug.RecoverRTTI.Tuple
-import Debug.RecoverRTTI.UserDefined
 import Debug.RecoverRTTI.Util
 import Debug.RecoverRTTI.Wrappers

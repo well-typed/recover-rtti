@@ -24,7 +24,7 @@ module Debug.RecoverRTTI.Tuple.Size (
 import Data.Proxy
 import Data.SOP.Dict
 
-import Debug.RecoverRTTI.TypeLevel
+import Debug.RecoverRTTI.Nat
 import Debug.RecoverRTTI.Util
 
 {-------------------------------------------------------------------------------
@@ -32,7 +32,7 @@ import Debug.RecoverRTTI.Util
 -------------------------------------------------------------------------------}
 
 data ValidSize (n :: Nat) where
-  ValidSize :: Sing n -> (forall r. TooBig n -> r) -> ValidSize n
+  ValidSize :: SNat n -> (forall r. TooBig n -> r) -> ValidSize n
 
 smallerIsValid' :: forall n. ValidSize ('S n) -> ValidSize n
 smallerIsValid' = \(ValidSize (SS n) tooBig) -> ValidSize n $ aux tooBig
@@ -62,7 +62,7 @@ smallerIsValid _ k =
 -- GHC does not support tuples larger than 62 fields. We do allow for tuples of
 -- zero size (which we interpret as unit @()@) and tuples of size one
 -- (where @Tuple '[x] ~ x@).
-class SingI n => IsValidSize n where
+class KnownNat n => IsValidSize n where
   isValidSize :: ValidSize n
 
 {-------------------------------------------------------------------------------
@@ -77,7 +77,7 @@ data TooBig (n :: Nat) where
 liftValidSize :: forall n. ValidSize n -> Dict IsValidSize n
 liftValidSize (ValidSize n notTooBig) = go n
   where
-    go :: Sing n -> Dict IsValidSize n
+    go :: SNat n -> Dict IsValidSize n
     go SZ =
         Dict
     go (SS SZ) =
@@ -208,193 +208,193 @@ liftValidSize (ValidSize n notTooBig) = go n
         notTooBig (TooBig :: TooBig n)
 
 instance IsValidSize 'Z where
-  isValidSize = ValidSize sing $ \case
+  isValidSize = ValidSize singNat $ \case
 
 instance IsValidSize ('S 'Z) where
-  isValidSize = ValidSize sing $ \case
+  isValidSize = ValidSize singNat $ \case
 
 instance IsValidSize ('S ('S 'Z)) where
-  isValidSize = ValidSize sing $ \case
+  isValidSize = ValidSize singNat $ \case
 
 instance IsValidSize ('S ('S ('S 'Z))) where
-  isValidSize = ValidSize sing $ \case
+  isValidSize = ValidSize singNat $ \case
 
 instance IsValidSize ('S ('S ('S ('S 'Z)))) where
-  isValidSize = ValidSize sing $ \case
+  isValidSize = ValidSize singNat $ \case
 
 instance IsValidSize ('S ('S ('S ('S ('S 'Z))))) where
-  isValidSize = ValidSize sing $ \case
+  isValidSize = ValidSize singNat $ \case
 
 instance IsValidSize ('S ('S ('S ('S ('S ('S 'Z)))))) where
-  isValidSize = ValidSize sing $ \case
+  isValidSize = ValidSize singNat $ \case
 
 instance IsValidSize ('S ('S ('S ('S ('S ('S ('S 'Z))))))) where
-  isValidSize = ValidSize sing $ \case
+  isValidSize = ValidSize singNat $ \case
 
 instance IsValidSize ('S ('S ('S ('S ('S ('S ('S ('S 'Z)))))))) where
-  isValidSize = ValidSize sing $ \case
+  isValidSize = ValidSize singNat $ \case
 
 instance IsValidSize ('S ('S ('S ('S ('S ('S ('S ('S ('S 'Z))))))))) where
-  isValidSize = ValidSize sing $ \case
+  isValidSize = ValidSize singNat $ \case
 
 instance IsValidSize ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S 'Z)))))))))) where
-  isValidSize = ValidSize sing $ \case
+  isValidSize = ValidSize singNat $ \case
 
 instance IsValidSize ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S 'Z))))))))))) where
-  isValidSize = ValidSize sing $ \case
+  isValidSize = ValidSize singNat $ \case
 
 instance IsValidSize ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S 'Z)))))))))))) where
-  isValidSize = ValidSize sing $ \case
+  isValidSize = ValidSize singNat $ \case
 
 instance IsValidSize ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S 'Z))))))))))))) where
-  isValidSize = ValidSize sing $ \case
+  isValidSize = ValidSize singNat $ \case
 
 instance IsValidSize ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S 'Z)))))))))))))) where
-  isValidSize = ValidSize sing $ \case
+  isValidSize = ValidSize singNat $ \case
 
 instance IsValidSize ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S 'Z))))))))))))))) where
-  isValidSize = ValidSize sing $ \case
+  isValidSize = ValidSize singNat $ \case
 
 instance IsValidSize ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S 'Z)))))))))))))))) where
-  isValidSize = ValidSize sing $ \case
+  isValidSize = ValidSize singNat $ \case
 
 instance IsValidSize ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S 'Z))))))))))))))))) where
-  isValidSize = ValidSize sing $ \case
+  isValidSize = ValidSize singNat $ \case
 
 instance IsValidSize ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S 'Z)))))))))))))))))) where
-  isValidSize = ValidSize sing $ \case
+  isValidSize = ValidSize singNat $ \case
 
 instance IsValidSize ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S 'Z))))))))))))))))))) where
-  isValidSize = ValidSize sing $ \case
+  isValidSize = ValidSize singNat $ \case
 
 instance IsValidSize ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S 'Z)))))))))))))))))))) where
-  isValidSize = ValidSize sing $ \case
+  isValidSize = ValidSize singNat $ \case
 
 instance IsValidSize ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S 'Z))))))))))))))))))))) where
-  isValidSize = ValidSize sing $ \case
+  isValidSize = ValidSize singNat $ \case
 
 instance IsValidSize ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S 'Z)))))))))))))))))))))) where
-  isValidSize = ValidSize sing $ \case
+  isValidSize = ValidSize singNat $ \case
 
 instance IsValidSize ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S 'Z))))))))))))))))))))))) where
-  isValidSize = ValidSize sing $ \case
+  isValidSize = ValidSize singNat $ \case
 
 instance IsValidSize ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S 'Z)))))))))))))))))))))))) where
-  isValidSize = ValidSize sing $ \case
+  isValidSize = ValidSize singNat $ \case
 
 instance IsValidSize ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S 'Z))))))))))))))))))))))))) where
-  isValidSize = ValidSize sing $ \case
+  isValidSize = ValidSize singNat $ \case
 
 instance IsValidSize ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S 'Z)))))))))))))))))))))))))) where
-  isValidSize = ValidSize sing $ \case
+  isValidSize = ValidSize singNat $ \case
 
 instance IsValidSize ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S 'Z))))))))))))))))))))))))))) where
-  isValidSize = ValidSize sing $ \case
+  isValidSize = ValidSize singNat $ \case
 
 instance IsValidSize ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S 'Z)))))))))))))))))))))))))))) where
-  isValidSize = ValidSize sing $ \case
+  isValidSize = ValidSize singNat $ \case
 
 instance IsValidSize ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S 'Z))))))))))))))))))))))))))))) where
-  isValidSize = ValidSize sing $ \case
+  isValidSize = ValidSize singNat $ \case
 
 instance IsValidSize ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S 'Z)))))))))))))))))))))))))))))) where
-  isValidSize = ValidSize sing $ \case
+  isValidSize = ValidSize singNat $ \case
 
 instance IsValidSize ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S 'Z))))))))))))))))))))))))))))))) where
-  isValidSize = ValidSize sing $ \case
+  isValidSize = ValidSize singNat $ \case
 
 instance IsValidSize ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S 'Z)))))))))))))))))))))))))))))))) where
-  isValidSize = ValidSize sing $ \case
+  isValidSize = ValidSize singNat $ \case
 
 instance IsValidSize ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S 'Z))))))))))))))))))))))))))))))))) where
-  isValidSize = ValidSize sing $ \case
+  isValidSize = ValidSize singNat $ \case
 
 instance IsValidSize ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S 'Z)))))))))))))))))))))))))))))))))) where
-  isValidSize = ValidSize sing $ \case
+  isValidSize = ValidSize singNat $ \case
 
 instance IsValidSize ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S 'Z))))))))))))))))))))))))))))))))))) where
-  isValidSize = ValidSize sing $ \case
+  isValidSize = ValidSize singNat $ \case
 
 instance IsValidSize ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S 'Z)))))))))))))))))))))))))))))))))))) where
-  isValidSize = ValidSize sing $ \case
+  isValidSize = ValidSize singNat $ \case
 
 instance IsValidSize ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S 'Z))))))))))))))))))))))))))))))))))))) where
-  isValidSize = ValidSize sing $ \case
+  isValidSize = ValidSize singNat $ \case
 
 instance IsValidSize ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S 'Z)))))))))))))))))))))))))))))))))))))) where
-  isValidSize = ValidSize sing $ \case
+  isValidSize = ValidSize singNat $ \case
 
 instance IsValidSize ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S 'Z))))))))))))))))))))))))))))))))))))))) where
-  isValidSize = ValidSize sing $ \case
+  isValidSize = ValidSize singNat $ \case
 
 instance IsValidSize ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S 'Z)))))))))))))))))))))))))))))))))))))))) where
-  isValidSize = ValidSize sing $ \case
+  isValidSize = ValidSize singNat $ \case
 
 instance IsValidSize ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S 'Z))))))))))))))))))))))))))))))))))))))))) where
-  isValidSize = ValidSize sing $ \case
+  isValidSize = ValidSize singNat $ \case
 
 instance IsValidSize ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S 'Z)))))))))))))))))))))))))))))))))))))))))) where
-  isValidSize = ValidSize sing $ \case
+  isValidSize = ValidSize singNat $ \case
 
 instance IsValidSize ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S 'Z))))))))))))))))))))))))))))))))))))))))))) where
-  isValidSize = ValidSize sing $ \case
+  isValidSize = ValidSize singNat $ \case
 
 instance IsValidSize ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S 'Z)))))))))))))))))))))))))))))))))))))))))))) where
-  isValidSize = ValidSize sing $ \case
+  isValidSize = ValidSize singNat $ \case
 
 instance IsValidSize ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S 'Z))))))))))))))))))))))))))))))))))))))))))))) where
-  isValidSize = ValidSize sing $ \case
+  isValidSize = ValidSize singNat $ \case
 
 instance IsValidSize ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S 'Z)))))))))))))))))))))))))))))))))))))))))))))) where
-  isValidSize = ValidSize sing $ \case
+  isValidSize = ValidSize singNat $ \case
 
 instance IsValidSize ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S 'Z))))))))))))))))))))))))))))))))))))))))))))))) where
-  isValidSize = ValidSize sing $ \case
+  isValidSize = ValidSize singNat $ \case
 
 instance IsValidSize ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S 'Z)))))))))))))))))))))))))))))))))))))))))))))))) where
-  isValidSize = ValidSize sing $ \case
+  isValidSize = ValidSize singNat $ \case
 
 instance IsValidSize ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S 'Z))))))))))))))))))))))))))))))))))))))))))))))))) where
-  isValidSize = ValidSize sing $ \case
+  isValidSize = ValidSize singNat $ \case
 
 instance IsValidSize ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S 'Z)))))))))))))))))))))))))))))))))))))))))))))))))) where
-  isValidSize = ValidSize sing $ \case
+  isValidSize = ValidSize singNat $ \case
 
 instance IsValidSize ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S 'Z))))))))))))))))))))))))))))))))))))))))))))))))))) where
-  isValidSize = ValidSize sing $ \case
+  isValidSize = ValidSize singNat $ \case
 
 instance IsValidSize ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S 'Z)))))))))))))))))))))))))))))))))))))))))))))))))))) where
-  isValidSize = ValidSize sing $ \case
+  isValidSize = ValidSize singNat $ \case
 
 instance IsValidSize ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S 'Z))))))))))))))))))))))))))))))))))))))))))))))))))))) where
-  isValidSize = ValidSize sing $ \case
+  isValidSize = ValidSize singNat $ \case
 
 instance IsValidSize ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S 'Z)))))))))))))))))))))))))))))))))))))))))))))))))))))) where
-  isValidSize = ValidSize sing $ \case
+  isValidSize = ValidSize singNat $ \case
 
 instance IsValidSize ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S 'Z))))))))))))))))))))))))))))))))))))))))))))))))))))))) where
-  isValidSize = ValidSize sing $ \case
+  isValidSize = ValidSize singNat $ \case
 
 instance IsValidSize ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S 'Z)))))))))))))))))))))))))))))))))))))))))))))))))))))))) where
-  isValidSize = ValidSize sing $ \case
+  isValidSize = ValidSize singNat $ \case
 
 instance IsValidSize ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S 'Z))))))))))))))))))))))))))))))))))))))))))))))))))))))))) where
-  isValidSize = ValidSize sing $ \case
+  isValidSize = ValidSize singNat $ \case
 
 instance IsValidSize ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S 'Z)))))))))))))))))))))))))))))))))))))))))))))))))))))))))) where
-  isValidSize = ValidSize sing $ \case
+  isValidSize = ValidSize singNat $ \case
 
 instance IsValidSize ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S 'Z))))))))))))))))))))))))))))))))))))))))))))))))))))))))))) where
-  isValidSize = ValidSize sing $ \case
+  isValidSize = ValidSize singNat $ \case
 
 instance IsValidSize ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S 'Z)))))))))))))))))))))))))))))))))))))))))))))))))))))))))))) where
-  isValidSize = ValidSize sing $ \case
+  isValidSize = ValidSize singNat $ \case
 
 instance IsValidSize ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S 'Z))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))) where
-  isValidSize = ValidSize sing $ \case
+  isValidSize = ValidSize singNat $ \case
 
 instance IsValidSize ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S ('S 'Z)))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))) where
-  isValidSize = ValidSize sing $ \case
+  isValidSize = ValidSize singNat $ \case
 
 -- | Check the given size is a valid tuple size
 toValidSize :: Int -> Maybe (Some ValidSize)

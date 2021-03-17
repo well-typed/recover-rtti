@@ -3,26 +3,36 @@
 {-# LANGUAGE DeriveGeneric     #-}
 {-# LANGUAGE DeriveTraversable #-}
 {-# LANGUAGE MagicHash         #-}
+{-# LANGUAGE PolyKinds         #-}
 {-# LANGUAGE TypeFamilies      #-}
 {-# LANGUAGE TypeOperators     #-}
 {-# LANGUAGE UnboxedTuples     #-}
 
 -- | Just some examples of user-defined types
 module Test.RecoverRTTI.UserDefined (
-    NonRecursive(..)
+    SimpleType(..)
+  , NonRecursive(..)
   , Recursive(..)
   , recursiveFromList
   , ContainsUnlifted -- opaque
   , exampleContainsUnlifted
+  , ConstrsOf(..)
   ) where
 
+import Data.Proxy
 import GHC.Generics
 import GHC.IO
 import GHC.Prim
 
+import Test.QuickCheck
+
 {-------------------------------------------------------------------------------
   User-defined datatypes
 -------------------------------------------------------------------------------}
+
+-- | Example of a simple monomorphic user-defined type
+data SimpleType = SimpleA | SimpleB
+  deriving (Show, Eq, Generic)
 
 -- | Example of a non-recursive user-defined type
 data NonRecursive a = NR1 Int | NR2 a Bool
@@ -43,37 +53,44 @@ recursiveFromList = foldr RCons RNil
 -------------------------------------------------------------------------------}
 
 -- | Example of a user-defined type containing something unlifted
-data ContainsUnlifted a = NothingHere | ContainsUnlifted (MutableArray# RealWorld Int) a
-  deriving (Functor, Foldable, Traversable)
+data ContainsUnlifted = ContainsUnlifted (MutableArray# RealWorld Int) Bool
 
--- We can't derive a Generic instance, we must produce just enough info so that
--- we can do the right type casts
-instance Generic (ContainsUnlifted a) where
-  type Rep (ContainsUnlifted a) = Rep_ContainsUnlifted
-
-  from = error "'from' not defined for ContainsUnlifted"
-  to   = error "'to' not defined for ContainsUnlifted"
-
--- We don't bother specifiying the arguments to the constructors
-type Rep_ContainsUnlifted =
-    M1 D ('MetaData "ContainsUnlifted" "Test.RecoverRTTI.UserDefined" "main" 'False)
-     (     M1 C ('MetaCons "NothingHere" 'PrefixI 'False) U1
-       :+:
-           M1 C ('MetaCons "ContainsUnlifted" 'PrefixI 'False) U1
-     )
-
-instance Show a => Show (ContainsUnlifted a) where
-  showsPrec _ NothingHere =
-        showString "NothingHere"
+instance Show ContainsUnlifted where
   showsPrec p (ContainsUnlifted _ x) = showParen (p >= 11) $
         showString "ContainsUnlifted "
       . showsPrec 11 x
 
-instance Eq (ContainsUnlifted a) where
+instance Eq ContainsUnlifted where
   _ == _ = True
 
-exampleContainsUnlifted :: ContainsUnlifted ()
+exampleContainsUnlifted :: ContainsUnlifted
 {-# NOINLINE exampleContainsUnlifted #-}
 exampleContainsUnlifted = unsafePerformIO $ IO $ \world ->
     let !(# world', arr #) = newArray# 5# 0 world
-    in (# world', ContainsUnlifted arr () #)
+    in (# world', ContainsUnlifted arr True #)
+
+{-------------------------------------------------------------------------------
+  ConstrsOf
+-------------------------------------------------------------------------------}
+
+-- | Constructors of this type
+--
+-- This could be defined in terms of generics, but this is kind polymorphic.
+-- Used for testing only.
+class ConstrsOf (f :: k) where
+  constrsOf :: Proxy f -> [String]
+
+instance ConstrsOf SimpleType       where constrsOf _ = ["SimpleA", "SimpleB"]
+instance ConstrsOf Recursive        where constrsOf _ = ["RNil", "RCons"]
+instance ConstrsOf NonRecursive     where constrsOf _ = ["NR1", "NR2"]
+instance ConstrsOf ContainsUnlifted where constrsOf _ = ["NothingHere", "ContainsUnlifted"]
+
+{-------------------------------------------------------------------------------
+  Arbitrary instances
+-------------------------------------------------------------------------------}
+
+instance Arbitrary SimpleType where
+  arbitrary = elements [SimpleA, SimpleB]
+
+instance Arbitrary ContainsUnlifted where
+  arbitrary = return exampleContainsUnlifted

@@ -24,18 +24,17 @@ Tested-With: GHC ==8.8.4 || ==8.10.4 || ==9.0.1
 
 library
     exposed-modules:  Debug.RecoverRTTI
-                      Debug.RecoverRTTI.TypeLevel
+
 
     other-modules:    Debug.RecoverRTTI.Classifier
                       Debug.RecoverRTTI.Classify
                       Debug.RecoverRTTI.ClosureTree
-                      Debug.RecoverRTTI.Constr
                       Debug.RecoverRTTI.FlatClosure
                       Debug.RecoverRTTI.Modules
+                      Debug.RecoverRTTI.Nat
                       Debug.RecoverRTTI.Tuple
                       Debug.RecoverRTTI.Tuple.Recursive
                       Debug.RecoverRTTI.Tuple.Size
-                      Debug.RecoverRTTI.UserDefined
                       Debug.RecoverRTTI.Util
                       Debug.RecoverRTTI.Wrappers
 

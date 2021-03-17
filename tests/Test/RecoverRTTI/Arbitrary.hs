@@ -56,7 +56,6 @@ import qualified Data.Vector                 as Vector.Boxed
 import Test.QuickCheck hiding (classify, NonEmpty)
 
 import Debug.RecoverRTTI
-import Debug.RecoverRTTI.TypeLevel
 
 import Test.RecoverRTTI.ConcreteClassifier
 import Test.RecoverRTTI.Orphans ()
@@ -333,6 +332,10 @@ arbitraryClassifiedGen typSz
           -- User-defined
           --
 
+          -- SimpleType
+        , return $ return $ Some (defaultClassifiedGen CC_User_Simple)
+
+          -- NonRecursive
         , guard (typSz >= 1) >> (return $ do
               Some a <- arbitraryClassifiedGen (typSz - 1)
               genMaybeF
@@ -344,6 +347,7 @@ arbitraryClassifiedGen typSz
                 a
             )
 
+          -- Recursive
         , guard (typSz >= 1) >> (return $ do
               Some a <- arbitraryClassifiedGen (typSz - 1)
               genMaybeF
@@ -353,11 +357,13 @@ arbitraryClassifiedGen typSz
                 a
             )
 
-        , return $ do
-            return $ Some $ ClassifiedGen (CC_User_Unlifted (FJust CC_Unit)) $ SizedGen $ \_ ->
-              return exampleContainsUnlifted
+          -- ContainsUnlifted
+        , return $ return $ Some (defaultClassifiedGen CC_User_Unlifted)
 
+          --
           -- Tuples
+          --
+
         , guard (typSz >= 2) >> (return $
               arbitraryTuple typSz $ \np ->
               case ( all_NP (hmap canShowClassifiedGen np)
@@ -465,7 +471,7 @@ arbitraryTuple = \typSz k -> do
              of Dict -> k np
   where
     go :: Int
-       -> Sing (n :: Nat)
+       -> SNat n
        -> (forall xs.
                 (SListI xs, Length xs ~ n)
              => NP ClassifiedGen xs -> Gen r

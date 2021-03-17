@@ -26,8 +26,8 @@ module Debug.RecoverRTTI.Tuple.Recursive (
 
 import Data.SOP
 
+import Debug.RecoverRTTI.Nat
 import Debug.RecoverRTTI.Tuple.Size
-import Debug.RecoverRTTI.TypeLevel
 
 {-------------------------------------------------------------------------------
   Generated

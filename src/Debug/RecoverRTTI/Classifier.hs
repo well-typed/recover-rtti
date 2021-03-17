@@ -37,10 +37,8 @@ import qualified Data.Text                   as Text.Strict
 import qualified Data.Text.Lazy              as Text.Lazy
 import qualified Data.Vector                 as Vector.Boxed
 
-import Debug.RecoverRTTI.Constr
+import Debug.RecoverRTTI.Nat
 import Debug.RecoverRTTI.Tuple
-import Debug.RecoverRTTI.TypeLevel
-import Debug.RecoverRTTI.UserDefined
 import Debug.RecoverRTTI.Wrappers
 
 {-------------------------------------------------------------------------------
@@ -136,7 +134,7 @@ data Classifier (a :: Type) :: Type where
 
   -- User-defined
 
-  C_Custom :: Sing c -> Classifier (UserDefined c)
+  C_Custom :: Classifier UserDefined
 
 newtype Classifiers xs = Classifiers (NP Classified xs)
 

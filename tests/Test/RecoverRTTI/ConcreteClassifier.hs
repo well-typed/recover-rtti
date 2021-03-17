@@ -44,7 +44,6 @@ import qualified Data.Text.Lazy              as Text.Lazy
 import qualified Data.Vector                 as Vector.Boxed
 
 import Debug.RecoverRTTI
-import Debug.RecoverRTTI.TypeLevel
 
 import Test.RecoverRTTI.UserDefined
 
@@ -129,9 +128,10 @@ data ConcreteClassifier (a :: Type) :: Type where
 
     -- User-defined
 
+    CC_User_Simple   :: ConcreteClassifier SimpleType
     CC_User_NonRec   :: MaybeF ConcreteClassifier a -> ConcreteClassifier (NonRecursive a)
     CC_User_Rec      :: MaybeF ConcreteClassifier a -> ConcreteClassifier (Recursive    a)
-    CC_User_Unlifted :: MaybeF ConcreteClassifier a -> ConcreteClassifier (ContainsUnlifted a)
+    CC_User_Unlifted :: ConcreteClassifier ContainsUnlifted
 
 newtype ConcreteClassifiers xs = ConcreteClassifiers (NP ConcreteClassifier xs)
 
@@ -218,9 +218,10 @@ classifierSize = go
     go CC_MVar  = 1
 
     -- User-defined
+    go  CC_User_Simple      = 1
     go (CC_User_NonRec   c) = 1 + goMaybeF c
     go (CC_User_Rec      c) = 1 + goMaybeF c
-    go (CC_User_Unlifted c) = 1 + goMaybeF c
+    go  CC_User_Unlifted    = 1
 
     goMaybeF :: MaybeF ConcreteClassifier a -> Int
     goMaybeF FNothing  = 0
@@ -328,9 +329,10 @@ sameConcreteClassifier = go
 
     -- User-defined
 
+    go  CC_User_Simple       CC_User_Simple       = Just Refl
     go (CC_User_NonRec   c) (CC_User_NonRec   c') = goMaybeF c c'
     go (CC_User_Rec      c) (CC_User_Rec      c') = goMaybeF c c'
-    go (CC_User_Unlifted c) (CC_User_Unlifted c') = goMaybeF c c'
+    go  CC_User_Unlifted     CC_User_Unlifted     = Just Refl
 
     -- Otherwise, not equal
 
@@ -442,6 +444,7 @@ sameConcreteClassifier = go
 
         -- User-defined
 
+        CC_User_Simple{}   -> ()
         CC_User_NonRec{}   -> ()
         CC_User_Rec{}      -> ()
         CC_User_Unlifted{} -> ()

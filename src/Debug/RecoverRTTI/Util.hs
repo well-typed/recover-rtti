@@ -28,7 +28,7 @@ import Data.Proxy
 import Data.SOP
 import GHC.TypeLits (KnownSymbol, SomeSymbol(..), someSymbolVal)
 
-import Debug.RecoverRTTI.TypeLevel
+import Debug.RecoverRTTI.Nat
 
 {-------------------------------------------------------------------------------
   Existentials
@@ -86,10 +86,10 @@ data VerifiedSize (n :: Nat) (a :: Type) where
          (SListI xs, Length xs ~ n)
       => NP (K a) xs -> VerifiedSize n a
 
-verifySize :: Sing n -> [a] -> Maybe (VerifiedSize n a)
+verifySize :: SNat n -> [a] -> Maybe (VerifiedSize n a)
 verifySize = go
   where
-    go :: Sing n -> [a] -> Maybe (VerifiedSize n a)
+    go :: SNat n -> [a] -> Maybe (VerifiedSize n a)
     go SZ     []     = Just (VerifiedSize Nil)
     go (SS n) (x:xs) = do VerifiedSize np <- go n xs
                           return $ VerifiedSize (K x :* np)

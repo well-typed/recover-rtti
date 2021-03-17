@@ -21,9 +21,9 @@ module Debug.RecoverRTTI.Tuple (
 
 import Data.SOP hiding (NS(..))
 
+import Debug.RecoverRTTI.Nat
 import Debug.RecoverRTTI.Tuple.Recursive
 import Debug.RecoverRTTI.Tuple.Size
-import Debug.RecoverRTTI.TypeLevel
 
 {-------------------------------------------------------------------------------
   Wrapped tuple

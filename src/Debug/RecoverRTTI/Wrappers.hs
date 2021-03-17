@@ -12,8 +12,10 @@
 -- nonetheless stil useful, as it means that we can show /everything/, which is
 -- kind of the point.
 module Debug.RecoverRTTI.Wrappers (
+    -- * User-defined types
+    UserDefined(..)
     -- * Functions
-    SomeFun(..)
+  , SomeFun(..)
     -- * Reference cells
   , SomeSTRef(..)
   , SomeMVar(..)
@@ -24,6 +26,17 @@ import Control.Concurrent.MVar (MVar)
 import Control.Concurrent.STM (TVar)
 import Data.STRef (STRef)
 import GHC.Exts
+
+{-------------------------------------------------------------------------------
+  User-defined types
+-------------------------------------------------------------------------------}
+
+-- | User-defined type
+--
+-- We defer classification of the arguments to the constructor (the type might
+-- be recursive, so if we tried to classify all arguments, we might end up
+-- unrolling the recursion at the type level).
+newtype UserDefined = UserDefined Any
 
 {-------------------------------------------------------------------------------
   Functions

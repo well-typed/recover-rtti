@@ -151,11 +151,13 @@ prop_constants = withMaxSuccess 1 $ conjoin [
 
       -- User defined
 
+    , compareClassifier $ Value  CC_User_Simple                    SimpleA
+    , compareClassifier $ Value  CC_User_Simple                    SimpleB
     , compareClassifier $ Value (CC_User_NonRec    FNothing)       (NR1 1234)
     , compareClassifier $ Value (CC_User_NonRec   (FJust CC_Char)) (NR2 'a' True)
     , compareClassifier $ Value (CC_User_Rec       FNothing)        RNil
     , compareClassifier $ Value (CC_User_Rec      (FJust CC_Char)) (RCons 'a' RNil)
-    , compareClassifier $ Value (CC_User_Unlifted (FJust CC_Unit)) exampleContainsUnlifted
+    , compareClassifier $ Value  CC_User_Unlifted                  exampleContainsUnlifted
     ]
   where
     _checkAllCases :: ConcreteClassifier a -> ()
@@ -223,6 +225,7 @@ prop_constants = withMaxSuccess 1 $ conjoin [
 
         -- User-defined
 
+        CC_User_Simple{}   -> ()
         CC_User_NonRec{}   -> ()
         CC_User_Rec{}      -> ()
         CC_User_Unlifted{} -> ()

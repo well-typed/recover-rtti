@@ -5,6 +5,7 @@
 {-# LANGUAGE QuantifiedConstraints #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
 {-# LANGUAGE StandaloneDeriving    #-}
+{-# LANGUAGE TupleSections         #-}
 {-# LANGUAGE TypeApplications      #-}
 {-# LANGUAGE TypeOperators         #-}
 {-# LANGUAGE UndecidableInstances  #-}
@@ -33,7 +34,6 @@ import Data.SOP.Dict
 import Data.Tree (Tree)
 import GHC.Exts.Heap (Closure)
 import GHC.Real
-import GHC.Stack
 import System.IO.Unsafe (unsafePerformIO)
 import Unsafe.Coerce (unsafeCoerce)
 
@@ -48,13 +48,12 @@ import qualified Data.Tree                   as Tree
 import qualified Data.Vector                 as Vector.Boxed
 
 import Debug.RecoverRTTI.Classifier
-import Debug.RecoverRTTI.Constr
 import Debug.RecoverRTTI.FlatClosure
 import Debug.RecoverRTTI.Modules
+import Debug.RecoverRTTI.Nat
 import Debug.RecoverRTTI.Tuple
-import Debug.RecoverRTTI.TypeLevel
-import Debug.RecoverRTTI.UserDefined
 import Debug.RecoverRTTI.Util
+import Debug.RecoverRTTI.Wrappers
 
 {-------------------------------------------------------------------------------
   Classification
@@ -244,9 +243,8 @@ classifyIO x = do
       -- User defined
       --
 
-      ConstrClosure {pkg, modl, name} ->
-        elimKnownConstr (Constr pkg modl name) $ \p ->
-        return $ mustBe (C_Custom p)
+      ConstrClosure {} ->
+        return $ mustBe C_Custom
 
       --
       -- Classification failed
@@ -435,34 +433,16 @@ classified x = (\cx -> Classified cx x) <$> classify x
 
 -- | Classify the arguments to the constructor
 --
--- We only look at pointers and ignore any @UNPACK@ed data. Arguments we cannot
--- classify (like unlifted arguments) will be ignored.
-fromUserDefined :: forall c.
-     (HasCallStack, KnownConstr c)
-  => UserDefined c -> [Some Classified]
+-- Additionally returns the constructor name itself.
+fromUserDefined :: UserDefined -> (String, [Some Classified])
 fromUserDefined = \(UserDefined x) -> unsafePerformIO $ go x
   where
-    go :: x -> IO [Some Classified]
+    go :: x -> IO (String, [Some Classified])
     go x = do
         closure <- getBoxedClosureData (asBox x)
         case closure of
-          ConstrClosure {pkg, modl, name, ptrArgs} -> do
-            let expected, actual :: Constr String
-                expected = knownConstr (sing @_ @c)
-                actual   = Constr pkg modl name
-            if expected == actual then do
-              goArgs [] ptrArgs
-            else do
---              tree <- showClosureTree 5 x
-              error $ unlines [
-                  "elimUserDefined: unexpected constructor"
-                , "  closure:  " ++ show closure
-                , "  expected: " ++ show expected
-                , "  actual:   " ++ show actual
---                , "** TREE **"
---                , tree
---                , "** END OF TREE **"
-                ]
+          ConstrClosure {name, ptrArgs} ->
+            (name,) <$> goArgs [] ptrArgs
           _otherwise ->
             error $ "elimUserDefined: unexpected closure: "
                  ++ show closure
@@ -579,7 +559,7 @@ canShowClassified = go
     go C_Fun = Dict
 
     -- User-defined
-    go (C_Custom SConstr) = Dict
+    go C_Custom = Dict
 
     --
     -- Compound
@@ -634,9 +614,9 @@ canShowClassified = go
                                          ) of
                                       (Dict, Dict) -> Dict
 
-instance KnownConstr c => Show (UserDefined c) where
+instance Show UserDefined where
   showsPrec p x =
-      case fromUserDefined x of
+      case args of
         [] -> showString constrName
         xs -> showParen (p >= 11)
             . (showString constrName .)
@@ -644,4 +624,4 @@ instance KnownConstr c => Show (UserDefined c) where
             . map (\(Some x') -> showString " " . showClassifiedValue 11 x')
             $ xs
     where
-      Constr{constrName} = knownConstr (sing @_ @c)
+      (constrName, args) = fromUserDefined x

@@ -8,7 +8,7 @@
 module Debug.RecoverRTTI.Modules (
     KnownPkg(..)
   , KnownModule(..)
-  , Sing(..)
+  , IsKnownPkg(..)
     -- * Matching
   , inKnownModule
   , inKnownModuleNested
@@ -18,7 +18,6 @@ import Control.Monad
 import Data.List (isPrefixOf)
 
 import Debug.RecoverRTTI.FlatClosure
-import Debug.RecoverRTTI.TypeLevel
 
 {-------------------------------------------------------------------------------
   Packages
@@ -42,28 +41,31 @@ data family KnownModule (pkg :: KnownPkg)
   Singleton instance for KnownPkg
 -------------------------------------------------------------------------------}
 
-data instance Sing (pkg :: KnownPkg) where
-  SGhcPrim             :: Sing 'PkgGhcPrim
-  SBase                :: Sing 'PkgBase
-  SByteString          :: Sing 'PkgByteString
-  SText                :: Sing 'PkgText
-  SIntegerWiredIn      :: Sing 'PkgIntegerWiredIn
-  SGhcBignum           :: Sing 'PkgGhcBignum
-  SContainers          :: Sing 'PkgContainers
-  SAeson               :: Sing 'PkgAeson
-  SUnorderedContainers :: Sing 'PkgUnorderedContainers
-  SVector              :: Sing 'PkgVector
+data SPkg (pkg :: KnownPkg) where
+  SGhcPrim             :: SPkg 'PkgGhcPrim
+  SBase                :: SPkg 'PkgBase
+  SByteString          :: SPkg 'PkgByteString
+  SText                :: SPkg 'PkgText
+  SIntegerWiredIn      :: SPkg 'PkgIntegerWiredIn
+  SGhcBignum           :: SPkg 'PkgGhcBignum
+  SContainers          :: SPkg 'PkgContainers
+  SAeson               :: SPkg 'PkgAeson
+  SUnorderedContainers :: SPkg 'PkgUnorderedContainers
+  SVector              :: SPkg 'PkgVector
 
-instance SingI 'PkgGhcPrim             where sing = SGhcPrim
-instance SingI 'PkgBase                where sing = SBase
-instance SingI 'PkgByteString          where sing = SByteString
-instance SingI 'PkgText                where sing = SText
-instance SingI 'PkgIntegerWiredIn      where sing = SIntegerWiredIn
-instance SingI 'PkgGhcBignum           where sing = SGhcBignum
-instance SingI 'PkgContainers          where sing = SContainers
-instance SingI 'PkgAeson               where sing = SAeson
-instance SingI 'PkgUnorderedContainers where sing = SUnorderedContainers
-instance SingI 'PkgVector              where sing = SVector
+class IsKnownPkg pkg where
+  singPkg :: SPkg pkg
+
+instance IsKnownPkg 'PkgGhcPrim             where singPkg = SGhcPrim
+instance IsKnownPkg 'PkgBase                where singPkg = SBase
+instance IsKnownPkg 'PkgByteString          where singPkg = SByteString
+instance IsKnownPkg 'PkgText                where singPkg = SText
+instance IsKnownPkg 'PkgIntegerWiredIn      where singPkg = SIntegerWiredIn
+instance IsKnownPkg 'PkgGhcBignum           where singPkg = SGhcBignum
+instance IsKnownPkg 'PkgContainers          where singPkg = SContainers
+instance IsKnownPkg 'PkgAeson               where singPkg = SAeson
+instance IsKnownPkg 'PkgUnorderedContainers where singPkg = SUnorderedContainers
+instance IsKnownPkg 'PkgVector              where singPkg = SVector
 
 {-------------------------------------------------------------------------------
   Modules in @ghc-pri@
@@ -157,25 +159,25 @@ data instance KnownModule 'PkgVector =
 -------------------------------------------------------------------------------}
 
 -- | Check if the given closure is from a known package/module
-inKnownModule :: SingI pkg
+inKnownModule :: IsKnownPkg pkg
   => KnownModule pkg
   -> FlatClosure -> Maybe String
 inKnownModule modl = fmap fst . inKnownModuleNested modl
 
 -- | Generalization of 'inKnownModule' that additionally returns nested pointers
-inKnownModuleNested :: SingI pkg
+inKnownModuleNested :: IsKnownPkg pkg
   => KnownModule pkg
   -> FlatClosure -> Maybe (String, [Box])
-inKnownModuleNested = go sing
+inKnownModuleNested = go singPkg
   where
-    go :: Sing pkg -> KnownModule pkg -> FlatClosure -> Maybe (String, [Box])
+    go :: SPkg pkg -> KnownModule pkg -> FlatClosure -> Maybe (String, [Box])
     go knownPkg knownModl ConstrClosure{pkg, modl, name, ptrArgs} = do
         guard (namePkg knownPkg `isPrefixOf` pkg) -- ignore the version number
         guard (modl == nameModl knownPkg knownModl)
         return (name, ptrArgs)
     go _ _ _otherClosure = Nothing
 
-    namePkg :: Sing (pkg :: KnownPkg) -> String
+    namePkg :: SPkg pkg -> String
     namePkg SGhcPrim             = "ghc-prim"
     namePkg SBase                = "base"
     namePkg SByteString          = "bytestring"
@@ -187,7 +189,7 @@ inKnownModuleNested = go sing
     namePkg SUnorderedContainers = "unordered-containers"
     namePkg SVector              = "vector"
 
-    nameModl :: Sing (pkg :: KnownPkg) -> KnownModule pkg -> String
+    nameModl :: SPkg pkg -> KnownModule pkg -> String
     nameModl SGhcPrim             GhcTypes                    = "GHC.Types"
     nameModl SGhcPrim             GhcTuple                    = "GHC.Tuple"
     nameModl SBase                GhcInt                      = "GHC.Int"
