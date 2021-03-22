@@ -11,6 +11,7 @@
 module Debug.RecoverRTTI.Tuple (
     -- * Wrapped tuple
     WrappedTuple(WrappedTuple, TNil, TCons)
+  , unwrapTuple
     -- * Conversion between tuples and NP
   , tupleFromNP
   , tupleToNP
@@ -38,7 +39,7 @@ import Debug.RecoverRTTI.Tuple.Size
 -- Inductive view on tuples that can be constructed with or pattern matched on
 -- using 'TNil' and 'TCons'. The underlying representation is a /true/ tuple
 -- however; for example, @Tuple '[Int, Bool, Char] ~ (Int, Bool, Char)@.
-newtype WrappedTuple xs = WrappedTuple (Tuple xs)
+newtype WrappedTuple xs = WrappedTuple { unwrapTuple :: Tuple xs }
 
 pattern TNil ::
      forall xs. (SListI xs, IsValidSize (Length xs))

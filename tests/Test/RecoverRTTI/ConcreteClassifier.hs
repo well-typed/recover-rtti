@@ -1,52 +1,52 @@
-{-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE GADTs                 #-}
 {-# LANGUAGE KindSignatures        #-}
 {-# LANGUAGE LambdaCase            #-}
-{-# LANGUAGE ScopedTypeVariables   #-}
+{-# LANGUAGE QuantifiedConstraints #-}
+{-# LANGUAGE RankNTypes            #-}
 {-# LANGUAGE StandaloneDeriving    #-}
 {-# LANGUAGE TypeOperators         #-}
-{-# LANGUAGE UndecidableInstances  #-}
 
 module Test.RecoverRTTI.ConcreteClassifier (
     -- * Concrete classifier
-    ConcreteClassifier(..)
-  , sameConcreteClassifier
-  , ConcreteClassifiers(..)
-  , classifierSize
+    ConcreteClassifier
+  , ClassifyUser(..)
     -- * Values
   , Value(..)
+    -- * Show
+  , canShowUser
+  , canShowConcrete
+    -- * Size
+  , sizeUser
+  , sizeConcrete
+    -- * Same classifier
+  , sameUser
+  , sameConcrete
+    -- * Equality
+  , canCompareUser
+  , canCompareConcrete
+    -- * Arbitrary
+  , arbitraryUser
+  , arbitraryConcrete
   ) where
 
-import Data.HashMap.Lazy (HashMap)
-import Data.HashSet (HashSet)
-import Data.Int
-import Data.IntMap (IntMap)
-import Data.IntSet (IntSet)
 import Data.Kind
-import Data.Map (Map)
-import Data.Ratio
-import Data.Sequence (Seq)
-import Data.Set (Set)
-import Data.SOP
 import Data.SOP.Dict
-import Data.Tree (Tree)
 import Data.Type.Equality
-import Data.Word
-
-import qualified Data.Aeson                  as Aeson
-import qualified Data.ByteString             as BS.Strict
-import qualified Data.ByteString.Lazy        as BS.Lazy
-import qualified Data.ByteString.Short       as BS.Short
-import qualified Data.HashMap.Internal.Array as HashMap (Array)
-import qualified Data.Primitive.Array        as Prim (Array)
-import qualified Data.Text                   as Text.Strict
-import qualified Data.Text.Lazy              as Text.Lazy
-import qualified Data.Vector                 as Vector.Boxed
+import Data.Void
 
 import Debug.RecoverRTTI
 
+import Test.QuickCheck
+
+import Test.RecoverRTTI.Classifier.Arbitrary
+import Test.RecoverRTTI.Classifier.Equality
+import Test.RecoverRTTI.Classifier.Size
+import Test.RecoverRTTI.QuickCheck.DepGen
+import Test.RecoverRTTI.QuickCheck.Sized (SizedGen)
 import Test.RecoverRTTI.UserDefined
+
+import qualified Test.RecoverRTTI.QuickCheck.Sized as SG
 
 {-------------------------------------------------------------------------------
   Concrete classifier
@@ -61,184 +61,15 @@ import Test.RecoverRTTI.UserDefined
   information about which user-defined types we're interested in).
 -------------------------------------------------------------------------------}
 
--- | Like 'Classifier', but with no guess-work and concrete types
-data ConcreteClassifier (a :: Type) :: Type where
-    -- Primitive types
+type ConcreteClassifier = Classifier_ ClassifyUser
 
-    CC_Bool     :: ConcreteClassifier Bool
-    CC_Char     :: ConcreteClassifier Char
-    CC_Double   :: ConcreteClassifier Double
-    CC_Float    :: ConcreteClassifier Float
-    CC_Int      :: ConcreteClassifier Int
-    CC_Int8     :: ConcreteClassifier Int8
-    CC_Int16    :: ConcreteClassifier Int16
-    CC_Int32    :: ConcreteClassifier Int32
-    CC_Int64    :: ConcreteClassifier Int64
-    CC_Integer  :: ConcreteClassifier Integer
-    CC_Ordering :: ConcreteClassifier Ordering
-    CC_Unit     :: ConcreteClassifier ()
-    CC_Word     :: ConcreteClassifier Word
-    CC_Word8    :: ConcreteClassifier Word8
-    CC_Word16   :: ConcreteClassifier Word16
-    CC_Word32   :: ConcreteClassifier Word32
-    CC_Word64   :: ConcreteClassifier Word64
+data ClassifyUser (a :: Type) where
+  C_Simple   :: ClassifyUser SimpleType
+  C_NonRec   :: MaybeF ClassifyUser a -> ClassifyUser (NonRecursive a)
+  C_Rec      :: MaybeF ClassifyUser a -> ClassifyUser (Recursive    a)
+  C_Unlifted :: ClassifyUser ContainsUnlifted
 
-    -- Text types
-
-    CC_String      :: ConcreteClassifier String
-    CC_BS_Strict   :: ConcreteClassifier BS.Strict.ByteString
-    CC_BS_Lazy     :: ConcreteClassifier BS.Lazy.ByteString
-    CC_BS_Short    :: ConcreteClassifier BS.Short.ShortByteString
-    CC_Text_Strict :: ConcreteClassifier Text.Strict.Text
-    CC_Text_Lazy   :: ConcreteClassifier Text.Lazy.Text
-
-    -- Aeson
-
-    CC_Value :: ConcreteClassifier Aeson.Value
-
-    -- Compound
-
-    CC_Maybe        :: MaybeF     ConcreteClassifier a   -> ConcreteClassifier (Maybe a)
-    CC_Either       :: EitherF    ConcreteClassifier a b -> ConcreteClassifier (Either a b)
-    CC_List         :: MaybeF     ConcreteClassifier a   -> ConcreteClassifier [a]
-    CC_Ratio        ::            ConcreteClassifier a   -> ConcreteClassifier (Ratio a)
-    CC_Set          :: MaybeF     ConcreteClassifier a   -> ConcreteClassifier (Set a)
-    CC_Map          :: MaybePairF ConcreteClassifier a b -> ConcreteClassifier (Map a b)
-    CC_IntSet       ::                                      ConcreteClassifier IntSet
-    CC_IntMap       :: MaybeF     ConcreteClassifier a   -> ConcreteClassifier (IntMap a)
-    CC_Sequence     :: MaybeF     ConcreteClassifier a   -> ConcreteClassifier (Seq a)
-    CC_Tree         ::            ConcreteClassifier a   -> ConcreteClassifier (Tree a)
-    CC_HashSet      ::            ConcreteClassifier a   -> ConcreteClassifier (HashSet a)
-    CC_HashMap      :: MaybePairF ConcreteClassifier a b -> ConcreteClassifier (HashMap a b)
-    CC_HM_Array     :: MaybeF     ConcreteClassifier a   -> ConcreteClassifier (HashMap.Array a)
-    CC_Prim_Array   :: MaybeF     ConcreteClassifier a   -> ConcreteClassifier (Prim.Array a)
-    CC_Prim_MArray  ::                                      ConcreteClassifier SomePrimMutableArray
-    CC_Vector_Boxed :: MaybeF     ConcreteClassifier a   -> ConcreteClassifier (Vector.Boxed.Vector a)
-
-    CC_Tuple ::
-         (SListI xs, IsValidSize (Length xs))
-      => ConcreteClassifiers xs -> ConcreteClassifier (WrappedTuple xs)
-
-    -- Functions
-
-    CC_Fun :: ConcreteClassifier SomeFun
-
-    -- Reference cells
-
-    CC_STRef :: ConcreteClassifier SomeSTRef
-    CC_TVar  :: ConcreteClassifier SomeTVar
-    CC_MVar  :: ConcreteClassifier SomeMVar
-
-    -- User-defined
-
-    CC_User_Simple   :: ConcreteClassifier SimpleType
-    CC_User_NonRec   :: MaybeF ConcreteClassifier a -> ConcreteClassifier (NonRecursive a)
-    CC_User_Rec      :: MaybeF ConcreteClassifier a -> ConcreteClassifier (Recursive    a)
-    CC_User_Unlifted :: ConcreteClassifier ContainsUnlifted
-
-newtype ConcreteClassifiers xs = ConcreteClassifiers (NP ConcreteClassifier xs)
-
-deriving instance Show (ConcreteClassifier a)
-deriving instance Show (MaybeF     ConcreteClassifier a)
-deriving instance Show (EitherF    ConcreteClassifier a b)
-deriving instance Show (MaybePairF ConcreteClassifier a b)
-
-instance SListI xs => Show (ConcreteClassifiers xs) where
-  show (ConcreteClassifiers xs) = go (hpure Dict)
-    where
-      go :: NP (Dict (Compose Show ConcreteClassifier)) xs -> String
-      go dicts =
-          case all_NP dicts of
-            Dict -> "(" ++ show xs ++ ")"
-
-{-------------------------------------------------------------------------------
-  Size of the classifier
-
-  Mostly used for sanity checking the generator
--------------------------------------------------------------------------------}
-
-classifierSize :: ConcreteClassifier a -> Int
-classifierSize = go
-  where
-    go :: ConcreteClassifier a -> Int
-
-    -- Primitive types
-    go CC_Bool     = 1
-    go CC_Char     = 1
-    go CC_Double   = 1
-    go CC_Float    = 1
-    go CC_Int      = 1
-    go CC_Int8     = 1
-    go CC_Int16    = 1
-    go CC_Int32    = 1
-    go CC_Int64    = 1
-    go CC_Integer  = 1
-    go CC_Ordering = 1
-    go CC_Unit     = 1
-    go CC_Word     = 1
-    go CC_Word8    = 1
-    go CC_Word16   = 1
-    go CC_Word32   = 1
-    go CC_Word64   = 1
-
-    -- Text types
-    go CC_String      = 1
-    go CC_BS_Strict   = 1
-    go CC_BS_Lazy     = 1
-    go CC_BS_Short    = 1
-    go CC_Text_Strict = 1
-    go CC_Text_Lazy   = 1
-
-    -- Aeson
-    go CC_Value = 1
-
-    -- Compound
-
-    go (CC_Maybe        c) = 1 + goMaybeF     c
-    go (CC_Either       c) = 1 + goEitherF    c
-    go (CC_List         c) = 1 + goMaybeF     c
-    go (CC_Ratio        c) = 1 + go           c
-    go (CC_Set          c) = 1 + goMaybeF     c
-    go (CC_Map          c) = 1 + goMaybePairF c
-    go  CC_IntSet          = 1
-    go (CC_IntMap       c) = 1 + goMaybeF     c
-    go (CC_Sequence     c) = 1 + goMaybeF     c
-    go (CC_Tree         c) = 1 + go           c
-    go (CC_HashSet      c) = 1 + go           c
-    go (CC_HashMap      c) = 1 + goMaybePairF c
-    go (CC_HM_Array     c) = 1 + goMaybeF     c
-    go (CC_Prim_Array   c) = 1 + goMaybeF     c
-    go  CC_Prim_MArray     = 1
-    go (CC_Vector_Boxed c) = 1 + goMaybeF     c
-
-    go (CC_Tuple (ConcreteClassifiers cs)) =
-        1 + sum (hcollapse (hmap (K . go) cs))
-
-    -- Functions
-    go CC_Fun = 1
-
-    -- Reference cells
-    go CC_STRef = 1
-    go CC_TVar  = 1
-    go CC_MVar  = 1
-
-    -- User-defined
-    go  CC_User_Simple      = 1
-    go (CC_User_NonRec   c) = 1 + goMaybeF c
-    go (CC_User_Rec      c) = 1 + goMaybeF c
-    go  CC_User_Unlifted    = 1
-
-    goMaybeF :: MaybeF ConcreteClassifier a -> Int
-    goMaybeF FNothing  = 0
-    goMaybeF (FJust c) = go c
-
-    goEitherF :: EitherF ConcreteClassifier a b -> Int
-    goEitherF (FLeft  c) = go c
-    goEitherF (FRight c) = go c
-
-    goMaybePairF :: MaybePairF ConcreteClassifier a b -> Int
-    goMaybePairF FNothingPair     = 0
-    goMaybePairF (FJustPair c c') = go c + go c'
+deriving instance Show (ClassifyUser a)
 
 {-------------------------------------------------------------------------------
   Values
@@ -254,206 +85,155 @@ data Value a where
 deriving instance Show (Value a)
 deriving instance Show (Some Value)
 
+instance Arbitrary (Some Value) where
+  arbitrary = do
+      -- We don't want to generate large classifiers
+      Some (DepGen cc gen) <- SG.run 10 arbitraryConcrete
+
+      -- For the values however we want to be able to generate larger trees
+      Some . Value cc <$> SG.run 1000 gen
+
+{-------------------------------------------------------------------------------
+  Show
+-------------------------------------------------------------------------------}
+
+canShowUser :: ClassifyUser a -> Dict Show a
+canShowUser = go
+  where
+    go :: ClassifyUser a -> Dict Show a
+    go  C_Simple    = Dict
+    go (C_NonRec c) = goMaybeF c
+    go (C_Rec    c) = goMaybeF c
+    go  C_Unlifted  = Dict
+
+    goMaybeF ::
+         (forall x. Show x => Show (f x))
+      => MaybeF ClassifyUser a -> Dict Show (f a)
+    goMaybeF FNothing  = Dict
+    goMaybeF (FJust c) = (\Dict -> Dict) $ canShowConcrete c
+
+canShowConcrete :: ConcreteClassifier a -> Dict Show a
+canShowConcrete = canShowClassified_ canShowUser
+
+{-------------------------------------------------------------------------------
+  Size of the classifier
+
+  Mostly used for sanity checking the generator
+-------------------------------------------------------------------------------}
+
+sizeUser :: ClassifyUser a -> Int
+sizeUser = go
+  where
+    go :: ClassifyUser a -> Int
+    go  C_Simple    = 1
+    go (C_NonRec c) = 1 + goMaybeF c
+    go (C_Rec    c) = 1 + goMaybeF c
+    go  C_Unlifted  = 1
+
+    goMaybeF :: MaybeF ClassifyUser a -> Int
+    goMaybeF FNothing  = 0
+    goMaybeF (FJust c) = sizeConcrete c
+
+sizeConcrete :: ConcreteClassifier a -> Int
+sizeConcrete = classifierSize_ sizeUser
+
+{-------------------------------------------------------------------------------
+  Same classifier
+-------------------------------------------------------------------------------}
+
+-- | Check that two classifiers are the same
+sameConcrete ::
+     ConcreteClassifier a
+  -> ConcreteClassifier b
+  -> Maybe (a :~: b)
+sameConcrete = sameClassifier_ sameUser
+
+sameUser :: ClassifyUser a -> ClassifyUser b -> Maybe (a :~: b)
+sameUser = go
+  where
+    go :: ClassifyUser a -> ClassifyUser b -> Maybe (a :~: b)
+    go  C_Simple     C_Simple     = Just Refl
+    go (C_NonRec c) (C_NonRec c') = goMaybeF c c'
+    go (C_Rec    c) (C_Rec    c') = goMaybeF c c'
+    go  C_Unlifted   C_Unlifted   = Just Refl
+    go  _            _            = Nothing
+
+    goMaybeF ::
+         MaybeF ClassifyUser x
+      -> MaybeF ClassifyUser x'
+      -> Maybe (f x :~: f x')
+    goMaybeF FNothing  FNothing   = Just Refl
+    goMaybeF (FJust x) (FJust x') = (\Refl -> Refl) <$> sameConcrete x x'
+    goMaybeF _          _         = Nothing
+
+    _checkAllCases :: ClassifyUser a -> ()
+    _checkAllCases = \case
+        C_Simple{}   -> ()
+        C_NonRec{}   -> ()
+        C_Rec{}      -> ()
+        C_Unlifted{} -> ()
+
 {-------------------------------------------------------------------------------
   Equality
 -------------------------------------------------------------------------------}
 
--- | Check that two classifiers are the same
---
--- If they are the same, additionally return a proof that that means the
--- /types/ they classify must be equal (note that equality on the classifiers
--- is strictly stronger than equality on the types: for example, non-empty
--- and empty lists have different classifiers, but classify the same type).
-sameConcreteClassifier ::
-     ConcreteClassifier a
-  -> ConcreteClassifier b
-  -> Maybe (a :~: b)
-sameConcreteClassifier = go
+canCompareUser :: forall a. ClassifyUser a -> Dict Eq a
+canCompareUser = go
   where
-    go :: ConcreteClassifier a -> ConcreteClassifier b -> Maybe (a :~: b)
-    go CC_Bool     CC_Bool     = Just Refl
-    go CC_Char     CC_Char     = Just Refl
-    go CC_Double   CC_Double   = Just Refl
-    go CC_Float    CC_Float    = Just Refl
-    go CC_Int      CC_Int      = Just Refl
-    go CC_Int8     CC_Int8     = Just Refl
-    go CC_Int16    CC_Int16    = Just Refl
-    go CC_Int32    CC_Int32    = Just Refl
-    go CC_Int64    CC_Int64    = Just Refl
-    go CC_Integer  CC_Integer  = Just Refl
-    go CC_Ordering CC_Ordering = Just Refl
-    go CC_Unit     CC_Unit     = Just Refl
-    go CC_Word     CC_Word     = Just Refl
-    go CC_Word8    CC_Word8    = Just Refl
-    go CC_Word16   CC_Word16   = Just Refl
-    go CC_Word32   CC_Word32   = Just Refl
-    go CC_Word64   CC_Word64   = Just Refl
-
-    -- String types
-
-    go CC_String      CC_String      = Just Refl
-    go CC_BS_Strict   CC_BS_Strict   = Just Refl
-    go CC_BS_Lazy     CC_BS_Lazy     = Just Refl
-    go CC_BS_Short    CC_BS_Short    = Just Refl
-    go CC_Text_Strict CC_Text_Strict = Just Refl
-    go CC_Text_Lazy   CC_Text_Lazy   = Just Refl
-
-    -- Aeson
-
-    go CC_Value CC_Value = Just Refl
-
-    -- Compound
-
-    go (CC_Maybe        c) (CC_Maybe        c') = goMaybeF     c c'
-    go (CC_Either       c) (CC_Either       c') = goEitherF    c c'
-    go (CC_List         c) (CC_List         c') = goMaybeF     c c'
-    go (CC_Ratio        c) (CC_Ratio        c') = goF          c c'
-    go (CC_Set          c) (CC_Set          c') = goMaybeF     c c'
-    go (CC_Map          c) (CC_Map          c') = goMaybePairF c c'
-    go  CC_IntSet           CC_IntSet           = Just Refl
-    go (CC_IntMap       c) (CC_IntMap       c') = goMaybeF     c c'
-    go (CC_Sequence     c) (CC_Sequence     c') = goMaybeF     c c'
-    go (CC_Tree         c) (CC_Tree         c') = goF          c c'
-    go (CC_HashSet      c) (CC_HashSet      c') = goF          c c'
-    go (CC_HashMap      c) (CC_HashMap      c') = goMaybePairF c c'
-    go (CC_HM_Array     c) (CC_HM_Array     c') = goMaybeF     c c'
-    go (CC_Prim_Array   c) (CC_Prim_Array   c') = goMaybeF     c c'
-    go  CC_Prim_MArray      CC_Prim_MArray      = Just Refl
-    go (CC_Vector_Boxed c) (CC_Vector_Boxed c') = goMaybeF     c c'
-
-    go (CC_Tuple (ConcreteClassifiers cs))
-       (CC_Tuple (ConcreteClassifiers cs')) = (\Refl -> Refl) <$> goList cs cs'
-
-    -- Reference cells
-
-    go CC_STRef CC_STRef = Just Refl
-    go CC_TVar  CC_TVar  = Just Refl
-    go CC_MVar  CC_MVar  = Just Refl
-
-    -- Functions
-
-    go CC_Fun CC_Fun = Just Refl
-
-    -- User-defined
-
-    go  CC_User_Simple       CC_User_Simple       = Just Refl
-    go (CC_User_NonRec   c) (CC_User_NonRec   c') = goMaybeF c c'
-    go (CC_User_Rec      c) (CC_User_Rec      c') = goMaybeF c c'
-    go  CC_User_Unlifted     CC_User_Unlifted     = Just Refl
-
-    -- Otherwise, not equal
-
-    go _ _ = Nothing
+    go :: ClassifyUser a -> Dict Eq a
+    go  C_Simple    = Dict
+    go (C_NonRec c) = goMaybeF c
+    go (C_Rec    c) = goMaybeF c
+    go  C_Unlifted  = Dict
 
     goMaybeF ::
-         MaybeF ConcreteClassifier x
-      -> MaybeF ConcreteClassifier x'
-      -> Maybe (f x :~: f x')
-    goMaybeF FNothing  FNothing   = Just Refl
-    goMaybeF (FJust x) (FJust x') = (\Refl -> Refl) <$> go x x'
-    goMaybeF _          _         = Nothing
+         (forall x. Eq x => Eq (f x))
+      => MaybeF ClassifyUser a -> Dict Eq (f a)
+    goMaybeF FNothing  = Dict
+    goMaybeF (FJust c) = (\Dict -> Dict) $ canCompareConcrete c
 
-    goEitherF ::
-         EitherF ConcreteClassifier x  y
-      -> EitherF ConcreteClassifier x' y'
-      -> Maybe (f x y :~: f x' y')
-    goEitherF (FLeft  x) (FLeft  x') = (\Refl -> Refl) <$> go x x'
-    goEitherF (FRight y) (FRight y') = (\Refl -> Refl) <$> go y y'
-    goEitherF (FLeft  _) (FRight _ ) = Nothing
-    goEitherF (FRight _) (FLeft  _ ) = Nothing
+canCompareConcrete :: ConcreteClassifier a -> Dict Eq a
+canCompareConcrete = canCompareClassified_ canCompareUser
 
-    goF ::
-         ConcreteClassifier x
-      -> ConcreteClassifier x'
-      -> Maybe (f x :~: f x')
-    goF x x' = (\Refl -> Refl) <$> go x x'
+{-------------------------------------------------------------------------------
+  Arbitrary
+-------------------------------------------------------------------------------}
 
-    goMaybePairF ::
-         MaybePairF ConcreteClassifier x  y
-      -> MaybePairF ConcreteClassifier x' y'
-      -> Maybe (f x y :~: f x' y')
-    goMaybePairF FNothingPair    FNothingPair      = Just Refl
-    goMaybePairF (FJustPair x y) (FJustPair x' y') = (\Refl Refl -> Refl) <$> go x x' <*> go y y'
-    goMaybePairF _               _                 = Nothing
+arbitraryUser :: SizedGen (Some (DepGen ClassifyUser))
+arbitraryUser = SG.leafOrStep leaf compound
+  where
+    leaf :: Gen (Some (DepGen ClassifyUser))
+    leaf = oneof [
+          -- SimpleType
+          pure . Some $ arbitraryDepGen C_Simple
 
-    goList ::
-         NP ConcreteClassifier xs
-      -> NP ConcreteClassifier ys
-      -> Maybe (xs :~: ys)
-    goList Nil       Nil       = Just Refl
-    goList (x :* xs) (y :* ys) = (\Refl Refl -> Refl) <$> go x y <*> goList xs ys
-    goList Nil       (_ :* _)  = Nothing
-    goList (_ :* _)  Nil       = Nothing
+          -- ContainsUnlifted
+        , pure . Some $ arbitraryDepGen C_Unlifted
+        ]
 
-    -- Make sure we get a warning if we add another constructor
-    _checkAllCases :: ConcreteClassifier a -> ()
-    _checkAllCases = \case
-        -- Primitive types
+    compound :: [SizedGen (Some (DepGen ClassifyUser))]
+    compound = [
+          -- NonRecursive
+          goMaybeF C_NonRec (NR1 1234)
+            (mapSome (GenJust (fmap (NR2 True))) <$> arbitraryConcrete)
 
-        CC_Bool     -> ()
-        CC_Char     -> ()
-        CC_Double   -> ()
-        CC_Float    -> ()
-        CC_Int      -> ()
-        CC_Int8     -> ()
-        CC_Int16    -> ()
-        CC_Int32    -> ()
-        CC_Int64    -> ()
-        CC_Integer  -> ()
-        CC_Ordering -> ()
-        CC_Unit     -> ()
-        CC_Word     -> ()
-        CC_Word8    -> ()
-        CC_Word16   -> ()
-        CC_Word32   -> ()
-        CC_Word64   -> ()
+          -- Recursive
+        , goMaybeF C_Rec RNil
+            (mapSome (GenJust (SG.genListLike recursiveFromList)) <$> arbitraryConcrete)
+        ]
 
-        -- String types
+    goMaybeF ::
+         ( forall x. Show x => Show (f x)
+         , forall x. Eq   x => Eq   (f x)
+         )
+      => (forall a. MaybeF ClassifyUser a -> ClassifyUser (f a))
+      -> f Void
+      -> SizedGen (Some (GenJust ConcreteClassifier f))
+      -> SizedGen (Some (DepGen ClassifyUser))
+    goMaybeF cf nothing just =
+        SG.leafOrStep
+          (pure $ Some $ DepGen (cf FNothing) (pure nothing))
+          [(\(Some a) -> Some (genJust (cf . FJust) a)) <$> just]
 
-        CC_String      -> ()
-        CC_BS_Strict   -> ()
-        CC_BS_Lazy     -> ()
-        CC_BS_Short    -> ()
-        CC_Text_Strict -> ()
-        CC_Text_Lazy   -> ()
-
-        -- Aeson
-
-        CC_Value -> ()
-
-        -- Compound
-
-        CC_Maybe{}        -> ()
-        CC_Either{}       -> ()
-        CC_List{}         -> ()
-        CC_Ratio{}        -> ()
-        CC_Set{}          -> ()
-        CC_Map{}          -> ()
-        CC_IntSet{}       -> ()
-        CC_IntMap{}       -> ()
-        CC_Tuple{}        -> ()
-        CC_Sequence{}     -> ()
-        CC_Tree{}         -> ()
-        CC_HashSet{}      -> ()
-        CC_HashMap{}      -> ()
-        CC_HM_Array{}     -> ()
-        CC_Prim_Array{}   -> ()
-        CC_Prim_MArray{}  -> ()
-        CC_Vector_Boxed{} -> ()
-
-        -- Reference cells
-
-        CC_STRef -> ()
-        CC_TVar  -> ()
-        CC_MVar  -> ()
-
-        -- Functions
-
-        CC_Fun -> ()
-
-        -- User-defined
-
-        CC_User_Simple{}   -> ()
-        CC_User_NonRec{}   -> ()
-        CC_User_Rec{}      -> ()
-        CC_User_Unlifted{} -> ()
+arbitraryConcrete :: SizedGen (Some (DepGen ConcreteClassifier))
+arbitraryConcrete = arbitraryClassifier_ arbitraryUser

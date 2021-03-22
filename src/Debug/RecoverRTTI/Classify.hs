@@ -17,11 +17,14 @@
 module Debug.RecoverRTTI.Classify (
     -- * Classification
     classify
-  , classified
+    -- * User-defined types
+  , Classified(..)
   , fromUserDefined
     -- * Showing values
   , anythingToString
+  , canShowPrim
   , canShowClassified
+  , canShowClassified_
   ) where
 
 import Control.Monad.Except
@@ -49,6 +52,7 @@ import qualified Data.Tree                   as Tree
 import qualified Data.Vector                 as Vector.Boxed
 
 import Debug.RecoverRTTI.Classifier
+import Debug.RecoverRTTI.Constraint
 import Debug.RecoverRTTI.FlatClosure
 import Debug.RecoverRTTI.Modules
 import Debug.RecoverRTTI.Nat
@@ -69,65 +73,65 @@ classifyIO x = do
       --
 
       -- GHC.Types
-      (inKnownModule GhcTypes -> Just "True")  -> return $ mustBe C_Bool
-      (inKnownModule GhcTypes -> Just "False") -> return $ mustBe C_Bool
-      (inKnownModule GhcTypes -> Just "C#")    -> return $ mustBe C_Char
-      (inKnownModule GhcTypes -> Just "D#")    -> return $ mustBe C_Double
-      (inKnownModule GhcTypes -> Just "F#")    -> return $ mustBe C_Float
-      (inKnownModule GhcTypes -> Just "I#")    -> return $ mustBe C_Int
-      (inKnownModule GhcTypes -> Just "LT")    -> return $ mustBe C_Ordering
-      (inKnownModule GhcTypes -> Just "GT")    -> return $ mustBe C_Ordering
-      (inKnownModule GhcTypes -> Just "EQ")    -> return $ mustBe C_Ordering
-      (inKnownModule GhcTypes -> Just "W#")    -> return $ mustBe C_Word
+      (inKnownModule GhcTypes -> Just "True")  -> return $ mustBe $ C_Prim C_Bool
+      (inKnownModule GhcTypes -> Just "False") -> return $ mustBe $ C_Prim C_Bool
+      (inKnownModule GhcTypes -> Just "C#")    -> return $ mustBe $ C_Prim C_Char
+      (inKnownModule GhcTypes -> Just "D#")    -> return $ mustBe $ C_Prim C_Double
+      (inKnownModule GhcTypes -> Just "F#")    -> return $ mustBe $ C_Prim C_Float
+      (inKnownModule GhcTypes -> Just "I#")    -> return $ mustBe $ C_Prim C_Int
+      (inKnownModule GhcTypes -> Just "LT")    -> return $ mustBe $ C_Prim C_Ordering
+      (inKnownModule GhcTypes -> Just "GT")    -> return $ mustBe $ C_Prim C_Ordering
+      (inKnownModule GhcTypes -> Just "EQ")    -> return $ mustBe $ C_Prim C_Ordering
+      (inKnownModule GhcTypes -> Just "W#")    -> return $ mustBe $ C_Prim C_Word
 
       -- GHC.Tuple
-      (inKnownModule GhcTuple -> Just "()") -> return $ mustBe C_Unit
+      (inKnownModule GhcTuple -> Just "()") -> return $ mustBe $ C_Prim C_Unit
 
       -- GHC.Int
-      (inKnownModule GhcInt -> Just "I8#")  -> return $ mustBe C_Int8
-      (inKnownModule GhcInt -> Just "I16#") -> return $ mustBe C_Int16
-      (inKnownModule GhcInt -> Just "I32#") -> return $ mustBe C_Int32
-      (inKnownModule GhcInt -> Just "I64#") -> return $ mustBe C_Int64
+      (inKnownModule GhcInt -> Just "I8#")  -> return $ mustBe $ C_Prim C_Int8
+      (inKnownModule GhcInt -> Just "I16#") -> return $ mustBe $ C_Prim C_Int16
+      (inKnownModule GhcInt -> Just "I32#") -> return $ mustBe $ C_Prim C_Int32
+      (inKnownModule GhcInt -> Just "I64#") -> return $ mustBe $ C_Prim C_Int64
 
       -- GHC.Integer
-      (inKnownModule GhcIntegerType -> Just "S#")  -> return $ mustBe C_Integer
-      (inKnownModule GhcIntegerType -> Just "Jp#") -> return $ mustBe C_Integer
-      (inKnownModule GhcIntegerType -> Just "Jn#") -> return $ mustBe C_Integer
-      (inKnownModule GhcNumInteger  -> Just "IS")  -> return $ mustBe C_Integer
-      (inKnownModule GhcNumInteger  -> Just "IP")  -> return $ mustBe C_Integer
-      (inKnownModule GhcNumInteger  -> Just "IN")  -> return $ mustBe C_Integer
+      (inKnownModule GhcIntegerType -> Just "S#")  -> return $ mustBe $ C_Prim C_Integer
+      (inKnownModule GhcIntegerType -> Just "Jp#") -> return $ mustBe $ C_Prim C_Integer
+      (inKnownModule GhcIntegerType -> Just "Jn#") -> return $ mustBe $ C_Prim C_Integer
+      (inKnownModule GhcNumInteger  -> Just "IS")  -> return $ mustBe $ C_Prim C_Integer
+      (inKnownModule GhcNumInteger  -> Just "IP")  -> return $ mustBe $ C_Prim C_Integer
+      (inKnownModule GhcNumInteger  -> Just "IN")  -> return $ mustBe $ C_Prim C_Integer
 
       -- GHC.Word
-      (inKnownModule GhcWord -> Just "W8#")  -> return $ mustBe C_Word8
-      (inKnownModule GhcWord -> Just "W16#") -> return $ mustBe C_Word16
-      (inKnownModule GhcWord -> Just "W32#") -> return $ mustBe C_Word32
-      (inKnownModule GhcWord -> Just "W64#") -> return $ mustBe C_Word64
+      (inKnownModule GhcWord -> Just "W8#")  -> return $ mustBe $ C_Prim C_Word8
+      (inKnownModule GhcWord -> Just "W16#") -> return $ mustBe $ C_Prim C_Word16
+      (inKnownModule GhcWord -> Just "W32#") -> return $ mustBe $ C_Prim C_Word32
+      (inKnownModule GhcWord -> Just "W64#") -> return $ mustBe $ C_Prim C_Word64
 
       --
       -- String types
       --
 
       -- bytestring
-      (inKnownModule DataByteStringInternal      -> Just "PS")    -> return $ mustBe C_BS_Strict
-      (inKnownModule DataByteStringLazyInternal  -> Just "Empty") -> return $ mustBe C_BS_Lazy
-      (inKnownModule DataByteStringLazyInternal  -> Just "Chunk") -> return $ mustBe C_BS_Lazy
-      (inKnownModule DataByteStringShortInternal -> Just "SBS")   -> return $ mustBe C_BS_Short
+      (inKnownModule DataByteStringInternal      -> Just "PS")    -> return $ mustBe $ C_Prim C_BS_Strict
+      (inKnownModule DataByteStringLazyInternal  -> Just "Empty") -> return $ mustBe $ C_Prim C_BS_Lazy
+      (inKnownModule DataByteStringLazyInternal  -> Just "Chunk") -> return $ mustBe $ C_Prim C_BS_Lazy
+      (inKnownModule DataByteStringShortInternal -> Just "SBS")   -> return $ mustBe $ C_Prim C_BS_Short
 
       -- text
-      (inKnownModule DataTextInternal     -> Just "Text")  -> return $ mustBe C_Text_Strict
-      (inKnownModule DataTextInternalLazy -> Just "Chunk") -> return $ mustBe C_Text_Lazy
-      (inKnownModule DataTextInternalLazy -> Just "Empty") -> return $ mustBe C_Text_Lazy
+      (inKnownModule DataTextInternal     -> Just "Text")  -> return $ mustBe $ C_Prim C_Text_Strict
+      (inKnownModule DataTextInternalLazy -> Just "Chunk") -> return $ mustBe $ C_Prim C_Text_Lazy
+      (inKnownModule DataTextInternalLazy -> Just "Empty") -> return $ mustBe $ C_Prim C_Text_Lazy
 
       --
       -- Aeson
       --
 
-      (inKnownModule DataAesonTypesInternal -> Just "Object") -> return $ mustBe C_Value
-      (inKnownModule DataAesonTypesInternal -> Just "Array")  -> return $ mustBe C_Value
-      (inKnownModule DataAesonTypesInternal -> Just "String") -> return $ mustBe C_Value
-      (inKnownModule DataAesonTypesInternal -> Just "Number") -> return $ mustBe C_Value
-      (inKnownModule DataAesonTypesInternal -> Just "Bool")   -> return $ mustBe C_Value
-      (inKnownModule DataAesonTypesInternal -> Just "Null")   -> return $ mustBe C_Value
+      (inKnownModule DataAesonTypesInternal -> Just "Object") -> return $ mustBe $ C_Prim C_Value
+      (inKnownModule DataAesonTypesInternal -> Just "Array")  -> return $ mustBe $ C_Prim C_Value
+      (inKnownModule DataAesonTypesInternal -> Just "String") -> return $ mustBe $ C_Prim C_Value
+      (inKnownModule DataAesonTypesInternal -> Just "Number") -> return $ mustBe $ C_Prim C_Value
+      (inKnownModule DataAesonTypesInternal -> Just "Bool")   -> return $ mustBe $ C_Prim C_Value
+      (inKnownModule DataAesonTypesInternal -> Just "Null")   -> return $ mustBe $ C_Prim C_Value
 
       --
       -- Compound (ghc-prim)
@@ -169,11 +173,11 @@ classifyIO x = do
 
       -- IntSet
       (inKnownModule DataIntSetInternal -> Just "Bin") ->
-        return $ mustBe $ C_IntSet
+        return $ mustBe $ C_Prim C_IntSet
       (inKnownModule DataIntSetInternal -> Just "Tip") ->
-        return $ mustBe $ C_IntSet
+        return $ mustBe $ C_Prim C_IntSet
       (inKnownModule DataIntSetInternal -> Just "Nil") ->
-        return $ mustBe $ C_IntSet
+        return $ mustBe $ C_Prim C_IntSet
 
       -- IntMap
       (inKnownModule DataIntMapInternal -> Just "Nil") ->
@@ -226,7 +230,7 @@ classifyIO x = do
       (inKnownModule DataPrimitiveArray -> Just "Array") ->
         mustBe <$> classifyPrimArray (unsafeCoerce x)
       (inKnownModule DataPrimitiveArray -> Just "MutableArray") ->
-        return $ mustBe C_Prim_MArray
+        return $ mustBe $ C_Prim C_Prim_MArray
 
       -- Boxed vectors
       (inKnownModule DataVector -> Just "Vector") ->
@@ -236,22 +240,22 @@ classifyIO x = do
       -- Reference cells
       --
 
-      (inKnownModule GhcSTRef    -> Just "STRef") -> return $ mustBe C_STRef
-      (inKnownModule GhcMVar     -> Just "MVar")  -> return $ mustBe C_MVar
-      (inKnownModule GhcConcSync -> Just "TVar")  -> return $ mustBe C_TVar
+      (inKnownModule GhcSTRef    -> Just "STRef") -> return $ mustBe $ C_Prim C_STRef
+      (inKnownModule GhcMVar     -> Just "MVar")  -> return $ mustBe $ C_Prim C_MVar
+      (inKnownModule GhcConcSync -> Just "TVar")  -> return $ mustBe $ C_Prim C_TVar
 
       --
       -- Functions
       --
 
-      FunClosure {} -> return $ mustBe C_Fun
+      FunClosure {} -> return $ mustBe $ C_Prim C_Fun
 
       --
       -- User defined
       --
 
       ConstrClosure {} ->
-        return $ mustBe C_Custom
+        return $ mustBe $ C_Other (IsUserDefined (unsafeCoerce x))
 
       --
       -- Classification failed
@@ -259,7 +263,7 @@ classifyIO x = do
 
       OtherClosure other -> ExceptT $ return (Left other)
 
-mustBe :: Classifier b -> Classifier a
+mustBe :: Classifier_ o b -> Classifier_ o a
 mustBe = unsafeCoerce
 
 -- | Classify a value
@@ -286,28 +290,20 @@ classifyEither ::
   -> ExceptT Closure IO (Classifier (Either a b))
 classifyEither x =
     case x of
-      Left x' -> do
-        cx <- classifyIO x'
-        return $ mustBe $ C_Either (FLeft (Classified cx x'))
-      Right y' -> do
-        cy <- classifyIO y'
-        return $ mustBe $ C_Either (FRight (Classified cy y'))
+      Left  x' -> (mustBe . C_Either . FLeft)  <$> classifyIO x'
+      Right y' -> (mustBe . C_Either . FRight) <$> classifyIO y'
 
 classifyList :: [a] -> ExceptT Closure IO (Classifier [a])
 classifyList = classifyFoldable c_list
   where
     -- We special case for @String@, so that @show@ will use the (overlapped)
     -- instance for @String@ instead of the general instance for @[a]@
-    c_list :: MaybeF Classified x -> Classifier [x]
-    c_list (FJust (Classified C_Char _)) = C_String
+    c_list :: MaybeF o x -> Classifier_ o [x]
+    c_list (FJust (C_Prim C_Char)) = C_Prim C_String
     c_list c = C_List c
 
-classifyRatio ::
-     Ratio a
-  -> ExceptT Closure IO (Classifier (Ratio a))
-classifyRatio (x' :% _) = do
-    cx <- classifyIO x'
-    return $ mustBe $ C_Ratio (Classified cx x')
+classifyRatio :: Ratio a -> ExceptT Closure IO (Classifier (Ratio a))
+classifyRatio (x' :% _) = mustBe . C_Ratio <$> classifyIO x'
 
 classifySet :: Set a -> ExceptT Closure IO (Classifier (Set a))
 classifySet = classifyFoldable C_Set
@@ -322,18 +318,14 @@ classifySequence :: Seq a -> ExceptT Closure IO (Classifier (Seq a))
 classifySequence = classifyFoldable C_Sequence
 
 classifyTree :: Tree a -> ExceptT Closure IO (Classifier (Tree a))
-classifyTree x =
-    case x of
-      Tree.Node x' _ -> do
-        cx <- classifyIO x'
-        return $ mustBe $ C_Tree (Classified cx x')
+classifyTree (Tree.Node x' _) = mustBe . C_Tree <$> classifyIO x'
 
 classifyHashMap :: HashMap a b -> ExceptT Closure IO (Classifier (HashMap a b))
 classifyHashMap = classifyFoldablePair c_hashmap HashMap.toList
   where
     -- HashSet is a newtype around HashMap
-    c_hashmap :: MaybePairF Classified x y -> Classifier (HashMap x y)
-    c_hashmap (FJustPair c (Classified C_Unit _)) = mustBe $ C_HashSet c
+    c_hashmap :: MaybePairF o x y -> Classifier_ o (HashMap x y)
+    c_hashmap (FJustPair c (C_Prim C_Unit)) = mustBe $ C_HashSet c
     c_hashmap c = C_HashMap c
 
 classifyHMArray ::
@@ -371,10 +363,8 @@ classifyTuple ptrs = do
     cs <- hsequence' (hmap aux ptrs)
     return $ C_Tuple (Classifiers cs)
   where
-    aux :: K Box a -> (ExceptT Closure IO :.: Classified) a
-    aux (K (Box x)) = Comp $ do
-        c <- classifyIO (unsafeCoerce x)
-        return $ Classified c (unsafeCoerce x)
+    aux :: K Box a -> (ExceptT Closure IO :.: Classifier) a
+    aux (K (Box x)) = Comp $ classifyIO (unsafeCoerce x)
 
 {-------------------------------------------------------------------------------
   Helper functions for defining classifiers
@@ -382,29 +372,26 @@ classifyTuple ptrs = do
 
 classifyFoldable ::
      Foldable f
-  => (forall x. MaybeF Classified x -> Classifier (f x))
+  => (forall o x. MaybeF o x -> Classifier_ o (f x))
   -> f a -> ExceptT Closure IO (Classifier (f a))
 classifyFoldable cc x =
     case Foldable.toList x of
       []   -> return $ mustBe $ cc FNothing
-      x':_ -> do
-        cx <- classifyIO x'
-        return $ mustBe $ cc (FJust (Classified cx x'))
+      x':_ -> mustBe . cc . FJust <$> classifyIO x'
 
 classifyFoldablePair ::
-     (forall x y. MaybePairF Classified x y -> Classifier (f x y))
+     (forall o x y. MaybePairF o x y -> Classifier_ o (f x y))
   -> (f a b -> [(a, b)])
   -> f a b -> ExceptT Closure IO (Classifier (f a b))
 classifyFoldablePair cc toList x =
     case toList x of
       []         -> return $ mustBe $ cc FNothingPair
-      (x', y'):_ -> do
-        cx <- classifyIO x'
-        cy <- classifyIO y'
-        return $ mustBe $ cc (FJustPair (Classified cx x') (Classified cy y'))
+      (x', y'):_ -> (\c c' -> mustBe $ cc (FJustPair c c'))
+                       <$> classifyIO x'
+                       <*> classifyIO y'
 
 classifyArrayLike ::
-     (forall x. MaybeF Classified x -> Classifier (f x))
+     (forall o x. MaybeF o x -> Classifier_ o (f x))
   -> (f a -> Int)  -- ^ Get the length of the array
   -> (f a -> a)    -- ^ Get the first element (provided the array is not empty)
   -> f a -> ExceptT Closure IO (Classifier (f a))
@@ -413,8 +400,7 @@ classifyArrayLike cc getLen getFirst x =
       then return $ mustBe $ cc FNothing
       else do
         let x' = getFirst x
-        cx <- classifyIO x'
-        return $ mustBe $ cc (FJust (Classified cx x'))
+        mustBe . cc . FJust <$> classifyIO x'
 
 {-------------------------------------------------------------------------------
   Recognizing tuples
@@ -427,15 +413,11 @@ isTuple typ = do
     toValidSize (length xs + 1)
 
 {-------------------------------------------------------------------------------
-  Classified values
--------------------------------------------------------------------------------}
-
-classified :: a -> Either Closure (Classified a)
-classified x = (\cx -> Classified cx x) <$> classify x
-
-{-------------------------------------------------------------------------------
   Classify constructor arguments
 -------------------------------------------------------------------------------}
+
+-- | Bundle a value with its classifier
+data Classified a = Classified (Classifier a) a
 
 -- | Classify the arguments to the constructor
 --
@@ -484,14 +466,11 @@ fromUserDefined = \(UserDefined x) -> unsafePerformIO $ go x
 -- If classification fails, we show the actual closure.
 anythingToString :: forall a. a -> String
 anythingToString x =
-    case classified x of
-      Right classifier -> showClassifiedValue 0 classifier ""
+    case classify x of
       Left  closure    -> show closure
+      Right classifier -> case canShowClassified classifier of
+                            Dict -> show x
 
-deriving instance Show (Classifier a)
-deriving instance Show (MaybeF     Classified a)
-deriving instance Show (EitherF    Classified a b)
-deriving instance Show (MaybePairF Classified a b)
 deriving instance Show (Some Classified)
 
 instance Show (Classified a) where
@@ -503,14 +482,6 @@ instance Show (Classified a) where
           . showString " "
           . showsPrec 11 x
 
-instance SListI xs => Show (Classifiers xs) where
-  show (Classifiers xs) = go (hpure Dict)
-    where
-      go :: NP (Dict (Compose Show Classified)) xs -> String
-      go dicts =
-          case all_NP dicts of
-            Dict -> "(" ++ show xs ++ ")"
-
 -- | Show the classified value (without the classifier)
 showClassifiedValue :: Int -> Classified a -> ShowS
 showClassifiedValue p (Classified c x) =
@@ -518,109 +489,18 @@ showClassifiedValue p (Classified c x) =
       Dict -> showsPrec p x
 
 canShowClassified :: Classifier a -> Dict Show a
-canShowClassified = go
+canShowClassified = canShowClassified_ showOther
   where
-    go :: Classifier a -> Dict Show a
+    showOther :: IsUserDefined a -> Dict Show a
+    showOther (IsUserDefined _) = Dict
 
-    --
-    -- Simple cases
-    --
+canShowPrim :: PrimClassifier a -> Dict Show a
+canShowPrim = primSatisfies
 
-    -- Primitive types
-    go C_Bool     = Dict
-    go C_Char     = Dict
-    go C_Double   = Dict
-    go C_Float    = Dict
-    go C_Int      = Dict
-    go C_Int16    = Dict
-    go C_Int8     = Dict
-    go C_Int32    = Dict
-    go C_Int64    = Dict
-    go C_Integer  = Dict
-    go C_Ordering = Dict
-    go C_Unit     = Dict
-    go C_Word     = Dict
-    go C_Word8    = Dict
-    go C_Word16   = Dict
-    go C_Word32   = Dict
-    go C_Word64   = Dict
-
-    -- String types
-    go C_String      = Dict
-    go C_BS_Strict   = Dict
-    go C_BS_Lazy     = Dict
-    go C_BS_Short    = Dict
-    go C_Text_Strict = Dict
-    go C_Text_Lazy   = Dict
-
-    -- Aeson
-    go C_Value = Dict
-
-    -- Reference cells
-    go C_STRef = Dict
-    go C_TVar  = Dict
-    go C_MVar  = Dict
-
-    -- Functions
-    go C_Fun = Dict
-
-    -- User-defined
-    go C_Custom = Dict
-
-    --
-    -- Compound
-    --
-
-    go (C_Maybe        c) = goMaybeF     c
-    go (C_Either       c) = goEitherF    c
-    go (C_List         c) = goMaybeF     c
-    go (C_Ratio        c) = goF          c
-    go (C_Set          c) = goMaybeF     c
-    go (C_Map          c) = goMaybePairF c
-    go  C_IntSet          = Dict
-    go (C_IntMap       c) = goMaybeF     c
-    go (C_Sequence     c) = goMaybeF     c
-    go (C_Tree         c) = goF          c
-    go (C_HashSet      c) = goF          c
-    go (C_HashMap      c) = goMaybePairF c
-    go (C_HM_Array     c) = goMaybeF     c
-    go (C_Prim_Array   c) = goMaybeF     c
-    go  C_Prim_MArray     = Dict
-    go (C_Vector_Boxed c) = goMaybeF     c
-
-    go (C_Tuple (Classifiers cs)) =
-        case all_NP (hmap (canShowClassified . classifiedType) cs) of
-          Dict -> Dict
-
-    goMaybeF :: forall f a.
-         (forall x. Show x => Show (f x))
-      => MaybeF Classified a -> Dict Show (f a)
-    goMaybeF FNothing  = Dict
-    goMaybeF (FJust c) = case go (classifiedType c) of
-                           Dict -> Dict
-
-    goEitherF :: forall f a b.
-         (forall x y. (Show x, Show y) => Show (f x y))
-      => EitherF Classified a b -> Dict Show (f a b)
-    goEitherF (FLeft  c) = case go (classifiedType c) of
-                             Dict -> Dict
-    goEitherF (FRight c) = case go (classifiedType c) of
-                             Dict -> Dict
-
-    goF :: forall f a.
-         (forall x. Show x => Show (f x))
-      => Classified a -> Dict Show (f a )
-    goF c = case go (classifiedType c) of
-              Dict -> Dict
-
-    goMaybePairF :: forall f a b.
-         (forall x y. (Show x, Show y) => Show (f x y))
-      => MaybePairF Classified a b -> Dict Show (f a b)
-    goMaybePairF FNothingPair     = Dict
-    goMaybePairF (FJustPair c c') = case ( go (classifiedType c)
-                                         , go (classifiedType c')
-                                         ) of
-                                      (Dict, Dict) -> Dict
+canShowClassified_ :: forall o.
+     (forall a. o a -> Dict Show a)
+  -> (forall a. Classifier_ o a -> Dict Show a)
+canShowClassified_ = classifiedSatisfies
 
 instance Show UserDefined where
   showsPrec p x =

@@ -26,12 +26,15 @@ library
     exposed-modules:  Debug.RecoverRTTI
 
 
-    other-modules:    Debug.RecoverRTTI.Classifier
+    other-modules:    Debug.RecoverRTTI.CheckSame
+                      Debug.RecoverRTTI.Classifier
                       Debug.RecoverRTTI.Classify
                       Debug.RecoverRTTI.ClosureTree
+                      Debug.RecoverRTTI.Constraint
                       Debug.RecoverRTTI.FlatClosure
                       Debug.RecoverRTTI.Modules
                       Debug.RecoverRTTI.Nat
+                      Debug.RecoverRTTI.Reclassify
                       Debug.RecoverRTTI.Tuple
                       Debug.RecoverRTTI.Tuple.Recursive
                       Debug.RecoverRTTI.Tuple.Size
@@ -60,12 +63,17 @@ test-suite test-recover-rtti
     type:             exitcode-stdio-1.0
     hs-source-dirs:   tests
     main-is:          RecoverRttiTests.hs
-    other-modules:    Test.RecoverRTTI.Arbitrary
+    other-modules:    Test.RecoverRTTI.Classifier.Arbitrary
+                      Test.RecoverRTTI.Classifier.Equality
+                      Test.RecoverRTTI.Classifier.Size
                       Test.RecoverRTTI.Classify
                       Test.RecoverRTTI.ConcreteClassifier
-                      Test.RecoverRTTI.Orphans
-                      Test.RecoverRTTI.Show
+                      Test.RecoverRTTI.Globals
+                      Test.RecoverRTTI.Prim
+                      Test.RecoverRTTI.QuickCheck.DepGen
+                      Test.RecoverRTTI.QuickCheck.Sized
                       Test.RecoverRTTI.Sanity
+                      Test.RecoverRTTI.Show
                       Test.RecoverRTTI.Staged
                       Test.RecoverRTTI.UserDefined
     build-depends:    base >= 4.13

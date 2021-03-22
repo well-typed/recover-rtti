@@ -8,7 +8,6 @@ import Test.Tasty.QuickCheck hiding (classify)
 
 import Debug.RecoverRTTI
 
-import Test.RecoverRTTI.Arbitrary ()
 import Test.RecoverRTTI.ConcreteClassifier
 
 tests :: TestTree
@@ -29,5 +28,5 @@ prop_showGenerated (Some (Value _cc x)) =
 prop_anythingToString :: Some Value -> Property
 prop_anythingToString (Some (Value _cc x)) =
       counterexample ("inferred: " ++ show (classify x))
-    $ within 1_000_000
+    $ within 2_000_000
     $ show x === anythingToString x

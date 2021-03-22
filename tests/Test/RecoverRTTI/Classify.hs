@@ -30,9 +30,8 @@ import Test.Tasty.QuickCheck hiding (classify, NonEmpty)
 
 import Debug.RecoverRTTI
 
-import Test.RecoverRTTI.Arbitrary
 import Test.RecoverRTTI.ConcreteClassifier
-import Test.RecoverRTTI.Orphans ()
+import Test.RecoverRTTI.Globals
 import Test.RecoverRTTI.Staged
 import Test.RecoverRTTI.UserDefined
 
@@ -51,192 +50,235 @@ prop_constants :: Property
 prop_constants = withMaxSuccess 1 $ conjoin [
       -- Primitive types
 
-      compareClassifier $ Value CC_Bool     True
-    , compareClassifier $ Value CC_Bool     False
-    , compareClassifier $ Value CC_Char     'a'
-    , compareClassifier $ Value CC_Double   1.25
-    , compareClassifier $ Value CC_Float    1.25
-    , compareClassifier $ Value CC_Int      1234
-    , compareClassifier $ Value CC_Int      (-1234)
-    , compareClassifier $ Value CC_Int8     123
-    , compareClassifier $ Value CC_Int16    1234
-    , compareClassifier $ Value CC_Int32    1234
-    , compareClassifier $ Value CC_Int64    1234
-    , compareClassifier $ Value CC_Integer  1234
-    , compareClassifier $ Value CC_Integer  (succ (fromIntegral (maxBound :: Int)))
-    , compareClassifier $ Value CC_Integer  (pred (fromIntegral (minBound :: Int)))
-    , compareClassifier $ Value CC_Ordering LT
-    , compareClassifier $ Value CC_Ordering GT
-    , compareClassifier $ Value CC_Ordering EQ
-    , compareClassifier $ Value CC_Unit     ()
-    , compareClassifier $ Value CC_Word     1234
-    , compareClassifier $ Value CC_Word8    123
-    , compareClassifier $ Value CC_Word16   134
-    , compareClassifier $ Value CC_Word32   1234
-    , compareClassifier $ Value CC_Word64   1234
+      compareClassifier $ Value (C_Prim C_Bool)     True
+    , compareClassifier $ Value (C_Prim C_Bool)     False
+    , compareClassifier $ Value (C_Prim C_Char)     'a'
+    , compareClassifier $ Value (C_Prim C_Double)   1.25
+    , compareClassifier $ Value (C_Prim C_Float)    1.25
+    , compareClassifier $ Value (C_Prim C_Int)      1234
+    , compareClassifier $ Value (C_Prim C_Int)      (-1234)
+    , compareClassifier $ Value (C_Prim C_Int8)     123
+    , compareClassifier $ Value (C_Prim C_Int16)    1234
+    , compareClassifier $ Value (C_Prim C_Int32)    1234
+    , compareClassifier $ Value (C_Prim C_Int64)    1234
+    , compareClassifier $ Value (C_Prim C_Integer)  1234
+    , compareClassifier $ Value (C_Prim C_Integer)  (succ (fromIntegral (maxBound :: Int)))
+    , compareClassifier $ Value (C_Prim C_Integer)  (pred (fromIntegral (minBound :: Int)))
+    , compareClassifier $ Value (C_Prim C_Ordering) LT
+    , compareClassifier $ Value (C_Prim C_Ordering) GT
+    , compareClassifier $ Value (C_Prim C_Ordering) EQ
+    , compareClassifier $ Value (C_Prim C_Unit)     ()
+    , compareClassifier $ Value (C_Prim C_Word)     1234
+    , compareClassifier $ Value (C_Prim C_Word8)    123
+    , compareClassifier $ Value (C_Prim C_Word16)   134
+    , compareClassifier $ Value (C_Prim C_Word32)   1234
+    , compareClassifier $ Value (C_Prim C_Word64)   1234
 
       -- String types
       --
-      -- We skip the empty string, because we infer that as @CC_List Empty@
+      -- We skip the empty string, because we infer that as @C_List Empty@
 
-    , compareClassifier $ Value CC_String      "abcdefg"
-    , compareClassifier $ Value CC_BS_Strict   ""
-    , compareClassifier $ Value CC_BS_Strict   "abcdefg"
-    , compareClassifier $ Value CC_BS_Lazy     ""
-    , compareClassifier $ Value CC_BS_Lazy     "abcdefg"
-    , compareClassifier $ Value CC_BS_Short    ""
-    , compareClassifier $ Value CC_BS_Short    "abcdefg"
-    , compareClassifier $ Value CC_Text_Strict ""
-    , compareClassifier $ Value CC_Text_Strict "abcdefg"
-    , compareClassifier $ Value CC_Text_Lazy   ""
-    , compareClassifier $ Value CC_Text_Lazy   "abcdefg"
+    , compareClassifier $ Value (C_Prim C_String)      "abcdefg"
+    , compareClassifier $ Value (C_Prim C_BS_Strict)   ""
+    , compareClassifier $ Value (C_Prim C_BS_Strict)   "abcdefg"
+    , compareClassifier $ Value (C_Prim C_BS_Lazy)     ""
+    , compareClassifier $ Value (C_Prim C_BS_Lazy)     "abcdefg"
+    , compareClassifier $ Value (C_Prim C_BS_Short)    ""
+    , compareClassifier $ Value (C_Prim C_BS_Short)    "abcdefg"
+    , compareClassifier $ Value (C_Prim C_Text_Strict) ""
+    , compareClassifier $ Value (C_Prim C_Text_Strict) "abcdefg"
+    , compareClassifier $ Value (C_Prim C_Text_Lazy)   ""
+    , compareClassifier $ Value (C_Prim C_Text_Lazy)   "abcdefg"
 
       -- Aeson
 
-    , compareClassifier $ Value CC_Value (Aeson.object [("x" Aeson..= True)])
-
-      -- Compound
-
-    , compareClassifier $ Value (CC_Maybe FNothing)       Nothing
-    , compareClassifier $ Value (CC_Maybe (FJust CC_Int)) (Just 3)
-
-    , compareClassifier $ Value (CC_Either (FLeft  CC_Int))  (Left 3)
-    , compareClassifier $ Value (CC_Either (FRight CC_Bool)) (Right True)
-
-    , compareClassifier $ Value (CC_List FNothing)       []
-    , compareClassifier $ Value (CC_List (FJust CC_Int)) [1, 2, 3]
-
-    , compareClassifier $ Value (CC_Tuple (ConcreteClassifiers (CC_Int :* CC_Char :* Nil)))            (WrappedTuple (4, 'a'))
-    , compareClassifier $ Value (CC_Tuple (ConcreteClassifiers (CC_Int :* CC_Char :* CC_Bool :* Nil))) (WrappedTuple (4, 'a', True))
-
-    , compareClassifier $ Value (CC_Ratio CC_Integer) (1 % 2)
-
-    , compareClassifier $ Value (CC_Set FNothing)        Set.empty
-    , compareClassifier $ Value (CC_Set (FJust CC_Int)) (Set.fromList [1, 2, 3] )
-
-    , compareClassifier $ Value (CC_Map FNothingPair)                Map.empty
-    , compareClassifier $ Value (CC_Map (FJustPair CC_Int CC_Char)) (Map.fromList [(1, 'a'), (2, 'b')])
-
-    , compareClassifier $ Value CC_IntSet  IntSet.empty
-    , compareClassifier $ Value CC_IntSet (IntSet.fromList [1, 2, 3])
-
-    , compareClassifier $ Value (CC_IntMap FNothing)         IntMap.empty
-    , compareClassifier $ Value (CC_IntMap (FJust CC_Char)) (IntMap.fromList [(1, 'a'), (2, 'b')])
-
-    , compareClassifier $ Value (CC_Sequence FNothing)        Seq.empty
-    , compareClassifier $ Value (CC_Sequence (FJust CC_Int)) (Seq.fromList [1, 2, 3])
-
-    , compareClassifier $ Value (CC_Tree CC_Int) (Tree.Node 1 [])
-
-    , compareClassifier $ Value (CC_HashSet CC_Int) (HashSet.fromList [1, 2, 3])
-
-    , compareClassifier $ Value (CC_HashMap FNothingPair)                HashMap.empty
-    , compareClassifier $ Value (CC_HashMap (FJustPair CC_Int CC_Char)) (HashMap.fromList [(1, 'a'), (2, 'b')])
-
-    , compareClassifier $ Value (CC_HM_Array FNothing)       (HashMap.Array.fromList 0 [])
-    , compareClassifier $ Value (CC_HM_Array (FJust CC_Int)) (HashMap.Array.fromList 2 [1, 2])
-
-    , compareClassifier $ Value (CC_Prim_Array FNothing)       (Prim.Array.arrayFromList [])
-    , compareClassifier $ Value (CC_Prim_Array (FJust CC_Int)) (Prim.Array.arrayFromList [1, 2, 3])
-
-    , compareClassifier $ Value CC_Prim_MArray examplePrimArray
-
-    , compareClassifier $ Value (CC_Vector_Boxed FNothing)        Vector.Boxed.empty
-    , compareClassifier $ Value (CC_Vector_Boxed (FJust CC_Int)) (Vector.Boxed.fromList [1, 2, 3])
+    , compareClassifier $ Value (C_Prim C_Value) (Aeson.object [("x" Aeson..= True)])
 
       -- Reference cells
 
-    , compareClassifier $ Value CC_STRef exampleIORef
-    , compareClassifier $ Value CC_STRef exampleSTRef
-    , compareClassifier $ Value CC_MVar  exampleMVar
-    , compareClassifier $ Value CC_TVar  exampleTVar
+    , compareClassifier $ Value (C_Prim C_STRef) exampleIORef
+    , compareClassifier $ Value (C_Prim C_STRef) exampleSTRef
+    , compareClassifier $ Value (C_Prim C_MVar)  exampleMVar
+    , compareClassifier $ Value (C_Prim C_TVar)  exampleTVar
 
       -- Functions
 
-    , compareClassifier $ Value CC_Fun (SomeFun id)
+    , compareClassifier $ Value (C_Prim C_Fun) (SomeFun id)
+
+      -- Containers without type arguments
+
+    , compareClassifier $ Value (C_Prim C_IntSet) $
+        IntSet.empty
+    , compareClassifier $ Value (C_Prim C_IntSet) $
+        IntSet.fromList [1, 2, 3]
+
+    , compareClassifier $ Value (C_Prim C_Prim_MArray) $
+        examplePrimMArray
+
+      -- Compound
+
+    , compareClassifier $ Value (C_Maybe FNothing) $
+        Nothing
+    , compareClassifier $ Value (C_Maybe (FJust (C_Prim C_Int))) $
+        Just 3
+
+    , compareClassifier $ Value (C_Either (FLeft (C_Prim C_Int))) $
+        Left 3
+    , compareClassifier $ Value (C_Either (FRight (C_Prim C_Bool))) $
+        Right True
+
+    , compareClassifier $ Value (C_List FNothing) $
+        []
+    , compareClassifier $ Value (C_List (FJust (C_Prim C_Int))) $
+        [1, 2, 3]
+
+    , compareClassifier $ Value (C_Tuple (Classifiers (C_Prim C_Int :* C_Prim C_Char :* Nil))) $
+        WrappedTuple (4, 'a')
+    , compareClassifier $ Value (C_Tuple (Classifiers (C_Prim C_Int :* C_Prim C_Char :* C_Prim C_Bool :* Nil))) $
+        WrappedTuple (4, 'a', True)
+
+    , compareClassifier $ Value (C_Ratio (C_Prim C_Integer)) $
+        1 % 2
+
+    , compareClassifier $ Value (C_Set FNothing) $
+        Set.empty
+    , compareClassifier $ Value (C_Set (FJust (C_Prim C_Int))) $
+        Set.fromList [1, 2, 3]
+
+    , compareClassifier $ Value (C_Map FNothingPair) $
+        Map.empty
+    , compareClassifier $ Value (C_Map (FJustPair (C_Prim C_Int) (C_Prim C_Char))) $
+        Map.fromList [(1, 'a'), (2, 'b')]
+
+    , compareClassifier $ Value (C_IntMap FNothing) $
+        IntMap.empty
+    , compareClassifier $ Value (C_IntMap (FJust (C_Prim C_Char))) $
+        IntMap.fromList [(1, 'a'), (2, 'b')]
+
+    , compareClassifier $ Value (C_Sequence FNothing) $
+        Seq.empty
+    , compareClassifier $ Value (C_Sequence (FJust (C_Prim C_Int))) $
+        Seq.fromList [1, 2, 3]
+
+    , compareClassifier $ Value (C_Tree (C_Prim C_Int)) $
+        Tree.Node 1 []
+
+    , compareClassifier $ Value (C_HashSet (C_Prim C_Int)) $
+        HashSet.fromList [1, 2, 3]
+
+    , compareClassifier $ Value (C_HashMap FNothingPair) $
+        HashMap.empty
+    , compareClassifier $ Value (C_HashMap (FJustPair (C_Prim C_Int) (C_Prim C_Char))) $
+        HashMap.fromList [(1, 'a'), (2, 'b')]
+
+    , compareClassifier $ Value (C_HM_Array FNothing) $
+        HashMap.Array.fromList 0 []
+    , compareClassifier $ Value (C_HM_Array (FJust (C_Prim C_Int))) $
+        HashMap.Array.fromList 2 [1, 2]
+
+    , compareClassifier $ Value (C_Prim_Array FNothing) $
+        Prim.Array.arrayFromList []
+    , compareClassifier $ Value (C_Prim_Array (FJust (C_Prim C_Int))) $
+        Prim.Array.arrayFromList [1, 2, 3]
+
+    , compareClassifier $ Value (C_Vector_Boxed FNothing) $
+        Vector.Boxed.empty
+    , compareClassifier $ Value (C_Vector_Boxed (FJust (C_Prim C_Int))) $
+        Vector.Boxed.fromList [1, 2, 3]
 
       -- User defined
 
-    , compareClassifier $ Value  CC_User_Simple                    SimpleA
-    , compareClassifier $ Value  CC_User_Simple                    SimpleB
-    , compareClassifier $ Value (CC_User_NonRec    FNothing)       (NR1 1234)
-    , compareClassifier $ Value (CC_User_NonRec   (FJust CC_Char)) (NR2 'a' True)
-    , compareClassifier $ Value (CC_User_Rec       FNothing)        RNil
-    , compareClassifier $ Value (CC_User_Rec      (FJust CC_Char)) (RCons 'a' RNil)
-    , compareClassifier $ Value  CC_User_Unlifted                  exampleContainsUnlifted
+    , compareClassifier $ Value (C_Other C_Simple) $
+        SimpleA
+    , compareClassifier $ Value (C_Other C_Simple) $
+        SimpleB
+
+    , compareClassifier $ Value (C_Other (C_NonRec FNothing))  $
+        (NR1 1234)
+    , compareClassifier $ Value (C_Other (C_NonRec (FJust (C_Prim C_Char)))) $
+        (NR2 True 'a')
+
+    , compareClassifier $ Value (C_Other (C_Rec FNothing)) $
+        RNil
+    , compareClassifier $ Value (C_Other (C_Rec (FJust (C_Prim C_Char)))) $
+        (RCons 'a' RNil)
+
+    , compareClassifier $ Value (C_Other C_Unlifted) $
+        exampleContainsUnlifted
     ]
   where
     _checkAllCases :: ConcreteClassifier a -> ()
     _checkAllCases = \case
-        -- Primitive types
-
-        CC_Bool     -> ()
-        CC_Char     -> ()
-        CC_Double   -> ()
-        CC_Float    -> ()
-        CC_Int      -> ()
-        CC_Int8     -> ()
-        CC_Int16    -> ()
-        CC_Int32    -> ()
-        CC_Int64    -> ()
-        CC_Integer  -> ()
-        CC_Ordering -> ()
-        CC_Unit     -> ()
-        CC_Word     -> ()
-        CC_Word8    -> ()
-        CC_Word16   -> ()
-        CC_Word32   -> ()
-        CC_Word64   -> ()
+        C_Prim C_Bool     -> ()
+        C_Prim C_Char     -> ()
+        C_Prim C_Double   -> ()
+        C_Prim C_Float    -> ()
+        C_Prim C_Int      -> ()
+        C_Prim C_Int8     -> ()
+        C_Prim C_Int16    -> ()
+        C_Prim C_Int32    -> ()
+        C_Prim C_Int64    -> ()
+        C_Prim C_Integer  -> ()
+        C_Prim C_Ordering -> ()
+        C_Prim C_Unit     -> ()
+        C_Prim C_Word     -> ()
+        C_Prim C_Word8    -> ()
+        C_Prim C_Word16   -> ()
+        C_Prim C_Word32   -> ()
+        C_Prim C_Word64   -> ()
 
         -- String types
 
-        CC_String      -> ()
-        CC_BS_Strict   -> ()
-        CC_BS_Lazy     -> ()
-        CC_BS_Short    -> ()
-        CC_Text_Strict -> ()
-        CC_Text_Lazy   -> ()
+        C_Prim C_String      -> ()
+        C_Prim C_BS_Strict   -> ()
+        C_Prim C_BS_Lazy     -> ()
+        C_Prim C_BS_Short    -> ()
+        C_Prim C_Text_Strict -> ()
+        C_Prim C_Text_Lazy   -> ()
 
         -- Aeson
 
-        CC_Value -> ()
+        C_Prim C_Value -> ()
 
-        -- Compound
+        -- Containers without type arguments
 
-        CC_Maybe{}        -> ()
-        CC_Either{}       -> ()
-        CC_List{}         -> ()
-        CC_Ratio{}        -> ()
-        CC_Set{}          -> ()
-        CC_Map{}          -> ()
-        CC_IntSet{}       -> ()
-        CC_IntMap{}       -> ()
-        CC_Sequence{}     -> ()
-        CC_Tree{}         -> ()
-        CC_Tuple{}        -> ()
-        CC_HashSet{}      -> ()
-        CC_HashMap{}      -> ()
-        CC_HM_Array{}     -> ()
-        CC_Prim_Array{}   -> ()
-        CC_Prim_MArray{}  -> ()
-        CC_Vector_Boxed{} -> ()
+        C_Prim C_IntSet      -> ()
+        C_Prim C_Prim_MArray -> ()
 
         -- Functions
 
-        CC_Fun{} -> ()
+        C_Prim C_Fun -> ()
 
         -- Reference cells
 
-        CC_STRef -> ()
-        CC_TVar  -> ()
-        CC_MVar  -> ()
+        C_Prim C_STRef -> ()
+        C_Prim C_TVar  -> ()
+        C_Prim C_MVar  -> ()
+
+        -- Compound
+
+        C_Maybe{}        -> ()
+        C_Either{}       -> ()
+        C_List{}         -> ()
+        C_Ratio{}        -> ()
+        C_Set{}          -> ()
+        C_Map{}          -> ()
+        C_IntMap{}       -> ()
+        C_Sequence{}     -> ()
+        C_Tree{}         -> ()
+        C_Tuple{}        -> ()
+        C_HashSet{}      -> ()
+        C_HashMap{}      -> ()
+        C_HM_Array{}     -> ()
+        C_Prim_Array{}   -> ()
+        C_Vector_Boxed{} -> ()
 
         -- User-defined
 
-        CC_User_Simple{}   -> ()
-        CC_User_NonRec{}   -> ()
-        CC_User_Rec{}      -> ()
-        CC_User_Unlifted{} -> ()
+        C_Other (C_Simple{})   -> ()
+        C_Other (C_NonRec{})   -> ()
+        C_Other (C_Rec{})      -> ()
+        C_Other (C_Unlifted{}) -> ()
 
 -- | Test using arbitrary values
 prop_arbitrary :: Some Value -> Property
@@ -248,12 +290,12 @@ prop_arbitrary (Some v) = compareClassifier v
 compareClassifier :: Value a -> Property
 compareClassifier = \(Value cc x) ->
       counterexample ("Generated classifier: " ++ show cc)
-    $ case runExcept $ classifyThenReclassify x of
+    $ case runExcept $ classifyConcrete x of
         Left err  ->
             counterexample ("Failed to reclassify. Error: " ++ err)
           $ property False
         Right (Reclassified cc' f) ->
-          case sameConcreteClassifier cc cc' of
+          case sameConcrete cc cc' of
             Nothing ->
                 counterexample ("Inferred different classifier: " ++ show cc')
               $ property False

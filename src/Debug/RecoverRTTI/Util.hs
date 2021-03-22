@@ -2,20 +2,15 @@
 {-# LANGUAGE DataKinds           #-}
 {-# LANGUAGE FlexibleContexts    #-}
 {-# LANGUAGE GADTs               #-}
-{-# LANGUAGE KindSignatures      #-}
 {-# LANGUAGE LambdaCase          #-}
 {-# LANGUAGE PolyKinds           #-}
 {-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
-{-# OPTIONS_GHC -Wno-redundant-constraints #-}
-
 module Debug.RecoverRTTI.Util (
     -- * Existentials
     Some(..)
-  , elimKnownSymbol
-    -- * Constraints
-  , keepRedundantConstraint
+  , mapSome
     -- * Lists
   , dropEnds
     -- * SOP
@@ -24,9 +19,7 @@ module Debug.RecoverRTTI.Util (
   ) where
 
 import Data.Kind
-import Data.Proxy
 import Data.SOP
-import GHC.TypeLits (KnownSymbol, SomeSymbol(..), someSymbolVal)
 
 import Debug.RecoverRTTI.Nat
 
@@ -37,24 +30,8 @@ import Debug.RecoverRTTI.Nat
 data Some (f :: k -> Type) where
   Some :: forall f a. f a -> Some f
 
-elimKnownSymbol :: String -> (forall n. KnownSymbol n => Proxy n -> r) -> r
-elimKnownSymbol s k =
-    case someSymbolVal s of
-      SomeSymbol p -> k p
-
-{-------------------------------------------------------------------------------
-  Constraints
--------------------------------------------------------------------------------}
-
--- | Can be used to silence individual "redundant constraint" warnings
---
--- > foo :: ConstraintUsefulForDebugging => ...
--- > foo =
--- >     ..
--- >   where
--- >     _ = keepRedundantConstraint (Proxy @ConstraintUsefulForDebugging))
-keepRedundantConstraint :: c => proxy c -> ()
-keepRedundantConstraint _ = ()
+mapSome :: (forall x. f x -> g x) -> Some f -> Some g
+mapSome f (Some x) = Some (f x)
 
 {-------------------------------------------------------------------------------
   Lists
