@@ -34,6 +34,7 @@ data KnownPkg =
   | PkgAeson
   | PkgUnorderedContainers
   | PkgVector
+  | PkgPrimitive
 
 data family KnownModule (pkg :: KnownPkg)
 
@@ -52,6 +53,7 @@ data SPkg (pkg :: KnownPkg) where
   SAeson               :: SPkg 'PkgAeson
   SUnorderedContainers :: SPkg 'PkgUnorderedContainers
   SVector              :: SPkg 'PkgVector
+  SPrimitive           :: SPkg 'PkgPrimitive
 
 class IsKnownPkg pkg where
   singPkg :: SPkg pkg
@@ -66,6 +68,7 @@ instance IsKnownPkg 'PkgContainers          where singPkg = SContainers
 instance IsKnownPkg 'PkgAeson               where singPkg = SAeson
 instance IsKnownPkg 'PkgUnorderedContainers where singPkg = SUnorderedContainers
 instance IsKnownPkg 'PkgVector              where singPkg = SVector
+instance IsKnownPkg 'PkgPrimitive           where singPkg = SPrimitive
 
 {-------------------------------------------------------------------------------
   Modules in @ghc-pri@
@@ -152,7 +155,14 @@ data instance KnownModule 'PkgUnorderedContainers =
 -------------------------------------------------------------------------------}
 
 data instance KnownModule 'PkgVector =
-   DataVector
+    DataVector
+
+{-------------------------------------------------------------------------------
+  Modules in @primitive@
+-------------------------------------------------------------------------------}
+
+data instance KnownModule 'PkgPrimitive =
+    DataPrimitiveArray
 
 {-------------------------------------------------------------------------------
   Matching
@@ -188,6 +198,7 @@ inKnownModuleNested = go singPkg
     namePkg SAeson               = "aeson"
     namePkg SUnorderedContainers = "unordered-containers"
     namePkg SVector              = "vector"
+    namePkg SPrimitive           = "primitive"
 
     nameModl :: SPkg pkg -> KnownModule pkg -> String
     nameModl SGhcPrim             GhcTypes                    = "GHC.Types"
@@ -217,3 +228,4 @@ inKnownModuleNested = go singPkg
     nameModl SUnorderedContainers DataHashMapInternal         = "Data.HashMap.Internal"
     nameModl SUnorderedContainers DataHashMapInternalArray    = "Data.HashMap.Internal.Array"
     nameModl SVector              DataVector                  = "Data.Vector"
+    nameModl SPrimitive           DataPrimitiveArray          = "Data.Primitive.Array"

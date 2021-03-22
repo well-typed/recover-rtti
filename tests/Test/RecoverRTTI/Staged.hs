@@ -140,6 +140,8 @@ reclassify = go
       C_HashSet      c' -> goF          coerceHashSet CC_HashSet      c'
       C_HashMap      c' -> goMaybePairF coerceHashMap CC_HashMap      c'
       C_HM_Array     c' -> goMaybeF     coerceHMArray CC_HM_Array     c'
+      C_Prim_Array   c' -> goMaybeF     fmap          CC_Prim_Array   c'
+      C_Prim_MArray     -> return $ Reclassified CC_Prim_MArray id
       C_Vector_Boxed c' -> goMaybeF     fmap          CC_Vector_Boxed c'
 
       C_Tuple (Classifiers cs) ->

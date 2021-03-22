@@ -3,6 +3,7 @@
 {-# LANGUAGE GADTs                 #-}
 {-# LANGUAGE NamedFieldPuns        #-}
 {-# LANGUAGE QuantifiedConstraints #-}
+{-# LANGUAGE RankNTypes            #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
 {-# LANGUAGE StandaloneDeriving    #-}
 {-# LANGUAGE TupleSections         #-}
@@ -37,13 +38,13 @@ import GHC.Real
 import System.IO.Unsafe (unsafePerformIO)
 import Unsafe.Coerce (unsafeCoerce)
 
+import qualified Data.Foldable               as Foldable
 import qualified Data.HashMap.Internal.Array as HashMap (Array)
 import qualified Data.HashMap.Internal.Array as HashMap.Array
 import qualified Data.HashMap.Lazy           as HashMap
-import qualified Data.IntMap                 as IntMap
 import qualified Data.Map                    as Map
-import qualified Data.Sequence               as Seq
-import qualified Data.Set                    as Set
+import qualified Data.Primitive.Array        as Prim.Array
+import qualified Data.Primitive.Array        as Prim (Array)
 import qualified Data.Tree                   as Tree
 import qualified Data.Vector                 as Vector.Boxed
 
@@ -221,6 +222,12 @@ classifyIO x = do
       (inKnownModule DataHashMapInternalArray -> Just "Array") ->
         mustBe <$> classifyHMArray (unsafeCoerce x)
 
+      -- Arrays from @primitive@
+      (inKnownModule DataPrimitiveArray -> Just "Array") ->
+        mustBe <$> classifyPrimArray (unsafeCoerce x)
+      (inKnownModule DataPrimitiveArray -> Just "MutableArray") ->
+        return $ mustBe C_Prim_MArray
+
       -- Boxed vectors
       (inKnownModule DataVector -> Just "Vector") ->
         mustBe <$> classifyVectorBoxed (unsafeCoerce x)
@@ -271,15 +278,8 @@ classify = unsafePerformIO . runExceptT . classifyIO
   Classification for compound types
 -------------------------------------------------------------------------------}
 
-classifyMaybe ::
-     Maybe a
-  -> ExceptT Closure IO (Classifier (Maybe a))
-classifyMaybe x =
-    case x of
-      Nothing -> return $ mustBe $ C_Maybe FNothing
-      Just x' -> do
-        cx <- classifyIO x'
-        return $ mustBe $ C_Maybe (FJust (Classified cx x'))
+classifyMaybe :: Maybe a -> ExceptT Closure IO (Classifier (Maybe a))
+classifyMaybe = classifyFoldable C_Maybe
 
 classifyEither ::
      Either a b
@@ -293,17 +293,14 @@ classifyEither x =
         cy <- classifyIO y'
         return $ mustBe $ C_Either (FRight (Classified cy y'))
 
-classifyList ::
-     [a]
-  -> ExceptT Closure IO (Classifier [a])
-classifyList x =
-    case x of
-      []   -> return $ mustBe $ C_List FNothing
-      x':_ -> do
-        cx <- classifyIO x'
-        return $ case cx of
-          C_Char     -> mustBe $ C_String
-          _otherwise -> mustBe $ C_List (FJust (Classified cx x'))
+classifyList :: [a] -> ExceptT Closure IO (Classifier [a])
+classifyList = classifyFoldable c_list
+  where
+    -- We special case for @String@, so that @show@ will use the (overlapped)
+    -- instance for @String@ instead of the general instance for @[a]@
+    c_list :: MaybeF Classified x -> Classifier [x]
+    c_list (FJust (Classified C_Char _)) = C_String
+    c_list c = C_List c
 
 classifyRatio ::
      Ratio a
@@ -312,90 +309,59 @@ classifyRatio (x' :% _) = do
     cx <- classifyIO x'
     return $ mustBe $ C_Ratio (Classified cx x')
 
-classifySet ::
-     Set a
-  -> ExceptT Closure IO (Classifier (Set a))
-classifySet x =
-    case Set.lookupMin x of
-      Nothing -> return $ mustBe $ C_Set FNothing
-      Just x' -> do
-        cx <- classifyIO x'
-        return $ mustBe $ C_Set (FJust (Classified cx x'))
+classifySet :: Set a -> ExceptT Closure IO (Classifier (Set a))
+classifySet = classifyFoldable C_Set
 
-classifyMap ::
-     Map a b
-  -> ExceptT Closure IO (Classifier (Map a b))
-classifyMap x =
-    case Map.lookupMin x of
-      Nothing       -> return $ mustBe $ C_Map FNothingPair
-      Just (x', y') -> do
-        cx <- classifyIO x'
-        cy <- classifyIO y'
-        return $ mustBe $ C_Map (FJustPair (Classified cx x') (Classified cy y'))
+classifyMap :: Map a b -> ExceptT Closure IO (Classifier (Map a b))
+classifyMap = classifyFoldablePair C_Map Map.toList
 
-classifyIntMap ::
-     IntMap a
-  -> ExceptT Closure IO (Classifier (IntMap a))
-classifyIntMap x =
-    case IntMap.minView x of
-      Nothing      -> return $ mustBe $ C_IntMap FNothing
-      Just (x', _) -> do
-        cx <- classifyIO x'
-        return $ mustBe $ C_IntMap (FJust (Classified cx x'))
+classifyIntMap :: IntMap a -> ExceptT Closure IO (Classifier (IntMap a))
+classifyIntMap = classifyFoldable C_IntMap
 
-classifySequence ::
-     Seq a
-  -> ExceptT Closure IO (Classifier (Seq a))
-classifySequence x =
-    case Seq.viewl x of
-      Seq.EmptyL  -> return $ mustBe $ C_Sequence FNothing
-      x' Seq.:< _ -> do
-        cx <- classifyIO x'
-        return $ mustBe $ C_Sequence (FJust (Classified cx x'))
+classifySequence :: Seq a -> ExceptT Closure IO (Classifier (Seq a))
+classifySequence = classifyFoldable C_Sequence
 
-classifyTree ::
-     Tree a
-  -> ExceptT Closure IO (Classifier (Tree a))
+classifyTree :: Tree a -> ExceptT Closure IO (Classifier (Tree a))
 classifyTree x =
     case x of
       Tree.Node x' _ -> do
         cx <- classifyIO x'
         return $ mustBe $ C_Tree (Classified cx x')
 
-classifyHashMap ::
-     HashMap a b
-  -> ExceptT Closure IO (Classifier (HashMap a b))
-classifyHashMap x =
-    case HashMap.toList x of
-      []           -> return $ mustBe $ C_HashMap FNothingPair
-      ((x', y'):_) -> do
-        cx <- classifyIO x'
-        cy <- classifyIO y'
-        return $ case cy of
-          C_Unit     -> mustBe $ C_HashSet (Classified cx x')
-          _otherwise -> mustBe $ C_HashMap (FJustPair (Classified cx x') (Classified cy y'))
+classifyHashMap :: HashMap a b -> ExceptT Closure IO (Classifier (HashMap a b))
+classifyHashMap = classifyFoldablePair c_hashmap HashMap.toList
+  where
+    -- HashSet is a newtype around HashMap
+    c_hashmap :: MaybePairF Classified x y -> Classifier (HashMap x y)
+    c_hashmap (FJustPair c (Classified C_Unit _)) = mustBe $ C_HashSet c
+    c_hashmap c = C_HashMap c
 
 classifyHMArray ::
      HashMap.Array a
-  -> ExceptT Closure IO (Classifier (Tree a))
-classifyHMArray x =
-    if HashMap.Array.length x == 0
-      then return $ mustBe $ C_HM_Array FNothing
-      else do
-        let x' = HashMap.Array.index x 0
-        cx <- classifyIO x'
-        return $ mustBe $ C_HM_Array (FJust (Classified cx x'))
+  -> ExceptT Closure IO (Classifier (HashMap.Array a))
+classifyHMArray =
+    classifyArrayLike
+      C_HM_Array
+      HashMap.Array.length
+      (`HashMap.Array.index` 0)
+
+classifyPrimArray ::
+     Prim.Array a
+  -> ExceptT Closure IO (Classifier (Prim.Array a))
+classifyPrimArray =
+    classifyArrayLike
+      C_Prim_Array
+      Prim.Array.sizeofArray
+      (`Prim.Array.indexArray` 0)
 
 classifyVectorBoxed ::
      Vector.Boxed.Vector a
   -> ExceptT Closure IO (Classifier (Vector.Boxed.Vector a))
-classifyVectorBoxed x =
-    if Vector.Boxed.length x == 0
-      then return $ mustBe $ C_Vector_Boxed FNothing
-      else do
-        let x' = Vector.Boxed.head x
-        cx <- classifyIO x'
-        return $ mustBe $ C_Vector_Boxed (FJust (Classified cx x'))
+classifyVectorBoxed =
+    classifyArrayLike
+      C_Vector_Boxed
+      Vector.Boxed.length
+      Vector.Boxed.head
 
 classifyTuple ::
      (SListI xs, IsValidSize (Length xs))
@@ -409,6 +375,46 @@ classifyTuple ptrs = do
     aux (K (Box x)) = Comp $ do
         c <- classifyIO (unsafeCoerce x)
         return $ Classified c (unsafeCoerce x)
+
+{-------------------------------------------------------------------------------
+  Helper functions for defining classifiers
+-------------------------------------------------------------------------------}
+
+classifyFoldable ::
+     Foldable f
+  => (forall x. MaybeF Classified x -> Classifier (f x))
+  -> f a -> ExceptT Closure IO (Classifier (f a))
+classifyFoldable cc x =
+    case Foldable.toList x of
+      []   -> return $ mustBe $ cc FNothing
+      x':_ -> do
+        cx <- classifyIO x'
+        return $ mustBe $ cc (FJust (Classified cx x'))
+
+classifyFoldablePair ::
+     (forall x y. MaybePairF Classified x y -> Classifier (f x y))
+  -> (f a b -> [(a, b)])
+  -> f a b -> ExceptT Closure IO (Classifier (f a b))
+classifyFoldablePair cc toList x =
+    case toList x of
+      []         -> return $ mustBe $ cc FNothingPair
+      (x', y'):_ -> do
+        cx <- classifyIO x'
+        cy <- classifyIO y'
+        return $ mustBe $ cc (FJustPair (Classified cx x') (Classified cy y'))
+
+classifyArrayLike ::
+     (forall x. MaybeF Classified x -> Classifier (f x))
+  -> (f a -> Int)  -- ^ Get the length of the array
+  -> (f a -> a)    -- ^ Get the first element (provided the array is not empty)
+  -> f a -> ExceptT Closure IO (Classifier (f a))
+classifyArrayLike cc getLen getFirst x =
+    if getLen x == 0
+      then return $ mustBe $ cc FNothing
+      else do
+        let x' = getFirst x
+        cx <- classifyIO x'
+        return $ mustBe $ cc (FJust (Classified cx x'))
 
 {-------------------------------------------------------------------------------
   Recognizing tuples
@@ -578,6 +584,8 @@ canShowClassified = go
     go (C_HashSet      c) = goF          c
     go (C_HashMap      c) = goMaybePairF c
     go (C_HM_Array     c) = goMaybeF     c
+    go (C_Prim_Array   c) = goMaybeF     c
+    go  C_Prim_MArray     = Dict
     go (C_Vector_Boxed c) = goMaybeF     c
 
     go (C_Tuple (Classifiers cs)) =

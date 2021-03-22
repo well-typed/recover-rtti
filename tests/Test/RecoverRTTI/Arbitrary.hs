@@ -14,11 +14,12 @@
 module Test.RecoverRTTI.Arbitrary (
     ClassifiedGen(..)
   , arbitraryClassifiedGen
-    -- * Example values of reference cells
+    -- * Example values of reference cells/mutable arrays
   , exampleIORef
   , exampleSTRef
   , exampleMVar
   , exampleTVar
+  , examplePrimArray
   ) where
 
 import Control.Concurrent.MVar (newEmptyMVar)
@@ -46,6 +47,7 @@ import qualified Data.HashMap.Lazy           as HashMap
 import qualified Data.HashSet                as HashSet
 import qualified Data.IntMap                 as IntMap
 import qualified Data.Map                    as Map
+import qualified Data.Primitive.Array        as Prim.Array
 import qualified Data.Sequence               as Seq
 import qualified Data.Set                    as Set
 import qualified Data.Text                   as Text.Strict
@@ -168,6 +170,10 @@ arbitraryClassifiedGen typSz
           , Some $ ClassifiedGen CC_STRef (ignoreSize $ pure exampleIORef)
           , Some $ ClassifiedGen CC_MVar  (ignoreSize $ pure exampleMVar)
           , Some $ ClassifiedGen CC_TVar  (ignoreSize $ pure exampleTVar)
+          ]
+
+          -- Mutable arrays
+        , [ Some $ ClassifiedGen CC_Prim_MArray (ignoreSize $ pure examplePrimArray)
           ]
 
           -- Functions
@@ -318,6 +324,16 @@ arbitraryClassifiedGen typSz
                 a
             )
 
+          -- 'Array' from @primitive@
+        , guard (typSz >= 1) >> (return $ do
+              Some a <- arbitraryClassifiedGen (typSz - 1)
+              genMaybeF
+                CC_Prim_Array
+                (return $ Prim.Array.arrayFromList [])
+                (genListLike Prim.Array.arrayFromList)
+                a
+            )
+
           -- Boxed vectors
         , guard (typSz >= 1) >> (return $ do
               Some a <- arbitraryClassifiedGen (typSz - 1)
@@ -435,6 +451,8 @@ arbitraryClassifiedGen typSz
          C_HashSet{}      -> ()
          C_HashMap{}      -> ()
          C_HM_Array{}     -> ()
+         C_Prim_Array{}   -> ()
+         C_Prim_MArray{}  -> ()
          C_Vector_Boxed{} -> ()
 
          -- Reference cells
@@ -646,3 +664,8 @@ exampleTVar :: SomeTVar
 {-# NOINLINE exampleTVar #-}
 exampleTVar = unsafePerformIO $
     SomeTVar <$> newTVarIO (unsafeCoerce ())
+
+examplePrimArray :: SomePrimMutableArray
+{-# NOINLINE examplePrimArray #-}
+examplePrimArray = unsafePerformIO $
+    unsafeCoerce <$> Prim.Array.newArray 0 (error "no elements")

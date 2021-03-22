@@ -39,6 +39,7 @@ import qualified Data.ByteString             as BS.Strict
 import qualified Data.ByteString.Lazy        as BS.Lazy
 import qualified Data.ByteString.Short       as BS.Short
 import qualified Data.HashMap.Internal.Array as HashMap (Array)
+import qualified Data.Primitive.Array        as Prim (Array)
 import qualified Data.Text                   as Text.Strict
 import qualified Data.Text.Lazy              as Text.Lazy
 import qualified Data.Vector                 as Vector.Boxed
@@ -110,6 +111,8 @@ data ConcreteClassifier (a :: Type) :: Type where
     CC_HashSet      ::            ConcreteClassifier a   -> ConcreteClassifier (HashSet a)
     CC_HashMap      :: MaybePairF ConcreteClassifier a b -> ConcreteClassifier (HashMap a b)
     CC_HM_Array     :: MaybeF     ConcreteClassifier a   -> ConcreteClassifier (HashMap.Array a)
+    CC_Prim_Array   :: MaybeF     ConcreteClassifier a   -> ConcreteClassifier (Prim.Array a)
+    CC_Prim_MArray  ::                                      ConcreteClassifier SomePrimMutableArray
     CC_Vector_Boxed :: MaybeF     ConcreteClassifier a   -> ConcreteClassifier (Vector.Boxed.Vector a)
 
     CC_Tuple ::
@@ -204,6 +207,8 @@ classifierSize = go
     go (CC_HashSet      c) = 1 + go           c
     go (CC_HashMap      c) = 1 + goMaybePairF c
     go (CC_HM_Array     c) = 1 + goMaybeF     c
+    go (CC_Prim_Array   c) = 1 + goMaybeF     c
+    go  CC_Prim_MArray     = 1
     go (CC_Vector_Boxed c) = 1 + goMaybeF     c
 
     go (CC_Tuple (ConcreteClassifiers cs)) =
@@ -312,6 +317,8 @@ sameConcreteClassifier = go
     go (CC_HashSet      c) (CC_HashSet      c') = goF          c c'
     go (CC_HashMap      c) (CC_HashMap      c') = goMaybePairF c c'
     go (CC_HM_Array     c) (CC_HM_Array     c') = goMaybeF     c c'
+    go (CC_Prim_Array   c) (CC_Prim_Array   c') = goMaybeF     c c'
+    go  CC_Prim_MArray      CC_Prim_MArray      = Just Refl
     go (CC_Vector_Boxed c) (CC_Vector_Boxed c') = goMaybeF     c c'
 
     go (CC_Tuple (ConcreteClassifiers cs))
@@ -430,6 +437,8 @@ sameConcreteClassifier = go
         CC_HashSet{}      -> ()
         CC_HashMap{}      -> ()
         CC_HM_Array{}     -> ()
+        CC_Prim_Array{}   -> ()
+        CC_Prim_MArray{}  -> ()
         CC_Vector_Boxed{} -> ()
 
         -- Reference cells

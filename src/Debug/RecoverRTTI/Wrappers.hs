@@ -20,12 +20,16 @@ module Debug.RecoverRTTI.Wrappers (
   , SomeSTRef(..)
   , SomeMVar(..)
   , SomeTVar(..)
+    -- * Mutable arrays
+  , SomePrimMutableArray(..)
   ) where
 
 import Control.Concurrent.MVar (MVar)
 import Control.Concurrent.STM (TVar)
 import Data.STRef (STRef)
 import GHC.Exts
+
+import qualified Data.Primitive.Array as Prim (MutableArray)
 
 {-------------------------------------------------------------------------------
   User-defined types
@@ -64,10 +68,22 @@ newtype SomeTVar = SomeTVar (TVar Any)
   deriving (Eq)
 
 {-------------------------------------------------------------------------------
+  Mutable arrays
+-------------------------------------------------------------------------------}
+
+newtype SomePrimMutableArray = SomePrimMutableArray (Prim.MutableArray RealWorld Any)
+  deriving (Eq)
+
+{-------------------------------------------------------------------------------
   Show instances
 
   Unfortunately reference cells are moved by GC, so we can't do much here;
   showing the address of the variable isn't particularly helpful.
+
+  We /could/ use @unsafePerformIO@ here to display the /contents/ of these
+  variables and mutable arrays, but that would not be referentially transparent;
+  unlike 'classify', that would not be morally pure. In principle we could offer
+  such a "display and peek inside mutable references" as a separate function.
 -------------------------------------------------------------------------------}
 
 instance Show SomeSTRef where
@@ -81,3 +97,6 @@ instance Show SomeTVar where
 
 instance Show SomeFun where
   show _ = "<Fun>"
+
+instance Show SomePrimMutableArray where
+  show _ = "<MutableArray>"

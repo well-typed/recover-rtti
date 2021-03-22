@@ -18,6 +18,8 @@ module Debug.RecoverRTTI (
   , SomeTVar(..)
   , SomeMVar(..)
   , SomeFun(..)
+    -- ** Mutable arrays
+  , SomePrimMutableArray(..)
     -- * User-defined types
   , UserDefined -- opaque
     -- ** Classify constructor arguments

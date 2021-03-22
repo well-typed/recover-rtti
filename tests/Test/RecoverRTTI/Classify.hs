@@ -19,6 +19,7 @@ import qualified Data.HashSet                as HashSet
 import qualified Data.IntMap                 as IntMap
 import qualified Data.IntSet                 as IntSet
 import qualified Data.Map                    as Map
+import qualified Data.Primitive.Array        as Prim.Array
 import qualified Data.Sequence               as Seq
 import qualified Data.Set                    as Set
 import qualified Data.Tree                   as Tree
@@ -135,6 +136,11 @@ prop_constants = withMaxSuccess 1 $ conjoin [
     , compareClassifier $ Value (CC_HM_Array FNothing)       (HashMap.Array.fromList 0 [])
     , compareClassifier $ Value (CC_HM_Array (FJust CC_Int)) (HashMap.Array.fromList 2 [1, 2])
 
+    , compareClassifier $ Value (CC_Prim_Array FNothing)       (Prim.Array.arrayFromList [])
+    , compareClassifier $ Value (CC_Prim_Array (FJust CC_Int)) (Prim.Array.arrayFromList [1, 2, 3])
+
+    , compareClassifier $ Value CC_Prim_MArray examplePrimArray
+
     , compareClassifier $ Value (CC_Vector_Boxed FNothing)        Vector.Boxed.empty
     , compareClassifier $ Value (CC_Vector_Boxed (FJust CC_Int)) (Vector.Boxed.fromList [1, 2, 3])
 
@@ -211,6 +217,8 @@ prop_constants = withMaxSuccess 1 $ conjoin [
         CC_HashSet{}      -> ()
         CC_HashMap{}      -> ()
         CC_HM_Array{}     -> ()
+        CC_Prim_Array{}   -> ()
+        CC_Prim_MArray{}  -> ()
         CC_Vector_Boxed{} -> ()
 
         -- Functions

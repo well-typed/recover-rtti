@@ -33,6 +33,7 @@ import qualified Data.ByteString             as BS.Strict
 import qualified Data.ByteString.Lazy        as BS.Lazy
 import qualified Data.ByteString.Short       as BS.Short
 import qualified Data.HashMap.Internal.Array as HashMap (Array)
+import qualified Data.Primitive.Array        as Prim (Array)
 import qualified Data.Text                   as Text.Strict
 import qualified Data.Text.Lazy              as Text.Lazy
 import qualified Data.Vector                 as Vector.Boxed
@@ -116,6 +117,8 @@ data Classifier (a :: Type) :: Type where
   C_HashSet      ::            Classified a   -> Classifier (HashSet a)
   C_HashMap      :: MaybePairF Classified a b -> Classifier (HashMap a b)
   C_HM_Array     :: MaybeF     Classified a   -> Classifier (HashMap.Array a)
+  C_Prim_Array   :: MaybeF     Classified a   -> Classifier (Prim.Array a)
+  C_Prim_MArray  ::                              Classifier SomePrimMutableArray
   C_Vector_Boxed :: MaybeF     Classified a   -> Classifier (Vector.Boxed.Vector a)
 
   C_Tuple ::
