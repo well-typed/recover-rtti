@@ -44,7 +44,6 @@ import Prelude hiding (replicate)
 import Data.Kind
 import Data.SOP
 import Data.SOP.Dict
-import GHC.Stack
 
 import Debug.RecoverRTTI
 
@@ -61,13 +60,8 @@ import qualified Test.QuickCheck as QC
 -- We thread the size all the way through the generating, to avoid generating
 -- very big trees. This is nonetheless a naive approach; we might want to look
 -- at papers such as "Feat: Functional Enumeration of Algebraic Types".
-newtype SizedGen a = SizedGen {
-    unSizedGen_ :: HasCallStack => Int -> Gen a
-  }
+newtype SizedGen a = SizedGen { unSizedGen :: Int -> Gen a }
   deriving (Functor)
-
-unSizedGen :: HasCallStack => SizedGen a -> Int -> Gen a
-unSizedGen = unSizedGen_
 
 instance Applicative SizedGen where
   pure x  = SizedGen $ \_sz -> pure x
@@ -105,7 +99,7 @@ leafOrStep leaf nested = SizedGen $ \sz ->
 oneofStepped :: [SizedGen a] -> SizedGen a
 oneofStepped gens = SizedGen $ \sz -> QC.oneof $ map (run (sz - 1)) gens
 
-replicate :: HasCallStack => (Int, Int) -> SizedGen a -> SizedGen [a]
+replicate :: (Int, Int) -> SizedGen a -> SizedGen [a]
 replicate (lo, hi) gen = SizedGen $ \sz -> do
     n <- QC.choose (lo, max lo (min sz hi))
     let sz' = (sz - 1) `div` n
@@ -123,7 +117,7 @@ divvyPair ga gb = unwrapTuple . tupleFromNP <$> divvy (ga :* gb :* Nil)
   Derived combinators
 -------------------------------------------------------------------------------}
 
-genListLike :: HasCallStack => ([a] -> x) -> SizedGen a -> SizedGen x
+genListLike :: ([a] -> x) -> SizedGen a -> SizedGen x
 genListLike f = fmap f . replicate (1, 5)
 
 genMapLike :: ([(a, b)] -> x) -> SizedGen a -> SizedGen b -> SizedGen x
