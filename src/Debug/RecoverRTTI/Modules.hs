@@ -156,6 +156,8 @@ data instance KnownModule 'PkgUnorderedContainers =
 
 data instance KnownModule 'PkgVector =
     DataVector
+  | DataVectorStorable
+  | DataVectorStorableMutable
 
 {-------------------------------------------------------------------------------
   Modules in @primitive@
@@ -228,4 +230,6 @@ inKnownModuleNested = go singPkg
     nameModl SUnorderedContainers DataHashMapInternal         = "Data.HashMap.Internal"
     nameModl SUnorderedContainers DataHashMapInternalArray    = "Data.HashMap.Internal.Array"
     nameModl SVector              DataVector                  = "Data.Vector"
+    nameModl SVector              DataVectorStorable          = "Data.Vector.Storable"
+    nameModl SVector              DataVectorStorableMutable   = "Data.Vector.Storable.Mutable"
     nameModl SPrimitive           DataPrimitiveArray          = "Data.Primitive.Array"

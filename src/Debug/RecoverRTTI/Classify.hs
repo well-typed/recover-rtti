@@ -236,6 +236,12 @@ classifyIO x = do
       (inKnownModule DataVector -> Just "Vector") ->
         mustBe <$> classifyVectorBoxed (unsafeCoerce x)
 
+      -- Storable vectors
+      (inKnownModule DataVectorStorable -> Just "Vector") ->
+        return $ mustBe $ C_Prim C_Vector_Storable
+      (inKnownModule DataVectorStorableMutable -> Just "MVector") ->
+        return $ mustBe $ C_Prim C_Vector_MStorable
+
       --
       -- Reference cells
       --

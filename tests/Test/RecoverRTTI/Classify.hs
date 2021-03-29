@@ -11,6 +11,7 @@ import Control.Monad.Except
 import Data.Ratio
 import Data.SOP
 import Data.Type.Equality
+import Unsafe.Coerce (unsafeCoerce)
 
 import qualified Data.Aeson                  as Aeson
 import qualified Data.HashMap.Internal.Array as HashMap.Array
@@ -24,6 +25,7 @@ import qualified Data.Sequence               as Seq
 import qualified Data.Set                    as Set
 import qualified Data.Tree                   as Tree
 import qualified Data.Vector                 as Vector.Boxed
+import qualified Data.Vector.Storable        as Vector.Storable
 
 import Test.Tasty
 import Test.Tasty.QuickCheck hiding (classify, NonEmpty)
@@ -114,6 +116,13 @@ prop_constants = withMaxSuccess 1 $ conjoin [
 
     , compareClassifier $ Value (C_Prim C_Prim_MArray) $
         examplePrimMArray
+
+    , compareClassifier $ Value (C_Prim C_Vector_Storable) $
+        SomeStorableVector $ unsafeCoerce $
+          Vector.Storable.fromList ([1, 2] :: [Double])
+
+    , compareClassifier $ Value (C_Prim C_Vector_MStorable) $
+        exampleStorableMVector
 
       -- Compound
 
@@ -242,8 +251,10 @@ prop_constants = withMaxSuccess 1 $ conjoin [
 
         -- Containers without type arguments
 
-        C_Prim C_IntSet      -> ()
-        C_Prim C_Prim_MArray -> ()
+        C_Prim C_IntSet           -> ()
+        C_Prim C_Prim_MArray      -> ()
+        C_Prim C_Vector_Storable  -> ()
+        C_Prim C_Vector_MStorable -> ()
 
         -- Functions
 

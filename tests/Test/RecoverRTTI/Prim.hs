@@ -21,6 +21,7 @@ import qualified Data.ByteString.Short as BS.Short
 import qualified Data.Text             as Text.Strict
 import qualified Data.Text.Lazy        as Text.Lazy
 import qualified Data.Vector           as Vector.Boxed
+import qualified Data.Vector.Storable  as Vector.Storable
 
 import Debug.RecoverRTTI
 
@@ -91,6 +92,8 @@ arbitraryPrimClassifier = elements [
 
     , Some C_IntSet
     , Some C_Prim_MArray
+    , Some C_Vector_Storable
+    , Some C_Vector_MStorable
     ]
   where
     _checkAllCases :: PrimClassifier a -> ()
@@ -140,8 +143,10 @@ arbitraryPrimClassifier = elements [
 
         -- Containers with no type arguments
 
-        C_IntSet      -> ()
-        C_Prim_MArray -> ()
+        C_IntSet           -> ()
+        C_Prim_MArray      -> ()
+        C_Vector_Storable  -> ()
+        C_Vector_MStorable -> ()
 
 {-------------------------------------------------------------------------------
   Orphan instances
@@ -211,6 +216,15 @@ instance Arbitrary SomeFun where
       fun :: (a -> b) -> SomeFun
       fun = unsafeCoerce
 
+instance Arbitrary SomeStorableVector where
+  arbitrary = elements [
+        some $ Vector.Storable.fromList ([1, 2, 3] :: [Int])
+      , some $ Vector.Storable.fromList ("abc"     :: String)
+      ]
+    where
+      some :: Vector.Storable.Vector a -> SomeStorableVector
+      some = unsafeCoerce
+
 {-------------------------------------------------------------------------------
   For the mutable variables, we just use the one global example
 -------------------------------------------------------------------------------}
@@ -227,6 +241,9 @@ instance Arbitrary SomeMVar where
 instance Arbitrary SomePrimMutableArray where
   arbitrary = return examplePrimMArray
 
+instance Arbitrary SomeStorableMVector where
+  arbitrary = return exampleStorableMVector
+
 {-------------------------------------------------------------------------------
   Orphan equality instances
 -------------------------------------------------------------------------------}
@@ -240,4 +257,10 @@ instance Arbitrary SomePrimMutableArray where
 -- This is an orphan defined in the test suite only, so that users of the
 -- library don't have acccess to this (misleading) instance.
 instance Eq SomeFun where
+  _ == _ = True
+
+instance Eq SomeStorableVector where
+  _ == _ = True
+
+instance Eq SomeStorableMVector where
   _ == _ = True

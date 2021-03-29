@@ -21,6 +21,8 @@ module Debug.RecoverRTTI (
   , SomeFun(..)
     -- ** Mutable arrays
   , SomePrimMutableArray(..)
+  , SomeStorableVector(..)
+  , SomeStorableMVector(..)
     -- * Working with classifiers
     -- ** Mapping
   , mapClassifier
