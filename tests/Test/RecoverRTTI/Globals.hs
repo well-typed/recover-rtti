@@ -8,6 +8,7 @@ module Test.RecoverRTTI.Globals (
   , exampleMVar
   , exampleTVar
   , examplePrimMArray
+  , exampleStorableMVector
   ) where
 
 import Control.Concurrent.MVar (newEmptyMVar)
@@ -19,6 +20,7 @@ import System.IO.Unsafe (unsafePerformIO)
 import Unsafe.Coerce (unsafeCoerce)
 
 import qualified Data.Primitive.Array as Prim.Array
+import qualified Data.Vector.Storable as Vector.Storable
 
 import Debug.RecoverRTTI
 
@@ -46,3 +48,8 @@ examplePrimMArray :: SomePrimMutableArray
 {-# NOINLINE examplePrimMArray #-}
 examplePrimMArray = unsafePerformIO $
     unsafeCoerce <$> Prim.Array.newArray 0 (error "no elements")
+
+exampleStorableMVector :: SomeStorableMVector
+{-# NOINLINE exampleStorableMVector #-}
+exampleStorableMVector = unsafePerformIO $
+    unsafeCoerce <$> Vector.Storable.thaw (Vector.Storable.fromList "abc")

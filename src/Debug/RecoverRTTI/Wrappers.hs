@@ -20,8 +20,10 @@ module Debug.RecoverRTTI.Wrappers (
   , SomeSTRef(..)
   , SomeMVar(..)
   , SomeTVar(..)
-    -- * Mutable arrays
+    -- * Arrays
   , SomePrimMutableArray(..)
+  , SomeStorableVector(..)
+  , SomeStorableMVector(..)
   ) where
 
 import Control.Concurrent.MVar (MVar)
@@ -68,11 +70,32 @@ newtype SomeTVar = SomeTVar (TVar Any)
   deriving (Eq)
 
 {-------------------------------------------------------------------------------
-  Mutable arrays
+  Arrays
+
+  For mutable arrays, we don't currently peek inside, and so we don't infer
+  the type of the elements. We /could/ (in principle this would be sound),
+  and we may wish to change this at some point. For the purposes of /show/,
+  however, having this type inferred it's particularly useful, unless we define
+  a `peekAnythingToString :: a -> IO String` function or something like that
+  which could look inside mutable structures (references, arrays, ..).
 -------------------------------------------------------------------------------}
 
 newtype SomePrimMutableArray = SomePrimMutableArray (Prim.MutableArray RealWorld Any)
   deriving (Eq)
+
+-- | Storable vector ("Data.Vector.Storable")
+--
+-- For storable arrays we have no hope of inferring the type of the elements:
+-- the elements are not stored as pointers, but rather as " serialized " data
+-- through the 'Storable' type class. In order to get at any element, we'd need
+-- to have the corresponding 'Storable' instance, but of course we don't have it
+-- if we don't have the type.
+newtype SomeStorableVector = SomeStorableVector Any
+
+-- | Mutable storage vector ("Data.Vector.Storable")
+--
+-- See 'SomeStorableVector' for some details on why we don't infer anything here.
+newtype SomeStorableMVector = SomeStorableMVector Any
 
 {-------------------------------------------------------------------------------
   Show instances
@@ -99,4 +122,10 @@ instance Show SomeFun where
   show _ = "<Fun>"
 
 instance Show SomePrimMutableArray where
-  show _ = "<MutableArray>"
+  show _ = "<Data.Primitive.Array.MutableArray>"
+
+instance Show SomeStorableVector where
+  show _ = "<Data.Vector.Storable.Vector>"
+
+instance Show SomeStorableMVector where
+  show _ = "<Data.Vector.Storable.MVector>"
