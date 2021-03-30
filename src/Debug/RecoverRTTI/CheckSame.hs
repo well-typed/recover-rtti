@@ -65,10 +65,12 @@ samePrim = go
 
     -- Containers without type arguments
 
-    go C_IntSet           C_IntSet           = Just Refl
-    go C_Prim_MArray      C_Prim_MArray      = Just Refl
-    go C_Vector_Storable  C_Vector_Storable  = Just Refl
-    go C_Vector_MStorable C_Vector_MStorable = Just Refl
+    go C_IntSet            C_IntSet            = Just Refl
+    go C_Prim_MArray       C_Prim_MArray       = Just Refl
+    go C_Vector_Storable   C_Vector_Storable   = Just Refl
+    go C_Vector_MStorable  C_Vector_MStorable  = Just Refl
+    go C_Vector_Primitive  C_Vector_Primitive  = Just Refl
+    go C_Vector_MPrimitive C_Vector_MPrimitive = Just Refl
 
     -- Functions
 
@@ -120,10 +122,12 @@ samePrim = go
 
         -- Containers without type arguments
 
-        C_IntSet           -> ()
-        C_Prim_MArray      -> ()
-        C_Vector_Storable  -> ()
-        C_Vector_MStorable -> ()
+        C_IntSet            -> ()
+        C_Prim_MArray       -> ()
+        C_Vector_Storable   -> ()
+        C_Vector_MStorable  -> ()
+        C_Vector_Primitive  -> ()
+        C_Vector_MPrimitive -> ()
 
         -- Functions
 

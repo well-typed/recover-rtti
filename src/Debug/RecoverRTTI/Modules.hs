@@ -158,6 +158,8 @@ data instance KnownModule 'PkgVector =
     DataVector
   | DataVectorStorable
   | DataVectorStorableMutable
+  | DataVectorPrimitive
+  | DataVectorPrimitiveMutable
 
 {-------------------------------------------------------------------------------
   Modules in @primitive@
@@ -233,6 +235,8 @@ inKnownModuleNested = go singPkg
     nameModl SVector              DataVector                  = "Data.Vector"
     nameModl SVector              DataVectorStorable          = "Data.Vector.Storable"
     nameModl SVector              DataVectorStorableMutable   = "Data.Vector.Storable.Mutable"
+    nameModl SVector              DataVectorPrimitive         = "Data.Vector.Primitive"
+    nameModl SVector              DataVectorPrimitiveMutable  = "Data.Vector.Primitive.Mutable"
     nameModl SPrimitive           DataPrimitiveArray          = "Data.Primitive.Array"
 
     -- On OSX, cabal strips vowels from package IDs in order to work around

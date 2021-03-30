@@ -242,6 +242,12 @@ classifyIO x = do
       (inKnownModule DataVectorStorableMutable -> Just "MVector") ->
         return $ mustBe $ C_Prim C_Vector_MStorable
 
+      -- Primitive vectors
+      (inKnownModule DataVectorPrimitive -> Just "Vector") ->
+        return $ mustBe $ C_Prim C_Vector_Primitive
+      (inKnownModule DataVectorPrimitiveMutable -> Just "MVector") ->
+        return $ mustBe $ C_Prim C_Vector_MPrimitive
+
       --
       -- Reference cells
       --

@@ -177,10 +177,12 @@ data PrimClassifier (a :: Type) where
   -- We include mutable containers here, because we currently do not attempt
   -- to peek inside them and hence cannot infer any types for their elements.
 
-  C_IntSet           :: PrimClassifier IntSet
-  C_Prim_MArray      :: PrimClassifier SomePrimMutableArray
-  C_Vector_Storable  :: PrimClassifier SomeStorableVector
-  C_Vector_MStorable :: PrimClassifier SomeStorableMVector
+  C_IntSet            :: PrimClassifier IntSet
+  C_Prim_MArray       :: PrimClassifier SomePrimMutableArray
+  C_Vector_Storable   :: PrimClassifier SomeStorableVector
+  C_Vector_MStorable  :: PrimClassifier SomeStorableMVector
+  C_Vector_Primitive  :: PrimClassifier SomePrimitiveVector
+  C_Vector_MPrimitive :: PrimClassifier SomePrimitiveMVector
 
 -- | Classifiers for a type with a variable number of arguments
 newtype Classifiers o xs = Classifiers {

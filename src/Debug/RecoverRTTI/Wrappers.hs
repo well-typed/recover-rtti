@@ -24,6 +24,8 @@ module Debug.RecoverRTTI.Wrappers (
   , SomePrimMutableArray(..)
   , SomeStorableVector(..)
   , SomeStorableMVector(..)
+  , SomePrimitiveVector(..)
+  , SomePrimitiveMVector(..)
   ) where
 
 import Control.Concurrent.MVar (MVar)
@@ -97,6 +99,14 @@ newtype SomeStorableVector = SomeStorableVector Any
 -- See 'SomeStorableVector' for some details on why we don't infer anything here.
 newtype SomeStorableMVector = SomeStorableMVector Any
 
+-- | Primitive vector ("Data.Vector.Primitive")
+--
+-- See 'SomeStorableVector' for why we can't classify elements of these vectors.
+newtype SomePrimitiveVector = SomePrimitiveVector Any
+
+-- | Mutable primitive vector
+newtype SomePrimitiveMVector = SomePrimitiveMVector Any
+
 {-------------------------------------------------------------------------------
   Show instances
 
@@ -129,3 +139,9 @@ instance Show SomeStorableVector where
 
 instance Show SomeStorableMVector where
   show _ = "<Data.Vector.Storable.MVector>"
+
+instance Show SomePrimitiveVector where
+  show _ = "<Data.Vector.Primitive.Vector>"
+
+instance Show SomePrimitiveMVector where
+  show _ = "<Data.Vector.Primitive.MVector>"

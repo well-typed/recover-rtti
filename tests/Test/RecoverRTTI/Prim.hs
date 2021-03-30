@@ -22,6 +22,7 @@ import qualified Data.Text             as Text.Strict
 import qualified Data.Text.Lazy        as Text.Lazy
 import qualified Data.Vector           as Vector.Boxed
 import qualified Data.Vector.Storable  as Vector.Storable
+import qualified Data.Vector.Primitive as Vector.Primitive
 
 import Debug.RecoverRTTI
 
@@ -94,6 +95,8 @@ arbitraryPrimClassifier = elements [
     , Some C_Prim_MArray
     , Some C_Vector_Storable
     , Some C_Vector_MStorable
+    , Some C_Vector_Primitive
+    , Some C_Vector_MPrimitive
     ]
   where
     _checkAllCases :: PrimClassifier a -> ()
@@ -143,10 +146,12 @@ arbitraryPrimClassifier = elements [
 
         -- Containers with no type arguments
 
-        C_IntSet           -> ()
-        C_Prim_MArray      -> ()
-        C_Vector_Storable  -> ()
-        C_Vector_MStorable -> ()
+        C_IntSet            -> ()
+        C_Prim_MArray       -> ()
+        C_Vector_Storable   -> ()
+        C_Vector_MStorable  -> ()
+        C_Vector_Primitive  -> ()
+        C_Vector_MPrimitive -> ()
 
 {-------------------------------------------------------------------------------
   Orphan instances
@@ -225,6 +230,15 @@ instance Arbitrary SomeStorableVector where
       some :: Vector.Storable.Vector a -> SomeStorableVector
       some = unsafeCoerce
 
+instance Arbitrary SomePrimitiveVector where
+  arbitrary = elements [
+        some $ Vector.Primitive.fromList ([1, 2, 3] :: [Int])
+      , some $ Vector.Primitive.fromList ("abc"     :: String)
+      ]
+    where
+      some :: Vector.Primitive.Vector a -> SomePrimitiveVector
+      some = unsafeCoerce
+
 {-------------------------------------------------------------------------------
   For the mutable variables, we just use the one global example
 -------------------------------------------------------------------------------}
@@ -243,6 +257,9 @@ instance Arbitrary SomePrimMutableArray where
 
 instance Arbitrary SomeStorableMVector where
   arbitrary = return exampleStorableMVector
+
+instance Arbitrary SomePrimitiveMVector where
+  arbitrary = return examplePrimitiveMVector
 
 {-------------------------------------------------------------------------------
   Orphan equality instances
@@ -263,4 +280,10 @@ instance Eq SomeStorableVector where
   _ == _ = True
 
 instance Eq SomeStorableMVector where
+  _ == _ = True
+
+instance Eq SomePrimitiveVector where
+  _ == _ = True
+
+instance Eq SomePrimitiveMVector where
   _ == _ = True

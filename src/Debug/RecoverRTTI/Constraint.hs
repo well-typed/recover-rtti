@@ -102,6 +102,8 @@ type PrimSatisfies (c :: Type -> Constraint) = (
   , c SomePrimMutableArray
   , c SomeStorableVector
   , c SomeStorableMVector
+  , c SomePrimitiveVector
+  , c SomePrimitiveMVector
   )
 
 primSatisfies :: forall c.
@@ -156,10 +158,12 @@ primSatisfies = go
 
     -- Containers with no type arguments
 
-    go C_IntSet           = Dict
-    go C_Prim_MArray      = Dict
-    go C_Vector_Storable  = Dict
-    go C_Vector_MStorable = Dict
+    go C_IntSet            = Dict
+    go C_Prim_MArray       = Dict
+    go C_Vector_Storable   = Dict
+    go C_Vector_MStorable  = Dict
+    go C_Vector_Primitive  = Dict
+    go C_Vector_MPrimitive = Dict
 
 {-------------------------------------------------------------------------------
   Compound

@@ -9,6 +9,7 @@ module Test.RecoverRTTI.Globals (
   , exampleTVar
   , examplePrimMArray
   , exampleStorableMVector
+  , examplePrimitiveMVector
   ) where
 
 import Control.Concurrent.MVar (newEmptyMVar)
@@ -19,8 +20,9 @@ import Data.STRef (newSTRef)
 import System.IO.Unsafe (unsafePerformIO)
 import Unsafe.Coerce (unsafeCoerce)
 
-import qualified Data.Primitive.Array as Prim.Array
-import qualified Data.Vector.Storable as Vector.Storable
+import qualified Data.Primitive.Array  as Prim.Array
+import qualified Data.Vector.Primitive as Vector.Primitive
+import qualified Data.Vector.Storable  as Vector.Storable
 
 import Debug.RecoverRTTI
 
@@ -53,3 +55,8 @@ exampleStorableMVector :: SomeStorableMVector
 {-# NOINLINE exampleStorableMVector #-}
 exampleStorableMVector = unsafePerformIO $
     unsafeCoerce <$> Vector.Storable.thaw (Vector.Storable.fromList "abc")
+
+examplePrimitiveMVector :: SomePrimitiveMVector
+{-# NOINLINE examplePrimitiveMVector #-}
+examplePrimitiveMVector = unsafePerformIO $
+    unsafeCoerce <$> Vector.Primitive.thaw (Vector.Primitive.fromList "abc")
