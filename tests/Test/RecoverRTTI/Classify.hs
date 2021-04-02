@@ -26,6 +26,7 @@ import qualified Data.Set                    as Set
 import qualified Data.Tree                   as Tree
 import qualified Data.Vector                 as Vector.Boxed
 import qualified Data.Vector.Storable        as Vector.Storable
+import qualified Data.Vector.Primitive       as Vector.Primitive
 
 import Test.Tasty
 import Test.Tasty.QuickCheck hiding (classify, NonEmpty)
@@ -114,15 +115,22 @@ prop_constants = withMaxSuccess 1 $ conjoin [
     , compareClassifier $ Value (C_Prim C_IntSet) $
         IntSet.fromList [1, 2, 3]
 
-    , compareClassifier $ Value (C_Prim C_Prim_MArray) $
-        examplePrimMArray
+    , compareClassifier $ Value (C_Prim C_Prim_ArrayM) $
+        examplePrimArrayM
 
     , compareClassifier $ Value (C_Prim C_Vector_Storable) $
         SomeStorableVector $ unsafeCoerce $
           Vector.Storable.fromList ([1, 2] :: [Double])
 
-    , compareClassifier $ Value (C_Prim C_Vector_MStorable) $
-        exampleStorableMVector
+    , compareClassifier $ Value (C_Prim C_Vector_StorableM) $
+        exampleStorableVectorM
+
+    , compareClassifier $ Value (C_Prim C_Vector_Primitive) $
+        SomePrimitiveVector $ unsafeCoerce $
+          Vector.Primitive.fromList ([1, 2] :: [Double])
+
+    , compareClassifier $ Value (C_Prim C_Vector_PrimitiveM) $
+        examplePrimitiveVectorM
 
       -- Compound
 
@@ -251,10 +259,12 @@ prop_constants = withMaxSuccess 1 $ conjoin [
 
         -- Containers without type arguments
 
-        C_Prim C_IntSet           -> ()
-        C_Prim C_Prim_MArray      -> ()
-        C_Prim C_Vector_Storable  -> ()
-        C_Prim C_Vector_MStorable -> ()
+        C_Prim C_IntSet            -> ()
+        C_Prim C_Prim_ArrayM       -> ()
+        C_Prim C_Vector_Storable   -> ()
+        C_Prim C_Vector_StorableM  -> ()
+        C_Prim C_Vector_Primitive  -> ()
+        C_Prim C_Vector_PrimitiveM -> ()
 
         -- Functions
 

@@ -21,9 +21,11 @@ module Debug.RecoverRTTI.Wrappers (
   , SomeMVar(..)
   , SomeTVar(..)
     -- * Arrays
-  , SomePrimMutableArray(..)
+  , SomePrimArrayM(..)
   , SomeStorableVector(..)
-  , SomeStorableMVector(..)
+  , SomeStorableVectorM(..)
+  , SomePrimitiveVector(..)
+  , SomePrimitiveVectorM(..)
   ) where
 
 import Control.Concurrent.MVar (MVar)
@@ -80,7 +82,7 @@ newtype SomeTVar = SomeTVar (TVar Any)
   which could look inside mutable structures (references, arrays, ..).
 -------------------------------------------------------------------------------}
 
-newtype SomePrimMutableArray = SomePrimMutableArray (Prim.MutableArray RealWorld Any)
+newtype SomePrimArrayM = SomePrimArrayM (Prim.MutableArray RealWorld Any)
   deriving (Eq)
 
 -- | Storable vector ("Data.Vector.Storable")
@@ -95,7 +97,15 @@ newtype SomeStorableVector = SomeStorableVector Any
 -- | Mutable storage vector ("Data.Vector.Storable")
 --
 -- See 'SomeStorableVector' for some details on why we don't infer anything here.
-newtype SomeStorableMVector = SomeStorableMVector Any
+newtype SomeStorableVectorM = SomeStorableVectorM Any
+
+-- | Primitive vector ("Data.Vector.Primitive")
+--
+-- See 'SomeStorableVector' for why we can't classify elements of these vectors.
+newtype SomePrimitiveVector = SomePrimitiveVector Any
+
+-- | Mutable primitive vector
+newtype SomePrimitiveVectorM = SomePrimitiveVectorM Any
 
 {-------------------------------------------------------------------------------
   Show instances
@@ -121,11 +131,17 @@ instance Show SomeTVar where
 instance Show SomeFun where
   show _ = "<Fun>"
 
-instance Show SomePrimMutableArray where
+instance Show SomePrimArrayM where
   show _ = "<Data.Primitive.Array.MutableArray>"
 
 instance Show SomeStorableVector where
   show _ = "<Data.Vector.Storable.Vector>"
 
-instance Show SomeStorableMVector where
+instance Show SomeStorableVectorM where
   show _ = "<Data.Vector.Storable.MVector>"
+
+instance Show SomePrimitiveVector where
+  show _ = "<Data.Vector.Primitive.Vector>"
+
+instance Show SomePrimitiveVectorM where
+  show _ = "<Data.Vector.Primitive.MVector>"

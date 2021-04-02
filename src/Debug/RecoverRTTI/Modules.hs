@@ -1,6 +1,7 @@
 {-# LANGUAGE DataKinds      #-}
 {-# LANGUAGE GADTs          #-}
 {-# LANGUAGE KindSignatures #-}
+{-# LANGUAGE LambdaCase     #-}
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE TypeFamilies   #-}
 
@@ -158,6 +159,8 @@ data instance KnownModule 'PkgVector =
     DataVector
   | DataVectorStorable
   | DataVectorStorableMutable
+  | DataVectorPrimitive
+  | DataVectorPrimitiveMutable
 
 {-------------------------------------------------------------------------------
   Modules in @primitive@
@@ -204,36 +207,60 @@ inKnownModuleNested = go singPkg
     namePkg SPrimitive           = "primitive"
 
     nameModl :: SPkg pkg -> KnownModule pkg -> String
-    nameModl SGhcPrim             GhcTypes                    = "GHC.Types"
-    nameModl SGhcPrim             GhcTuple                    = "GHC.Tuple"
-    nameModl SBase                GhcInt                      = "GHC.Int"
-    nameModl SBase                GhcWord                     = "GHC.Word"
-    nameModl SBase                GhcSTRef                    = "GHC.STRef"
-    nameModl SBase                GhcMVar                     = "GHC.MVar"
-    nameModl SBase                GhcConcSync                 = "GHC.Conc.Sync"
-    nameModl SBase                GhcMaybe                    = "GHC.Maybe"
-    nameModl SBase                GhcReal                     = "GHC.Real"
-    nameModl SBase                DataEither                  = "Data.Either"
-    nameModl SByteString          DataByteStringInternal      = "Data.ByteString.Internal"
-    nameModl SByteString          DataByteStringLazyInternal  = "Data.ByteString.Lazy.Internal"
-    nameModl SByteString          DataByteStringShortInternal = "Data.ByteString.Short.Internal"
-    nameModl SText                DataTextInternal            = "Data.Text.Internal"
-    nameModl SText                DataTextInternalLazy        = "Data.Text.Internal.Lazy"
-    nameModl SIntegerWiredIn      GhcIntegerType              = "GHC.Integer.Type"
-    nameModl SGhcBignum           GhcNumInteger               = "GHC.Num.Integer"
-    nameModl SContainers          DataSetInternal             = "Data.Set.Internal"
-    nameModl SContainers          DataMapInternal             = "Data.Map.Internal"
-    nameModl SContainers          DataIntSetInternal          = "Data.IntSet.Internal"
-    nameModl SContainers          DataIntMapInternal          = "Data.IntMap.Internal"
-    nameModl SContainers          DataSequenceInternal        = "Data.Sequence.Internal"
-    nameModl SContainers          DataTree                    = "Data.Tree"
-    nameModl SAeson               DataAesonTypesInternal      = "Data.Aeson.Types.Internal"
-    nameModl SUnorderedContainers DataHashMapInternal         = "Data.HashMap.Internal"
-    nameModl SUnorderedContainers DataHashMapInternalArray    = "Data.HashMap.Internal.Array"
-    nameModl SVector              DataVector                  = "Data.Vector"
-    nameModl SVector              DataVectorStorable          = "Data.Vector.Storable"
-    nameModl SVector              DataVectorStorableMutable   = "Data.Vector.Storable.Mutable"
-    nameModl SPrimitive           DataPrimitiveArray          = "Data.Primitive.Array"
+    nameModl = \case
+        SGhcPrim -> \case
+          GhcTypes -> "GHC.Types"
+          GhcTuple -> "GHC.Tuple"
+
+        SBase -> \case
+          GhcInt      -> "GHC.Int"
+          GhcWord     -> "GHC.Word"
+          GhcSTRef    -> "GHC.STRef"
+          GhcMVar     -> "GHC.MVar"
+          GhcConcSync -> "GHC.Conc.Sync"
+          GhcMaybe    -> "GHC.Maybe"
+          GhcReal     -> "GHC.Real"
+          DataEither  -> "Data.Either"
+
+        SByteString -> \case
+          DataByteStringInternal      -> "Data.ByteString.Internal"
+          DataByteStringLazyInternal  -> "Data.ByteString.Lazy.Internal"
+          DataByteStringShortInternal -> "Data.ByteString.Short.Internal"
+
+        SText -> \case
+          DataTextInternal     -> "Data.Text.Internal"
+          DataTextInternalLazy -> "Data.Text.Internal.Lazy"
+
+        SIntegerWiredIn -> \case
+          GhcIntegerType -> "GHC.Integer.Type"
+
+        SGhcBignum -> \case
+          GhcNumInteger -> "GHC.Num.Integer"
+
+        SContainers -> \case
+          DataSetInternal      -> "Data.Set.Internal"
+          DataMapInternal      -> "Data.Map.Internal"
+          DataIntSetInternal   -> "Data.IntSet.Internal"
+          DataIntMapInternal   -> "Data.IntMap.Internal"
+          DataSequenceInternal -> "Data.Sequence.Internal"
+          DataTree             -> "Data.Tree"
+
+        SAeson -> \case
+          DataAesonTypesInternal -> "Data.Aeson.Types.Internal"
+
+        SUnorderedContainers -> \case
+          DataHashMapInternal      -> "Data.HashMap.Internal"
+          DataHashMapInternalArray -> "Data.HashMap.Internal.Array"
+
+        SVector -> \case
+          DataVector                 -> "Data.Vector"
+          DataVectorStorable         -> "Data.Vector.Storable"
+          DataVectorStorableMutable  -> "Data.Vector.Storable.Mutable"
+          DataVectorPrimitive        -> "Data.Vector.Primitive"
+          DataVectorPrimitiveMutable -> "Data.Vector.Primitive.Mutable"
+
+        SPrimitive -> \case
+          DataPrimitiveArray -> "Data.Primitive.Array"
 
     -- On OSX, cabal strips vowels from package IDs in order to work around
     -- limitations around path lengths

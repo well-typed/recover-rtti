@@ -230,7 +230,7 @@ classifyIO x = do
       (inKnownModule DataPrimitiveArray -> Just "Array") ->
         mustBe <$> classifyPrimArray (unsafeCoerce x)
       (inKnownModule DataPrimitiveArray -> Just "MutableArray") ->
-        return $ mustBe $ C_Prim C_Prim_MArray
+        return $ mustBe $ C_Prim C_Prim_ArrayM
 
       -- Boxed vectors
       (inKnownModule DataVector -> Just "Vector") ->
@@ -240,7 +240,13 @@ classifyIO x = do
       (inKnownModule DataVectorStorable -> Just "Vector") ->
         return $ mustBe $ C_Prim C_Vector_Storable
       (inKnownModule DataVectorStorableMutable -> Just "MVector") ->
-        return $ mustBe $ C_Prim C_Vector_MStorable
+        return $ mustBe $ C_Prim C_Vector_StorableM
+
+      -- Primitive vectors
+      (inKnownModule DataVectorPrimitive -> Just "Vector") ->
+        return $ mustBe $ C_Prim C_Vector_Primitive
+      (inKnownModule DataVectorPrimitiveMutable -> Just "MVector") ->
+        return $ mustBe $ C_Prim C_Vector_PrimitiveM
 
       --
       -- Reference cells
