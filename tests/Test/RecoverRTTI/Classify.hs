@@ -203,6 +203,9 @@ prop_constants = withMaxSuccess 1 $ conjoin [
     , compareClassifier $ Value (C_Vector_Boxed (FJust (C_Prim C_Int))) $
         Vector.Boxed.fromList [1, 2, 3]
 
+      -- TODO: Unboxed
+      -- TODO: UnboxedM
+
       -- User defined
 
     , compareClassifier $ Value (C_Other C_Simple) $
@@ -278,21 +281,23 @@ prop_constants = withMaxSuccess 1 $ conjoin [
 
         -- Compound
 
-        C_Maybe{}        -> ()
-        C_Either{}       -> ()
-        C_List{}         -> ()
-        C_Ratio{}        -> ()
-        C_Set{}          -> ()
-        C_Map{}          -> ()
-        C_IntMap{}       -> ()
-        C_Sequence{}     -> ()
-        C_Tree{}         -> ()
-        C_Tuple{}        -> ()
-        C_HashSet{}      -> ()
-        C_HashMap{}      -> ()
-        C_HM_Array{}     -> ()
-        C_Prim_Array{}   -> ()
-        C_Vector_Boxed{} -> ()
+        C_Maybe{}           -> ()
+        C_Either{}          -> ()
+        C_List{}            -> ()
+        C_Ratio{}           -> ()
+        C_Set{}             -> ()
+        C_Map{}             -> ()
+        C_IntMap{}          -> ()
+        C_Sequence{}        -> ()
+        C_Tree{}            -> ()
+        C_Tuple{}           -> ()
+        C_HashSet{}         -> ()
+        C_HashMap{}         -> ()
+        C_HM_Array{}        -> ()
+        C_Prim_Array{}      -> ()
+        C_Vector_Boxed{}    -> ()
+        C_Vector_Unboxed{}  -> ()
+        C_Vector_UnboxedM{} -> ()
 
         -- User-defined
 

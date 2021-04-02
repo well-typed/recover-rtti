@@ -290,3 +290,6 @@ instance Eq SomePrimitiveVector where
 
 instance Eq SomePrimitiveVectorM where
   _ == _ = True
+
+instance Eq (SomeUnboxedVectorM a) where
+  _ == _ = True

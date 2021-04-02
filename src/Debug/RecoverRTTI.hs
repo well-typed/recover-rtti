@@ -10,6 +10,7 @@ module Debug.RecoverRTTI (
   , Classifiers(..)
     -- ** Generalizations
   , Classifier_(..)
+  , C
     -- ** Unknown or partially known type arguments
   , MaybeF(..)
   , EitherF(..)
@@ -25,6 +26,7 @@ module Debug.RecoverRTTI (
   , SomeStorableVectorM(..)
   , SomePrimitiveVector(..)
   , SomePrimitiveVectorM(..)
+  , SomeUnboxedVectorM(..)
     -- * Working with classifiers
     -- ** Mapping
   , mapClassifier

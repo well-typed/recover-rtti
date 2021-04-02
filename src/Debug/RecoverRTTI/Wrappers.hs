@@ -26,6 +26,7 @@ module Debug.RecoverRTTI.Wrappers (
   , SomeStorableVectorM(..)
   , SomePrimitiveVector(..)
   , SomePrimitiveVectorM(..)
+  , SomeUnboxedVectorM(..)
   ) where
 
 import Control.Concurrent.MVar (MVar)
@@ -34,6 +35,7 @@ import Data.STRef (STRef)
 import GHC.Exts
 
 import qualified Data.Primitive.Array as Prim (MutableArray)
+import qualified Data.Vector.Unboxed  as Vector.Unboxed
 
 {-------------------------------------------------------------------------------
   User-defined types
@@ -82,6 +84,7 @@ newtype SomeTVar = SomeTVar (TVar Any)
   which could look inside mutable structures (references, arrays, ..).
 -------------------------------------------------------------------------------}
 
+-- | Mutable array ("Data.Primitive")
 newtype SomePrimArrayM = SomePrimArrayM (Prim.MutableArray RealWorld Any)
 
 -- | Storable vector ("Data.Vector.Storable")
@@ -103,8 +106,15 @@ newtype SomeStorableVectorM = SomeStorableVectorM Any
 -- See 'SomeStorableVector' for why we can't classify elements of these vectors.
 newtype SomePrimitiveVector = SomePrimitiveVector Any
 
--- | Mutable primitive vector
+-- | Mutable primitive vector ("Data.Vector.Primitive")
 newtype SomePrimitiveVectorM = SomePrimitiveVectorM Any
+
+-- | Mutable unboxed vectors ("Data.Vector.Unboxed")
+--
+-- Unlike all the other mutable arrays, for mutable /unboxed/ vectors we /can/
+-- infer the type of the argument, since each element corresponds to a different
+-- vector type. We just hide the state type argument.
+newtype SomeUnboxedVectorM a = SomeUnboxedVectorM (Vector.Unboxed.MVector RealWorld a)
 
 {-------------------------------------------------------------------------------
   Show instances
@@ -144,3 +154,6 @@ instance Show SomePrimitiveVector where
 
 instance Show SomePrimitiveVectorM where
   show _ = "<Data.Vector.Primitive.MVector>"
+
+instance Show (SomeUnboxedVectorM a) where
+  show _ = "<Data.Vector.Unboxed.MVector>"

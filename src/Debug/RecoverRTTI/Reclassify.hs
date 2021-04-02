@@ -61,21 +61,23 @@ distribReclassified = go
     go (C_Other c) = case c of Reclassified c' f -> Reclassified (C_Other c') f
 
     -- Compound
-    go (C_Maybe        c) = goMaybeF     C_Maybe        fmap          c
-    go (C_Either       c) = goEitherF    C_Either       bimap         c
-    go (C_List         c) = goMaybeF     C_List         fmap          c
-    go (C_Ratio        c) = goF          C_Ratio        coerceRatio   c
-    go (C_Set          c) = goMaybeF     C_Set          coerceSet     c
-    go (C_Map          c) = goMaybePairF C_Map          coerceMap     c
-    go (C_IntMap       c) = goMaybeF     C_IntMap       fmap          c
-    go (C_Sequence     c) = goMaybeF     C_Sequence     fmap          c
-    go (C_Tree         c) = goF          C_Tree         fmap          c
-    go (C_HashSet      c) = goF          C_HashSet      coerceHashSet c
-    go (C_HashMap      c) = goMaybePairF C_HashMap      coerceHashMap c
-    go (C_HM_Array     c) = goMaybeF     C_HM_Array     coerceHMArray c
-    go (C_Prim_Array   c) = goMaybeF     C_Prim_Array   fmap          c
-    go (C_Vector_Boxed c) = goMaybeF     C_Vector_Boxed fmap          c
-    go (C_Tuple        c) = goTuple                                   c
+    go (C_Maybe           c) = goMaybeF     C_Maybe           fmap          c
+    go (C_Either          c) = goEitherF    C_Either          bimap         c
+    go (C_List            c) = goMaybeF     C_List            fmap          c
+    go (C_Ratio           c) = goF          C_Ratio           coerceRatio   c
+    go (C_Set             c) = goMaybeF     C_Set             coerceSet     c
+    go (C_Map             c) = goMaybePairF C_Map             coerceMap     c
+    go (C_IntMap          c) = goMaybeF     C_IntMap          fmap          c
+    go (C_Sequence        c) = goMaybeF     C_Sequence        fmap          c
+    go (C_Tree            c) = goF          C_Tree            fmap          c
+    go (C_HashSet         c) = goF          C_HashSet         coerceHashSet c
+    go (C_HashMap         c) = goMaybePairF C_HashMap         coerceHashMap c
+    go (C_HM_Array        c) = goMaybeF     C_HM_Array        coerceHMArray c
+    go (C_Prim_Array      c) = goMaybeF     C_Prim_Array      fmap          c
+    go (C_Vector_Boxed    c) = goMaybeF     C_Vector_Boxed    fmap          c
+    go (C_Vector_Unboxed  c) = Reclassified (C_Vector_Unboxed  c) id
+    go (C_Vector_UnboxedM c) = Reclassified (C_Vector_UnboxedM c) id
+    go (C_Tuple           c) = goTuple                                      c
 
     goF :: forall f.
          (forall a. Classifier_ o a -> Classifier_ o (f a))

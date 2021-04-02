@@ -1,11 +1,14 @@
 {-# LANGUAGE ConstraintKinds         #-}
+{-# LANGUAGE EmptyCase               #-}
 {-# LANGUAGE FlexibleContexts        #-}
 {-# LANGUAGE FlexibleInstances       #-}
 {-# LANGUAGE GADTs                   #-}
 {-# LANGUAGE KindSignatures          #-}
+{-# LANGUAGE LambdaCase              #-}
 {-# LANGUAGE QuantifiedConstraints   #-}
 {-# LANGUAGE RankNTypes              #-}
 {-# LANGUAGE ScopedTypeVariables     #-}
+{-# LANGUAGE TypeApplications        #-}
 {-# LANGUAGE UndecidableInstances    #-}
 {-# LANGUAGE UndecidableSuperClasses #-}
 
@@ -31,6 +34,7 @@ import Data.Set (Set)
 import Data.SOP
 import Data.SOP.Dict
 import Data.Tree (Tree)
+import Data.Vector.Unboxed (Unbox)
 import Data.Void
 import Data.Word
 
@@ -42,6 +46,7 @@ import qualified Data.Primitive.Array        as Prim (Array)
 import qualified Data.Text                   as Text.Strict
 import qualified Data.Text.Lazy              as Text.Lazy
 import qualified Data.Vector                 as Vector.Boxed
+import qualified Data.Vector.Unboxed         as Vector.Unboxed
 
 import Debug.RecoverRTTI.Classifier
 import Debug.RecoverRTTI.Nat
@@ -175,40 +180,44 @@ primSatisfies = go
 class (
     PrimSatisfies c
     -- Compound
-  , forall a.   (c a)      => c (Maybe a)
-  , forall a b. (c a, c b) => c (Either a b)
-  , forall a.   (c a)      => c [a]
-  , forall a.   (c a)      => c (Ratio a)
-  , forall a.   (c a)      => c (Set a)
-  , forall a b. (c a, c b) => c (Map a b)
-  , forall a.   (c a)      => c (IntMap a)
-  , forall a.   (c a)      => c (Seq a)
-  , forall a.   (c a)      => c (Tree a)
-  , forall a.   (c a)      => c (HashSet a)
-  , forall a b. (c a, c b) => c (HashMap a b)
-  , forall a.   (c a)      => c (HashMap.Array a)
-  , forall a.   (c a)      => c (Prim.Array a)
-  , forall a.   (c a)      => c (Vector.Boxed.Vector a)
+  , forall a.   (c a)          => c (Maybe a)
+  , forall a b. (c a, c b)     => c (Either a b)
+  , forall a.   (c a)          => c [a]
+  , forall a.   (c a)          => c (Ratio a)
+  , forall a.   (c a)          => c (Set a)
+  , forall a b. (c a, c b)     => c (Map a b)
+  , forall a.   (c a)          => c (IntMap a)
+  , forall a.   (c a)          => c (Seq a)
+  , forall a.   (c a)          => c (Tree a)
+  , forall a.   (c a)          => c (HashSet a)
+  , forall a b. (c a, c b)     => c (HashMap a b)
+  , forall a.   (c a)          => c (HashMap.Array a)
+  , forall a.   (c a)          => c (Prim.Array a)
+  , forall a.   (c a)          => c (Vector.Boxed.Vector a)
+  , forall a.   (c a, Unbox a) => c (Vector.Unboxed.Vector a)
+  , forall a.   (c a, Unbox a) => c (SomeUnboxedVectorM a)
   , forall xs. (All c xs,  IsValidSize (Length xs)) => c (WrappedTuple xs)
   ) => ClassifiedSatisfies (c :: Type -> Constraint)
 
 instance (
     PrimSatisfies c
     -- Compound
-  , forall a.   (c a)      => c (Maybe a)
-  , forall a b. (c a, c b) => c (Either a b)
-  , forall a.   (c a)      => c [a]
-  , forall a.   (c a)      => c (Ratio a)
-  , forall a.   (c a)      => c (Set a)
-  , forall a b. (c a, c b) => c (Map a b)
-  , forall a.   (c a)      => c (IntMap a)
-  , forall a.   (c a)      => c (Seq a)
-  , forall a.   (c a)      => c (Tree a)
-  , forall a.   (c a)      => c (HashSet a)
-  , forall a b. (c a, c b) => c (HashMap a b)
-  , forall a.   (c a)      => c (HashMap.Array a)
-  , forall a.   (c a)      => c (Prim.Array a)
-  , forall a.   (c a)      => c (Vector.Boxed.Vector a)
+  , forall a.   (c a)          => c (Maybe a)
+  , forall a b. (c a, c b)     => c (Either a b)
+  , forall a.   (c a)          => c [a]
+  , forall a.   (c a)          => c (Ratio a)
+  , forall a.   (c a)          => c (Set a)
+  , forall a b. (c a, c b)     => c (Map a b)
+  , forall a.   (c a)          => c (IntMap a)
+  , forall a.   (c a)          => c (Seq a)
+  , forall a.   (c a)          => c (Tree a)
+  , forall a.   (c a)          => c (HashSet a)
+  , forall a b. (c a, c b)     => c (HashMap a b)
+  , forall a.   (c a)          => c (HashMap.Array a)
+  , forall a.   (c a)          => c (Prim.Array a)
+  , forall a.   (c a)          => c (Vector.Boxed.Vector a)
+  , forall a.   (c a, Unbox a) => c (Vector.Unboxed.Vector a)
+  , forall a.   (c a, Unbox a) => c (SomeUnboxedVectorM a)
   , forall xs. (All c xs,  IsValidSize (Length xs)) => c (WrappedTuple xs)
   ) => ClassifiedSatisfies (c :: Type -> Constraint)
 
@@ -223,26 +232,38 @@ classifiedSatisfies otherSatisfies = go
     go (C_Other c) = otherSatisfies c
 
     -- Compound
-    go (C_Maybe        c) = goMaybeF     c
-    go (C_Either       c) = goEitherF    c
-    go (C_List         c) = goMaybeF     c
-    go (C_Ratio        c) = goF          c
-    go (C_Set          c) = goMaybeF     c
-    go (C_Map          c) = goMaybePairF c
-    go (C_IntMap       c) = goMaybeF     c
-    go (C_Sequence     c) = goMaybeF     c
-    go (C_Tree         c) = goF          c
-    go (C_HashSet      c) = goF          c
-    go (C_HashMap      c) = goMaybePairF c
-    go (C_HM_Array     c) = goMaybeF     c
-    go (C_Prim_Array   c) = goMaybeF     c
-    go (C_Vector_Boxed c) = goMaybeF     c
-    go (C_Tuple        c) = goTuple      c
+    go (C_Maybe           c) = goMaybeF                 c
+    go (C_Either          c) = goEitherF                c
+    go (C_List            c) = goMaybeF                 c
+    go (C_Ratio           c) = goF                      c
+    go (C_Set             c) = goMaybeF                 c
+    go (C_Map             c) = goMaybePairF             c
+    go (C_IntMap          c) = goMaybeF                 c
+    go (C_Sequence        c) = goMaybeF                 c
+    go (C_Tree            c) = goF                      c
+    go (C_HashSet         c) = goF                      c
+    go (C_HashMap         c) = goMaybePairF             c
+    go (C_HM_Array        c) = goMaybeF                 c
+    go (C_Prim_Array      c) = goMaybeF                 c
+    go (C_Vector_Boxed    c) = goMaybeF                 c
+    go (C_Vector_Unboxed  c) = goClosedF (Proxy @Unbox) c
+    go (C_Vector_UnboxedM c) = goClosedF (Proxy @Unbox) c
+    go (C_Tuple           c) = goTuple                  c
 
     goF ::
          (forall a. c a => c (f a))
       => (forall a. Classifier_ o a -> Dict c (f a))
     goF c = (\Dict -> Dict) $ go c
+
+    goClosedF ::
+          (forall a. (c a, c' a) => c (f a))
+       => Proxy c'
+       -> (forall a. c' a => Classifier_ C a -> Dict c (f a))
+    goClosedF _ c =
+        (\Dict -> Dict) $ classifiedSatisfies noOtherTypes c
+      where
+        noOtherTypes :: forall a. C a -> Dict c a
+        noOtherTypes x = case x of {}
 
     goMaybeF ::
          (forall a. c a => c (f a))

@@ -144,6 +144,10 @@ arbitraryClassifier_  genOther = go
         , goMaybeF C_Vector_Boxed Vector.Boxed.empty
             (mapSome (GenJust (SG.genListLike Vector.Boxed.fromList)) <$> go)
 
+          -- TODO: Unboxed
+
+          -- TODO: UnboxedM
+
         , goTuple
         ]
 
@@ -215,21 +219,23 @@ arbitraryClassifier_  genOther = go
         C_Other{} -> ()
 
         -- Compound
-        C_Maybe{}        -> ()
-        C_Either{}       -> ()
-        C_List{}         -> ()
-        C_Ratio{}        -> ()
-        C_Set{}          -> ()
-        C_Map{}          -> ()
-        C_IntMap{}       -> ()
-        C_Sequence{}     -> ()
-        C_Tree{}         -> ()
-        C_HashSet{}      -> ()
-        C_HashMap{}      -> ()
-        C_HM_Array{}     -> ()
-        C_Prim_Array{}   -> ()
-        C_Vector_Boxed{} -> ()
-        C_Tuple{}        -> ()
+        C_Maybe{}           -> ()
+        C_Either{}          -> ()
+        C_List{}            -> ()
+        C_Ratio{}           -> ()
+        C_Set{}             -> ()
+        C_Map{}             -> ()
+        C_IntMap{}          -> ()
+        C_Sequence{}        -> ()
+        C_Tree{}            -> ()
+        C_HashSet{}         -> ()
+        C_HashMap{}         -> ()
+        C_HM_Array{}        -> ()
+        C_Prim_Array{}      -> ()
+        C_Vector_Boxed{}    -> ()
+        C_Vector_Unboxed{}  -> ()
+        C_Vector_UnboxedM{} -> ()
+        C_Tuple{}           -> ()
 
 {-------------------------------------------------------------------------------
   Auxiliary tree functions

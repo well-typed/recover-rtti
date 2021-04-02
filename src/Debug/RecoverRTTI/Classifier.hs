@@ -15,6 +15,7 @@ module Debug.RecoverRTTI.Classifier (
   , Classifiers(..)
     -- * Generalizations
   , Classifier_(..)
+  , C
     -- * Partial information
   , MaybeF(..)
   , EitherF(..)
@@ -37,6 +38,7 @@ import Data.Set (Set)
 import Data.SOP
 import Data.SOP.Dict
 import Data.Tree (Tree)
+import Data.Vector.Unboxed (Unbox)
 import Data.Void
 import Data.Word
 
@@ -48,6 +50,7 @@ import qualified Data.Primitive.Array        as Prim (Array)
 import qualified Data.Text                   as Text.Strict
 import qualified Data.Text.Lazy              as Text.Lazy
 import qualified Data.Vector                 as Vector.Boxed
+import qualified Data.Vector.Unboxed         as Vector.Unboxed
 
 import Debug.RecoverRTTI.Nat
 import Debug.RecoverRTTI.Tuple
@@ -104,24 +107,44 @@ data Classifier_ (o :: Type -> Type) (a :: Type) :: Type where
   -- as a 'HashSet'; however, we can only do this of course if we have at
   -- least one element.
 
-  C_Maybe        :: MaybeF      o a   -> Classifier_ o (Maybe a)
-  C_Either       :: EitherF     o a b -> Classifier_ o (Either a b)
-  C_List         :: MaybeF      o a   -> Classifier_ o [a]
-  C_Ratio        :: Classifier_ o a   -> Classifier_ o (Ratio a)
-  C_Set          :: MaybeF      o a   -> Classifier_ o (Set a)
-  C_Map          :: MaybePairF  o a b -> Classifier_ o (Map a b)
-  C_IntMap       :: MaybeF      o a   -> Classifier_ o (IntMap a)
-  C_Sequence     :: MaybeF      o a   -> Classifier_ o (Seq a)
-  C_Tree         :: Classifier_ o a   -> Classifier_ o (Tree a)
-  C_HashSet      :: Classifier_ o a   -> Classifier_ o (HashSet a)
-  C_HashMap      :: MaybePairF  o a b -> Classifier_ o (HashMap a b)
-  C_HM_Array     :: MaybeF      o a   -> Classifier_ o (HashMap.Array a)
-  C_Prim_Array   :: MaybeF      o a   -> Classifier_ o (Prim.Array a)
-  C_Vector_Boxed :: MaybeF      o a   -> Classifier_ o (Vector.Boxed.Vector a)
+  C_Maybe           ::            MaybeF      o a   -> Classifier_ o (Maybe a)
+  C_Either          ::            EitherF     o a b -> Classifier_ o (Either a b)
+  C_List            ::            MaybeF      o a   -> Classifier_ o [a]
+  C_Ratio           ::            Classifier_ o a   -> Classifier_ o (Ratio a)
+  C_Set             ::            MaybeF      o a   -> Classifier_ o (Set a)
+  C_Map             ::            MaybePairF  o a b -> Classifier_ o (Map a b)
+  C_IntMap          ::            MaybeF      o a   -> Classifier_ o (IntMap a)
+  C_Sequence        ::            MaybeF      o a   -> Classifier_ o (Seq a)
+  C_Tree            ::            Classifier_ o a   -> Classifier_ o (Tree a)
+  C_HashSet         ::            Classifier_ o a   -> Classifier_ o (HashSet a)
+  C_HashMap         ::            MaybePairF  o a b -> Classifier_ o (HashMap a b)
+  C_HM_Array        ::            MaybeF      o a   -> Classifier_ o (HashMap.Array a)
+  C_Prim_Array      ::            MaybeF      o a   -> Classifier_ o (Prim.Array a)
+  C_Vector_Boxed    ::            MaybeF      o a   -> Classifier_ o (Vector.Boxed.Vector a)
+  C_Vector_Unboxed  :: Unbox a => Classifier_ C a   -> Classifier_ o (Vector.Unboxed.Vector a)
+  C_Vector_UnboxedM :: Unbox a => Classifier_ C a   -> Classifier_ o (SomeUnboxedVectorM a)
 
   C_Tuple ::
        (SListI xs, IsValidSize (Length xs))
     => Classifiers o xs -> Classifier_ o (WrappedTuple xs)
+
+-- | Closed world classification (i.e., there /are/ no other types)
+--
+-- This is useful when classifying instances of data families: if @F@ is some
+-- data family, then @F a@ is in fact a different type for every @a@. On the
+-- plus side, this means that we can classify @a@ without looking needing any
+-- actual /value/ of type @a@, but conversely we can only recognize a fixed
+-- set of instances; any other instance @F b@ we would not even recognize as
+-- being an instance of @F@, never mind knowing being able to classify @b@.
+--
+-- Unboxed vectors are a typical example of such a data family. We cannot infer
+-- anything about unboxed vectors of a user-defined type, as this would be a
+-- brand new type that we would not even recognize as a vector. Typically that
+-- user-defined vector will use existing vector instances for more primitive
+-- types, in which case we can of course simply classify those; if the
+-- user-defined type does its own packing/unpacking, we have no way of
+-- classifying those values no matter what we do.
+data C a
 
 -- | Classifier for primitive types
 data PrimClassifier (a :: Type) where
@@ -210,6 +233,7 @@ data MaybePairF o a b where
 -------------------------------------------------------------------------------}
 
 deriving instance Show (PrimClassifier a)
+deriving instance Show (C a)
 
 deriving instance (forall x. Show (o x)) => Show (Classifier_ o a)
 deriving instance (forall x. Show (o x)) => Show (MaybeF      o a)
@@ -242,21 +266,23 @@ mapClassifier other = go
 
     -- Compound
 
-    go (C_Maybe        c) = C_Maybe        <$> mapMaybeF      c
-    go (C_Either       c) = C_Either       <$> mapEitherF     c
-    go (C_List         c) = C_List         <$> mapMaybeF      c
-    go (C_Ratio        c) = C_Ratio        <$> go             c
-    go (C_Set          c) = C_Set          <$> mapMaybeF      c
-    go (C_Map          c) = C_Map          <$> mapMaybePairF  c
-    go (C_IntMap       c) = C_IntMap       <$> mapMaybeF      c
-    go (C_Sequence     c) = C_Sequence     <$> mapMaybeF      c
-    go (C_Tree         c) = C_Tree         <$> go             c
-    go (C_HashSet      c) = C_HashSet      <$> go             c
-    go (C_HashMap      c) = C_HashMap      <$> mapMaybePairF  c
-    go (C_HM_Array     c) = C_HM_Array     <$> mapMaybeF      c
-    go (C_Prim_Array   c) = C_Prim_Array   <$> mapMaybeF      c
-    go (C_Vector_Boxed c) = C_Vector_Boxed <$> mapMaybeF      c
-    go (C_Tuple        c) = C_Tuple        <$> mapClassifiers c
+    go (C_Maybe           c) = C_Maybe           <$> mapMaybeF      c
+    go (C_Either          c) = C_Either          <$> mapEitherF     c
+    go (C_List            c) = C_List            <$> mapMaybeF      c
+    go (C_Ratio           c) = C_Ratio           <$> go             c
+    go (C_Set             c) = C_Set             <$> mapMaybeF      c
+    go (C_Map             c) = C_Map             <$> mapMaybePairF  c
+    go (C_IntMap          c) = C_IntMap          <$> mapMaybeF      c
+    go (C_Sequence        c) = C_Sequence        <$> mapMaybeF      c
+    go (C_Tree            c) = C_Tree            <$> go             c
+    go (C_HashSet         c) = C_HashSet         <$> go             c
+    go (C_HashMap         c) = C_HashMap         <$> mapMaybePairF  c
+    go (C_HM_Array        c) = C_HM_Array        <$> mapMaybeF      c
+    go (C_Prim_Array      c) = C_Prim_Array      <$> mapMaybeF      c
+    go (C_Vector_Boxed    c) = C_Vector_Boxed    <$> mapMaybeF      c
+    go (C_Vector_Unboxed  c) = pure $ C_Vector_Unboxed  c
+    go (C_Vector_UnboxedM c) = pure $ C_Vector_UnboxedM c
+    go (C_Tuple           c) = C_Tuple           <$> mapClassifiers c
 
     mapMaybeF :: forall a. MaybeF o a -> m (MaybeF o' a)
     mapMaybeF FNothing  = pure FNothing

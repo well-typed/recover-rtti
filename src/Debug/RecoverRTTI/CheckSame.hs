@@ -1,3 +1,4 @@
+{-# LANGUAGE EmptyCase            #-}
 {-# LANGUAGE GADTs                #-}
 {-# LANGUAGE LambdaCase           #-}
 {-# LANGUAGE RankNTypes           #-}
@@ -155,21 +156,23 @@ sameClassifier_ sameOther = go
     go (C_Other c) (C_Other c') = sameOther c c'
 
     -- Compound
-    go (C_Maybe        c) (C_Maybe        c') = goMaybeF     c c'
-    go (C_Either       c) (C_Either       c') = goEitherF    c c'
-    go (C_List         c) (C_List         c') = goMaybeF     c c'
-    go (C_Ratio        c) (C_Ratio        c') = goF          c c'
-    go (C_Set          c) (C_Set          c') = goMaybeF     c c'
-    go (C_Map          c) (C_Map          c') = goMaybePairF c c'
-    go (C_IntMap       c) (C_IntMap       c') = goMaybeF     c c'
-    go (C_Sequence     c) (C_Sequence     c') = goMaybeF     c c'
-    go (C_Tree         c) (C_Tree         c') = goF          c c'
-    go (C_HashSet      c) (C_HashSet      c') = goF          c c'
-    go (C_HashMap      c) (C_HashMap      c') = goMaybePairF c c'
-    go (C_HM_Array     c) (C_HM_Array     c') = goMaybeF     c c'
-    go (C_Prim_Array   c) (C_Prim_Array   c') = goMaybeF     c c'
-    go (C_Vector_Boxed c) (C_Vector_Boxed c') = goMaybeF     c c'
-    go (C_Tuple        c) (C_Tuple        c') = goTuple      c c'
+    go (C_Maybe           c) (C_Maybe           c') = goMaybeF     c c'
+    go (C_Either          c) (C_Either          c') = goEitherF    c c'
+    go (C_List            c) (C_List            c') = goMaybeF     c c'
+    go (C_Ratio           c) (C_Ratio           c') = goF          c c'
+    go (C_Set             c) (C_Set             c') = goMaybeF     c c'
+    go (C_Map             c) (C_Map             c') = goMaybePairF c c'
+    go (C_IntMap          c) (C_IntMap          c') = goMaybeF     c c'
+    go (C_Sequence        c) (C_Sequence        c') = goMaybeF     c c'
+    go (C_Tree            c) (C_Tree            c') = goF          c c'
+    go (C_HashSet         c) (C_HashSet         c') = goF          c c'
+    go (C_HashMap         c) (C_HashMap         c') = goMaybePairF c c'
+    go (C_HM_Array        c) (C_HM_Array        c') = goMaybeF     c c'
+    go (C_Prim_Array      c) (C_Prim_Array      c') = goMaybeF     c c'
+    go (C_Vector_Boxed    c) (C_Vector_Boxed    c') = goMaybeF     c c'
+    go (C_Vector_Unboxed  c) (C_Vector_Unboxed  c') = goClosedF    c c'
+    go (C_Vector_UnboxedM c) (C_Vector_UnboxedM c') = goClosedF    c c'
+    go (C_Tuple           c) (C_Tuple           c') = goTuple      c c'
 
     -- No match
     go _ _ = Nothing
@@ -182,56 +185,64 @@ sameClassifier_ sameOther = go
            C_Other{} -> ()
 
            -- Compound
-           C_Maybe{}        -> ()
-           C_Either{}       -> ()
-           C_List{}         -> ()
-           C_Ratio{}        -> ()
-           C_Set{}          -> ()
-           C_Map{}          -> ()
-           C_IntMap{}       -> ()
-           C_Sequence{}     -> ()
-           C_Tree{}         -> ()
-           C_HashSet{}      -> ()
-           C_HashMap{}      -> ()
-           C_HM_Array{}     -> ()
-           C_Prim_Array{}   -> ()
-           C_Vector_Boxed{} -> ()
-           C_Tuple{}        -> ()
+           C_Maybe{}           -> ()
+           C_Either{}          -> ()
+           C_List{}            -> ()
+           C_Ratio{}           -> ()
+           C_Set{}             -> ()
+           C_Map{}             -> ()
+           C_IntMap{}          -> ()
+           C_Sequence{}        -> ()
+           C_Tree{}            -> ()
+           C_HashSet{}         -> ()
+           C_HashMap{}         -> ()
+           C_HM_Array{}        -> ()
+           C_Prim_Array{}      -> ()
+           C_Vector_Boxed{}    -> ()
+           C_Vector_Unboxed{}  -> ()
+           C_Vector_UnboxedM{} -> ()
+           C_Tuple{}           -> ()
 
     goF :: Classifier_ o a -> Classifier_ o b -> Maybe (f a :~: f b)
-    goF f x = (\Refl -> Refl) <$> go f x
+    goF a b = (\Refl -> Refl) <$> go a b
+
+    goClosedF :: Classifier_ C a -> Classifier_ C b -> Maybe (f a :~: f b)
+    goClosedF a b = (\Refl -> Refl) <$> sameClassifier_ noOtherTypes a b
+      where
+        noOtherTypes :: C a -> C b -> Maybe (a :~: b)
+        noOtherTypes x = case x of {}
 
     goMaybeF :: MaybeF o a -> MaybeF o b -> Maybe (f a :~: f b)
     goMaybeF FNothing  FNothing  = Just Refl
-    goMaybeF (FJust f) (FJust x) = (\Refl -> Refl) <$> go f x
+    goMaybeF (FJust a) (FJust b) = (\Refl -> Refl) <$> go a b
     goMaybeF _         _         = Nothing
 
     goEitherF :: EitherF o a a' -> EitherF o b b' -> Maybe (f a a' :~: f b b')
-    goEitherF (FLeft  f) (FLeft  x) = (\Refl -> Refl) <$> go f x
-    goEitherF (FRight f) (FRight x) = (\Refl -> Refl) <$> go f x
+    goEitherF (FLeft  a) (FLeft  b) = (\Refl -> Refl) <$> go a b
+    goEitherF (FRight a) (FRight b) = (\Refl -> Refl) <$> go a b
     goEitherF _          _          = Nothing
 
     goMaybePairF ::
          MaybePairF o a a'
       -> MaybePairF o b b'
       -> Maybe (f a a' :~: f b b')
-    goMaybePairF FNothingPair      FNothingPair      = Just Refl
-    goMaybePairF (FJustPair f1 f2) (FJustPair x1 x2) = (\Refl Refl -> Refl)
-                                                         <$> go f1 x1
-                                                         <*> go f2 x2
+    goMaybePairF FNothingPair      FNothingPair    = Just Refl
+    goMaybePairF (FJustPair a a') (FJustPair b b') = (\Refl Refl -> Refl)
+                                                         <$> go a  b
+                                                         <*> go a' b'
     goMaybePairF _                 _                 = Nothing
 
     goTuple ::
          Classifiers o xs
       -> Classifiers o ys
       -> Maybe (WrappedTuple xs :~: WrappedTuple ys)
-    goTuple = \(Classifiers fs) (Classifiers xs) -> aux fs xs
+    goTuple = \(Classifiers xs) (Classifiers ys) -> aux xs ys
       where
         aux :: NP (Classifier_ o) xs
             -> NP (Classifier_ o) ys
             -> Maybe (WrappedTuple xs :~: WrappedTuple ys)
         aux Nil       Nil       = Just Refl
-        aux (f :* fs) (x :* xs) = (\Refl Refl -> Refl)
-                                    <$> go f x
-                                    <*> aux fs xs
+        aux (x :* xs) (y :* ys) = (\Refl Refl -> Refl)
+                                    <$> go x y
+                                    <*> aux xs ys
         aux _         _         = Nothing
