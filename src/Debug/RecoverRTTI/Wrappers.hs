@@ -83,7 +83,6 @@ newtype SomeTVar = SomeTVar (TVar Any)
 -------------------------------------------------------------------------------}
 
 newtype SomePrimArrayM = SomePrimArrayM (Prim.MutableArray RealWorld Any)
-  deriving (Eq)
 
 -- | Storable vector ("Data.Vector.Storable")
 --

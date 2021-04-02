@@ -276,6 +276,9 @@ instance Arbitrary SomePrimitiveVectorM where
 instance Eq SomeFun where
   _ == _ = True
 
+instance Eq SomePrimArrayM where
+  _ == _ = True
+
 instance Eq SomeStorableVector where
   _ == _ = True
 
