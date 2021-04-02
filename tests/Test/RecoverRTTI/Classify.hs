@@ -115,22 +115,22 @@ prop_constants = withMaxSuccess 1 $ conjoin [
     , compareClassifier $ Value (C_Prim C_IntSet) $
         IntSet.fromList [1, 2, 3]
 
-    , compareClassifier $ Value (C_Prim C_Prim_MArray) $
-        examplePrimMArray
+    , compareClassifier $ Value (C_Prim C_Prim_ArrayM) $
+        examplePrimArrayM
 
     , compareClassifier $ Value (C_Prim C_Vector_Storable) $
         SomeStorableVector $ unsafeCoerce $
           Vector.Storable.fromList ([1, 2] :: [Double])
 
-    , compareClassifier $ Value (C_Prim C_Vector_MStorable) $
-        exampleStorableMVector
+    , compareClassifier $ Value (C_Prim C_Vector_StorableM) $
+        exampleStorableVectorM
 
     , compareClassifier $ Value (C_Prim C_Vector_Primitive) $
         SomePrimitiveVector $ unsafeCoerce $
           Vector.Primitive.fromList ([1, 2] :: [Double])
 
-    , compareClassifier $ Value (C_Prim C_Vector_MPrimitive) $
-        examplePrimitiveMVector
+    , compareClassifier $ Value (C_Prim C_Vector_PrimitiveM) $
+        examplePrimitiveVectorM
 
       -- Compound
 
@@ -260,11 +260,11 @@ prop_constants = withMaxSuccess 1 $ conjoin [
         -- Containers without type arguments
 
         C_Prim C_IntSet            -> ()
-        C_Prim C_Prim_MArray       -> ()
+        C_Prim C_Prim_ArrayM       -> ()
         C_Prim C_Vector_Storable   -> ()
-        C_Prim C_Vector_MStorable  -> ()
+        C_Prim C_Vector_StorableM  -> ()
         C_Prim C_Vector_Primitive  -> ()
-        C_Prim C_Vector_MPrimitive -> ()
+        C_Prim C_Vector_PrimitiveM -> ()
 
         -- Functions
 

@@ -92,11 +92,11 @@ arbitraryPrimClassifier = elements [
     -- Containers with no type arguments
 
     , Some C_IntSet
-    , Some C_Prim_MArray
+    , Some C_Prim_ArrayM
     , Some C_Vector_Storable
-    , Some C_Vector_MStorable
+    , Some C_Vector_StorableM
     , Some C_Vector_Primitive
-    , Some C_Vector_MPrimitive
+    , Some C_Vector_PrimitiveM
     ]
   where
     _checkAllCases :: PrimClassifier a -> ()
@@ -147,11 +147,11 @@ arbitraryPrimClassifier = elements [
         -- Containers with no type arguments
 
         C_IntSet            -> ()
-        C_Prim_MArray       -> ()
+        C_Prim_ArrayM       -> ()
         C_Vector_Storable   -> ()
-        C_Vector_MStorable  -> ()
+        C_Vector_StorableM  -> ()
         C_Vector_Primitive  -> ()
-        C_Vector_MPrimitive -> ()
+        C_Vector_PrimitiveM -> ()
 
 {-------------------------------------------------------------------------------
   Orphan instances
@@ -252,14 +252,14 @@ instance Arbitrary SomeTVar where
 instance Arbitrary SomeMVar where
   arbitrary = return exampleMVar
 
-instance Arbitrary SomePrimMutableArray where
-  arbitrary = return examplePrimMArray
+instance Arbitrary SomePrimArrayM where
+  arbitrary = return examplePrimArrayM
 
-instance Arbitrary SomeStorableMVector where
-  arbitrary = return exampleStorableMVector
+instance Arbitrary SomeStorableVectorM where
+  arbitrary = return exampleStorableVectorM
 
-instance Arbitrary SomePrimitiveMVector where
-  arbitrary = return examplePrimitiveMVector
+instance Arbitrary SomePrimitiveVectorM where
+  arbitrary = return examplePrimitiveVectorM
 
 {-------------------------------------------------------------------------------
   Orphan equality instances
@@ -279,11 +279,11 @@ instance Eq SomeFun where
 instance Eq SomeStorableVector where
   _ == _ = True
 
-instance Eq SomeStorableMVector where
+instance Eq SomeStorableVectorM where
   _ == _ = True
 
 instance Eq SomePrimitiveVector where
   _ == _ = True
 
-instance Eq SomePrimitiveMVector where
+instance Eq SomePrimitiveVectorM where
   _ == _ = True

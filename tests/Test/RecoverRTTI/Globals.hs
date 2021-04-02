@@ -7,9 +7,9 @@ module Test.RecoverRTTI.Globals (
   , exampleSTRef
   , exampleMVar
   , exampleTVar
-  , examplePrimMArray
-  , exampleStorableMVector
-  , examplePrimitiveMVector
+  , examplePrimArrayM
+  , exampleStorableVectorM
+  , examplePrimitiveVectorM
   ) where
 
 import Control.Concurrent.MVar (newEmptyMVar)
@@ -46,17 +46,17 @@ exampleTVar :: SomeTVar
 exampleTVar = unsafePerformIO $
     SomeTVar <$> newTVarIO (unsafeCoerce ())
 
-examplePrimMArray :: SomePrimMutableArray
-{-# NOINLINE examplePrimMArray #-}
-examplePrimMArray = unsafePerformIO $
+examplePrimArrayM :: SomePrimArrayM
+{-# NOINLINE examplePrimArrayM #-}
+examplePrimArrayM = unsafePerformIO $
     unsafeCoerce <$> Prim.Array.newArray 0 (error "no elements")
 
-exampleStorableMVector :: SomeStorableMVector
-{-# NOINLINE exampleStorableMVector #-}
-exampleStorableMVector = unsafePerformIO $
+exampleStorableVectorM :: SomeStorableVectorM
+{-# NOINLINE exampleStorableVectorM #-}
+exampleStorableVectorM = unsafePerformIO $
     unsafeCoerce <$> Vector.Storable.thaw (Vector.Storable.fromList "abc")
 
-examplePrimitiveMVector :: SomePrimitiveMVector
-{-# NOINLINE examplePrimitiveMVector #-}
-examplePrimitiveMVector = unsafePerformIO $
+examplePrimitiveVectorM :: SomePrimitiveVectorM
+{-# NOINLINE examplePrimitiveVectorM #-}
+examplePrimitiveVectorM = unsafePerformIO $
     unsafeCoerce <$> Vector.Primitive.thaw (Vector.Primitive.fromList "abc")
