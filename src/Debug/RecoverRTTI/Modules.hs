@@ -184,7 +184,8 @@ inKnownModuleNested = go singPkg
   where
     go :: SPkg pkg -> KnownModule pkg -> FlatClosure -> Maybe (String, [Box])
     go knownPkg knownModl ConstrClosure{pkg, modl, name, ptrArgs} = do
-        guard (namePkg knownPkg `isPrefixOf` pkg) -- ignore the version number
+        -- We ignore the package version for now
+        guard (stripVowels (namePkg knownPkg) `isPrefixOf` stripVowels pkg)
         guard (modl == nameModl knownPkg knownModl)
         return (name, ptrArgs)
     go _ _ _otherClosure = Nothing
@@ -233,3 +234,9 @@ inKnownModuleNested = go singPkg
     nameModl SVector              DataVectorStorable          = "Data.Vector.Storable"
     nameModl SVector              DataVectorStorableMutable   = "Data.Vector.Storable.Mutable"
     nameModl SPrimitive           DataPrimitiveArray          = "Data.Primitive.Array"
+
+    -- On OSX, cabal strips vowels from package IDs in order to work around
+    -- limitations around path lengths
+    -- <https://github.com/haskell/cabal/blob/3f397c0c661facd0be9c5c67ad26f66a87725472/cabal-install/src/Distribution/Client/PackageHash.hs#L125-L157>
+    stripVowels :: String -> String
+    stripVowels = filter (`notElem` "aeoiu")
