@@ -1,7 +1,9 @@
+{-# LANGUAGE DataKinds             #-}
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE GADTs                 #-}
 {-# LANGUAGE NamedFieldPuns        #-}
+{-# LANGUAGE PatternSynonyms       #-}
 {-# LANGUAGE QuantifiedConstraints #-}
 {-# LANGUAGE RankNTypes            #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
@@ -25,6 +27,13 @@ module Debug.RecoverRTTI.Classify (
   , canShowPrim
   , canShowClassified
   , canShowClassified_
+    -- * Patterns for common shapes of 'Elems' (exported for the tests)
+  , pattern ElemJust
+  , pattern ElemNothing
+  , pattern ElemJustPair
+  , pattern ElemNothingPair
+  , pattern ElemLeft
+  , pattern ElemRight
   ) where
 
 import Control.Monad.Except
@@ -36,6 +45,7 @@ import Data.Set (Set)
 import Data.SOP
 import Data.SOP.Dict
 import Data.Tree (Tree)
+import Data.Void
 import GHC.Exts.Heap (Closure)
 import GHC.Real
 import System.IO.Unsafe (unsafePerformIO)
@@ -302,20 +312,20 @@ classifyEither ::
   -> ExceptT Closure IO (Classifier (Either a b))
 classifyEither x =
     case x of
-      Left  x' -> (mustBe . C_Either . FLeft)  <$> classifyIO x'
-      Right y' -> (mustBe . C_Either . FRight) <$> classifyIO y'
+      Left  x' -> (mustBe . C_Either . ElemLeft)  <$> classifyIO x'
+      Right y' -> (mustBe . C_Either . ElemRight) <$> classifyIO y'
 
 classifyList :: [a] -> ExceptT Closure IO (Classifier [a])
 classifyList = classifyFoldable c_list
   where
     -- We special case for @String@, so that @show@ will use the (overlapped)
     -- instance for @String@ instead of the general instance for @[a]@
-    c_list :: MaybeF o x -> Classifier_ o [x]
-    c_list (FJust (C_Prim C_Char)) = C_Prim C_String
+    c_list :: Elems o '[x] -> Classifier_ o [x]
+    c_list (ElemJust (C_Prim C_Char)) = C_Prim C_String
     c_list c = C_List c
 
 classifyRatio :: Ratio a -> ExceptT Closure IO (Classifier (Ratio a))
-classifyRatio (x' :% _) = mustBe . C_Ratio <$> classifyIO x'
+classifyRatio (x' :% _) = mustBe . C_Ratio . ElemJust <$> classifyIO x'
 
 classifySet :: Set a -> ExceptT Closure IO (Classifier (Set a))
 classifySet = classifyFoldable C_Set
@@ -330,14 +340,14 @@ classifySequence :: Seq a -> ExceptT Closure IO (Classifier (Seq a))
 classifySequence = classifyFoldable C_Sequence
 
 classifyTree :: Tree a -> ExceptT Closure IO (Classifier (Tree a))
-classifyTree (Tree.Node x' _) = mustBe . C_Tree <$> classifyIO x'
+classifyTree (Tree.Node x' _) = mustBe . C_Tree . ElemJust <$> classifyIO x'
 
 classifyHashMap :: HashMap a b -> ExceptT Closure IO (Classifier (HashMap a b))
 classifyHashMap = classifyFoldablePair c_hashmap HashMap.toList
   where
     -- HashSet is a newtype around HashMap
-    c_hashmap :: MaybePairF o x y -> Classifier_ o (HashMap x y)
-    c_hashmap (FJustPair c (C_Prim C_Unit)) = mustBe $ C_HashSet c
+    c_hashmap :: Elems o '[x, y] -> Classifier_ o (HashMap x y)
+    c_hashmap (ElemJustPair c (C_Prim C_Unit)) = mustBe $ C_HashSet (ElemJust c)
     c_hashmap c = C_HashMap c
 
 classifyHMArray ::
@@ -373,7 +383,7 @@ classifyTuple ::
   -> ExceptT Closure IO (Classifier (WrappedTuple xs))
 classifyTuple ptrs = do
     cs <- hsequence' (hmap aux ptrs)
-    return $ C_Tuple (Classifiers cs)
+    return $ C_Tuple (Elems (hmap Elem cs))
   where
     aux :: K Box a -> (ExceptT Closure IO :.: Classifier) a
     aux (K (Box x)) = Comp $ classifyIO (unsafeCoerce x)
@@ -384,35 +394,60 @@ classifyTuple ptrs = do
 
 classifyFoldable ::
      Foldable f
-  => (forall o x. MaybeF o x -> Classifier_ o (f x))
+  => (forall o x. Elems o '[x] -> Classifier_ o (f x))
   -> f a -> ExceptT Closure IO (Classifier (f a))
 classifyFoldable cc x =
     case Foldable.toList x of
-      []   -> return $ mustBe $ cc FNothing
-      x':_ -> mustBe . cc . FJust <$> classifyIO x'
+      []   -> return $ mustBe $ cc ElemNothing
+      x':_ -> mustBe . cc . ElemJust <$> classifyIO x'
 
 classifyFoldablePair ::
-     (forall o x y. MaybePairF o x y -> Classifier_ o (f x y))
+     (forall o x y. Elems o '[x, y] -> Classifier_ o (f x y))
   -> (f a b -> [(a, b)])
   -> f a b -> ExceptT Closure IO (Classifier (f a b))
 classifyFoldablePair cc toList x =
     case toList x of
-      []         -> return $ mustBe $ cc FNothingPair
-      (x', y'):_ -> (\c c' -> mustBe $ cc (FJustPair c c'))
+      []         -> return $ mustBe $ cc ElemNothingPair
+      (x', y'):_ -> (\ca cb -> mustBe $ cc (ElemJustPair ca cb))
                        <$> classifyIO x'
                        <*> classifyIO y'
 
 classifyArrayLike ::
-     (forall o x. MaybeF o x -> Classifier_ o (f x))
+     (forall o x. Elems o '[x] -> Classifier_ o (f x))
   -> (f a -> Int)  -- ^ Get the length of the array
   -> (f a -> a)    -- ^ Get the first element (provided the array is not empty)
   -> f a -> ExceptT Closure IO (Classifier (f a))
 classifyArrayLike cc getLen getFirst x =
     if getLen x == 0
-      then return $ mustBe $ cc FNothing
+      then return $ mustBe $ cc ElemNothing
       else do
         let x' = getFirst x
-        mustBe . cc . FJust <$> classifyIO x'
+        mustBe . cc . ElemJust <$> classifyIO x'
+
+{-------------------------------------------------------------------------------
+  Patterns for common shapes of 'Elems'
+
+  This is mostly useful internally; we export these only for the benefit of the
+  QuickCheck generator. Most other code can treat the all types uniformly.
+-------------------------------------------------------------------------------}
+
+pattern ElemJust :: Classifier_ o a -> Elems o '[a]
+pattern ElemJust c = Elems (Elem c :* Nil)
+
+pattern ElemNothing :: Elems o '[Void]
+pattern ElemNothing = Elems (NoElem :* Nil)
+
+pattern ElemJustPair :: Classifier_ o a -> Classifier_ o b -> Elems o '[a, b]
+pattern ElemJustPair ca cb = Elems (Elem ca :* Elem cb :* Nil)
+
+pattern ElemNothingPair :: Elems o '[Void, Void]
+pattern ElemNothingPair = Elems (NoElem :* NoElem :* Nil)
+
+pattern ElemLeft :: Classifier_ o a -> Elems o '[a, Void]
+pattern ElemLeft c = Elems (Elem c :* NoElem :* Nil)
+
+pattern ElemRight :: Classifier_ o b -> Elems o '[Void, b]
+pattern ElemRight c = Elems (NoElem :* Elem c :* Nil)
 
 {-------------------------------------------------------------------------------
   Recognizing tuples

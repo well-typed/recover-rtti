@@ -4,8 +4,6 @@
 {-# LANGUAGE LambdaCase          #-}
 {-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TypeApplications    #-}
-{-# LANGUAGE TypeOperators       #-}
 
 -- | Support for reclassification
 module Debug.RecoverRTTI.Reclassify (
@@ -15,13 +13,13 @@ module Debug.RecoverRTTI.Reclassify (
   ) where
 
 import Data.Bifunctor
-import Data.Void
-import GHC.Real
 import Data.HashMap.Lazy (HashMap)
 import Data.HashSet (HashSet)
 import Data.Map (Map)
 import Data.Set (Set)
 import Data.SOP hiding (NS(..))
+import Data.Void
+import GHC.Real
 import Unsafe.Coerce (unsafeCoerce)
 
 import qualified Data.HashMap.Internal.Array as HashMap (Array)
@@ -46,11 +44,24 @@ import Debug.RecoverRTTI.Nat
 data Reclassified o a where
   Reclassified :: o b -> (a -> b) -> Reclassified o a
 
+-- | Extension of 'Reclassified' to multiple elems
+--
+-- This is used internally only.
+data ReclassifiedElems o as where
+  RElems ::
+       (SListI bs, Length bs ~ Length as)
+    => Elems o bs -> PairWise as bs -> ReclassifiedElems o as
+
 reclassify_ :: forall m o o'. Applicative m
   => (forall a. o a -> m (Reclassified o' a))
   -> (forall a. Classifier_ o a -> m (Classifier_ (Reclassified o') a))
 reclassify_ = mapClassifier
 
+-- | Lift 'Reclassified' to the top-level
+--
+-- Given a classifier with user-defined classifiers at the levels, along with
+-- coercion functions, leave the user-defined classifiers in place but lift the
+-- coercion function to the top-level.
 distribReclassified :: forall o.
      (forall a. Classifier_ (Reclassified o) a -> Reclassified (Classifier_ o) a)
 distribReclassified = go
@@ -61,99 +72,68 @@ distribReclassified = go
     go (C_Other c) = case c of Reclassified c' f -> Reclassified (C_Other c') f
 
     -- Compound
-    go (C_Maybe        c) = goMaybeF     C_Maybe        fmap          c
-    go (C_Either       c) = goEitherF    C_Either       bimap         c
-    go (C_List         c) = goMaybeF     C_List         fmap          c
-    go (C_Ratio        c) = goF          C_Ratio        coerceRatio   c
-    go (C_Set          c) = goMaybeF     C_Set          coerceSet     c
-    go (C_Map          c) = goMaybePairF C_Map          coerceMap     c
-    go (C_IntMap       c) = goMaybeF     C_IntMap       fmap          c
-    go (C_Sequence     c) = goMaybeF     C_Sequence     fmap          c
-    go (C_Tree         c) = goF          C_Tree         fmap          c
-    go (C_HashSet      c) = goF          C_HashSet      coerceHashSet c
-    go (C_HashMap      c) = goMaybePairF C_HashMap      coerceHashMap c
-    go (C_HM_Array     c) = goMaybeF     C_HM_Array     coerceHMArray c
-    go (C_Prim_Array   c) = goMaybeF     C_Prim_Array   fmap          c
-    go (C_Vector_Boxed c) = goMaybeF     C_Vector_Boxed fmap          c
-    go (C_Tuple        c) = goTuple                                   c
+    go (C_Maybe        c) = go1 C_Maybe        fmap          c
+    go (C_Either       c) = go2 C_Either       bimap         c
+    go (C_List         c) = go1 C_List         fmap          c
+    go (C_Ratio        c) = go1 C_Ratio        coerceRatio   c
+    go (C_Set          c) = go1 C_Set          coerceSet     c
+    go (C_Map          c) = go2 C_Map          coerceMap     c
+    go (C_IntMap       c) = go1 C_IntMap       fmap          c
+    go (C_Sequence     c) = go1 C_Sequence     fmap          c
+    go (C_Tree         c) = go1 C_Tree         fmap          c
+    go (C_HashSet      c) = go1 C_HashSet      coerceHashSet c
+    go (C_HashMap      c) = go2 C_HashMap      coerceHashMap c
+    go (C_HM_Array     c) = go1 C_HM_Array     coerceHMArray c
+    go (C_Prim_Array   c) = go1 C_Prim_Array   fmap          c
+    go (C_Vector_Boxed c) = go1 C_Vector_Boxed fmap          c
+    go (C_Tuple        c) = goN C_Tuple        mapTuple      c
 
-    goF :: forall f.
-         (forall a. Classifier_ o a -> Classifier_ o (f a))
-      -> (forall a b. (a -> b) -> f a -> f b)
-      -> (forall a. Classifier_ (Reclassified o) a -> Reclassified (Classifier_ o) (f a))
-    goF cc coerce c = lift $ go c
-      where
-        lift ::
-             Reclassified (Classifier_ o) a
-          -> Reclassified (Classifier_ o) (f a)
-        lift (Reclassified c' f) = Reclassified (cc c') (coerce f)
+    go1 :: forall f a.
+         (forall a'. Elems o '[a'] -> Classifier_ o (f a'))
+      -> (forall a'. (a -> a') -> f a -> f a')
+      -> Elems (Reclassified o) '[a]
+      -> Reclassified (Classifier_ o) (f a)
+    go1 cf mapf c =
+        case distribElems c of
+          RElems c' (PCons f PNil) -> Reclassified (cf c') (mapf f)
 
-    goMaybeF :: forall f.
-         (forall a. MaybeF o a -> Classifier_ o (f a))
-      -> (forall a b. (a -> b) -> f a -> f b)
-      -> (forall a. MaybeF (Reclassified o) a -> Reclassified (Classifier_ o) (f a))
-    goMaybeF cc _      FNothing  = Reclassified (cc FNothing) id
-    goMaybeF cc coerce (FJust c) = lift $ go c
-      where
-        lift ::
-             Reclassified (Classifier_ o) a
-          -> Reclassified (Classifier_ o) (f a)
-        lift (Reclassified c' f) = Reclassified (cc (FJust c')) (coerce f)
+    go2 :: forall f a b.
+         (forall a' b'. Elems o '[a', b'] -> Classifier_ o (f a' b'))
+      -> (forall a' b'. (a -> a') -> (b -> b') -> f a b -> f a' b')
+      -> Elems (Reclassified o) '[a, b]
+      -> Reclassified (Classifier_ o) (f a b)
+    go2 cf mapf c =
+        case distribElems c of
+          RElems c' (PCons f (PCons f' PNil)) -> Reclassified (cf c') (mapf f f')
 
-    goEitherF :: forall f.
-         (forall a b. EitherF o a b -> Classifier_ o (f a b))
-      -> (forall a a' b b'. (a -> b) -> (a' -> b') -> f a a' -> f b b')
-      -> (forall a b. EitherF (Reclassified o) a b -> Reclassified (Classifier_ o) (f a b))
-    goEitherF cc coerce (FLeft c) = lift $ go c
-      where
-        lift ::
-             Reclassified (Classifier_ o) a
-          -> Reclassified (Classifier_ o) (f a Void)
-        lift (Reclassified c' f) = Reclassified (cc (FLeft c')) (coerce f id)
-    goEitherF cc coerce (FRight c) = lift $ go c
-      where
-        lift ::
-             Reclassified (Classifier_ o) b
-          -> Reclassified (Classifier_ o) (f Void b)
-        lift (Reclassified c' f) = Reclassified (cc (FRight c')) (coerce id f)
+    goN :: forall f as.
+         SListI as
+      => (forall as'.
+               (SListI as', Length as' ~ Length as)
+            => Elems o as' -> Classifier_ o (f as'))
+      -> (forall as'. PairWise as as' -> f as -> f as')
+      -> Elems (Reclassified o) as
+      -> Reclassified (Classifier_ o) (f as)
+    goN cf mapf c =
+        case distribElems c of
+          RElems c' fs -> Reclassified (cf c') (mapf fs)
 
-    goMaybePairF :: forall f.
-         (forall a b. MaybePairF o a b -> Classifier_ o (f a b))
-      -> (forall a a' b b'. (a -> b) -> (a' -> b') -> f a a' -> f b b')
-      -> (forall a b. MaybePairF (Reclassified o) a b -> Reclassified (Classifier_ o) (f a b))
-    goMaybePairF cc _      FNothingPair      = Reclassified (cc FNothingPair) id
-    goMaybePairF cc coerce (FJustPair c1 c2) = lift (go c1) (go c2)
-      where
-        lift ::
-             Reclassified (Classifier_ o) a
-          -> Reclassified (Classifier_ o) b
-          -> Reclassified (Classifier_ o) (f a b)
-        lift (Reclassified c1' f) (Reclassified c2' g) =
-            Reclassified (cc (FJustPair c1' c2')) (coerce f g)
+distribElem :: Elem (Reclassified o) a -> Reclassified (Elem o) a
+distribElem = \case
+    NoElem -> Reclassified NoElem absurd
+    Elem c -> case distribReclassified c of
+                Reclassified c' f -> Reclassified (Elem c') f
 
-    goTuple ::
-         (SListI xs, IsValidSize (Length xs))
-      => Classifiers (Reclassified o) xs
-      -> Reclassified (Classifier_ o) (WrappedTuple xs)
-    goTuple (Classifiers cs) =
-        lift cs $ \cs' f -> Reclassified (C_Tuple (Classifiers cs')) f
-      where
-        lift :: forall xs r.
-             (SListI xs, IsValidSize (Length xs))
-          => NP (Classifier_ (Reclassified o)) xs
-          -> (forall ys.
-                   (SListI ys, Length ys ~ Length xs)
-                => NP (Classifier_ o) ys
-                -> (WrappedTuple xs -> WrappedTuple ys)
-                -> r
-             )
-          -> r
-        lift Nil       k = k Nil id
-        lift (x :* xs) k = smallerIsValid (Proxy @(Length xs)) $
-                             lift xs $ \np f_np ->
-                               case go x of
-                                 Reclassified y f_y ->
-                                   k (y :* np) (bimapTuple f_y f_np)
+distribElems ::
+     SListI xs
+  => Elems (Reclassified o) xs -> ReclassifiedElems o xs
+distribElems = \(Elems cs) -> go $ hmap distribElem cs
+  where
+    go :: NP (Reclassified (Elem o)) xs -> ReclassifiedElems o xs
+    go Nil                      = RElems (Elems Nil) PNil
+    go (Reclassified c f :* cs) = case go cs of
+                                    RElems (Elems cs') fs' ->
+                                      RElems (Elems (c :* cs')) (PCons f fs')
 
 {-------------------------------------------------------------------------------
   Lift coercions to non-functor types
@@ -179,18 +159,3 @@ coerceHashSet _ = unsafeCoerce
 
 coerceHashMap :: (x -> x') -> (y -> y') -> HashMap x y -> HashMap x' y'
 coerceHashMap _ _ = unsafeCoerce
-
-{-------------------------------------------------------------------------------
-  Auxiliary
--------------------------------------------------------------------------------}
-
-bimapTuple ::
-      ( SListI xs
-      , SListI ys
-      , IsValidSize (Length (x ': xs))
-      , Length xs ~ Length ys
-      )
-   => (x -> y)
-   -> (WrappedTuple xs -> WrappedTuple ys)
-   -> WrappedTuple (x ': xs) -> WrappedTuple (y ': ys)
-bimapTuple f g (TCons x xs) = TCons (f x) (g xs)

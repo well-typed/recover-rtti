@@ -1,3 +1,4 @@
+{-# LANGUAGE DataKinds             #-}
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE GADTs                 #-}
 {-# LANGUAGE KindSignatures        #-}
@@ -12,13 +13,11 @@ module Debug.RecoverRTTI.Classifier (
     Classifier
   , PrimClassifier(..)
   , IsUserDefined(..)
-  , Classifiers(..)
     -- * Generalizations
   , Classifier_(..)
-    -- * Partial information
-  , MaybeF(..)
-  , EitherF(..)
-  , MaybePairF(..)
+    -- * Nested classification
+  , Elem(..)
+  , Elems(..)
     -- * Mapping
   , mapClassifier
   ) where
@@ -104,24 +103,24 @@ data Classifier_ (o :: Type -> Type) (a :: Type) :: Type where
   -- as a 'HashSet'; however, we can only do this of course if we have at
   -- least one element.
 
-  C_Maybe        :: MaybeF      o a   -> Classifier_ o (Maybe a)
-  C_Either       :: EitherF     o a b -> Classifier_ o (Either a b)
-  C_List         :: MaybeF      o a   -> Classifier_ o [a]
-  C_Ratio        :: Classifier_ o a   -> Classifier_ o (Ratio a)
-  C_Set          :: MaybeF      o a   -> Classifier_ o (Set a)
-  C_Map          :: MaybePairF  o a b -> Classifier_ o (Map a b)
-  C_IntMap       :: MaybeF      o a   -> Classifier_ o (IntMap a)
-  C_Sequence     :: MaybeF      o a   -> Classifier_ o (Seq a)
-  C_Tree         :: Classifier_ o a   -> Classifier_ o (Tree a)
-  C_HashSet      :: Classifier_ o a   -> Classifier_ o (HashSet a)
-  C_HashMap      :: MaybePairF  o a b -> Classifier_ o (HashMap a b)
-  C_HM_Array     :: MaybeF      o a   -> Classifier_ o (HashMap.Array a)
-  C_Prim_Array   :: MaybeF      o a   -> Classifier_ o (Prim.Array a)
-  C_Vector_Boxed :: MaybeF      o a   -> Classifier_ o (Vector.Boxed.Vector a)
+  C_Maybe        :: Elems o '[a]    -> Classifier_ o (Maybe a)
+  C_Either       :: Elems o '[a, b] -> Classifier_ o (Either a b)
+  C_List         :: Elems o '[a]    -> Classifier_ o [a]
+  C_Ratio        :: Elems o '[a]    -> Classifier_ o (Ratio a)
+  C_Set          :: Elems o '[a]    -> Classifier_ o (Set a)
+  C_Map          :: Elems o '[a, b] -> Classifier_ o (Map a b)
+  C_IntMap       :: Elems o '[a]    -> Classifier_ o (IntMap a)
+  C_Sequence     :: Elems o '[a]    -> Classifier_ o (Seq a)
+  C_Tree         :: Elems o '[a]    -> Classifier_ o (Tree a)
+  C_HashSet      :: Elems o '[a]    -> Classifier_ o (HashSet a)
+  C_HashMap      :: Elems o '[a, b] -> Classifier_ o (HashMap a b)
+  C_HM_Array     :: Elems o '[a]    -> Classifier_ o (HashMap.Array a)
+  C_Prim_Array   :: Elems o '[a]    -> Classifier_ o (Prim.Array a)
+  C_Vector_Boxed :: Elems o '[a]    -> Classifier_ o (Vector.Boxed.Vector a)
 
   C_Tuple ::
        (SListI xs, IsValidSize (Length xs))
-    => Classifiers o xs -> Classifier_ o (WrappedTuple xs)
+    => Elems o xs -> Classifier_ o (WrappedTuple xs)
 
 -- | Classifier for primitive types
 data PrimClassifier (a :: Type) where
@@ -184,26 +183,15 @@ data PrimClassifier (a :: Type) where
   C_Vector_Primitive  :: PrimClassifier SomePrimitiveVector
   C_Vector_PrimitiveM :: PrimClassifier SomePrimitiveVectorM
 
--- | Classifiers for a type with a variable number of arguments
-newtype Classifiers o xs = Classifiers {
-      getClassifiers :: NP (Classifier_ o) xs
-    }
-
 {-------------------------------------------------------------------------------
-  Partial information
+  Nested classification
 -------------------------------------------------------------------------------}
 
-data MaybeF o a where
-  FNothing :: MaybeF f Void
-  FJust    :: Classifier_ o a -> MaybeF o a
+data Elem o a where
+  Elem   :: Classifier_ o a -> Elem o a
+  NoElem :: Elem o Void
 
-data EitherF o a b where
-  FLeft  :: Classifier_ o a -> EitherF o a Void
-  FRight :: Classifier_ o b -> EitherF o Void b
-
-data MaybePairF o a b where
-  FNothingPair :: MaybePairF o Void Void
-  FJustPair    :: Classifier_ o a -> Classifier_ o b -> MaybePairF o a b
+newtype Elems o xs = Elems (NP (Elem o) xs)
 
 {-------------------------------------------------------------------------------
   Show
@@ -212,16 +200,14 @@ data MaybePairF o a b where
 deriving instance Show (PrimClassifier a)
 
 deriving instance (forall x. Show (o x)) => Show (Classifier_ o a)
-deriving instance (forall x. Show (o x)) => Show (MaybeF      o a)
-deriving instance (forall x. Show (o x)) => Show (EitherF     o a b)
-deriving instance (forall x. Show (o x)) => Show (MaybePairF  o a b)
+deriving instance (forall x. Show (o x)) => Show (Elem o a)
 
-instance (forall a. Show (o a), SListI xs) => Show (Classifiers o xs) where
-  showsPrec p (Classifiers xs) =
+instance (forall a. Show (o a), SListI xs) => Show (Elems o xs) where
+  showsPrec p (Elems xs) =
       case all_NP allShow of
         Dict -> showsPrec p xs
     where
-      allShow :: NP (Dict (Compose Show (Classifier_ o))) xs
+      allShow :: NP (Dict (Compose Show (Elem o))) xs
       allShow = hpure Dict
 
 {-------------------------------------------------------------------------------
@@ -242,33 +228,25 @@ mapClassifier other = go
 
     -- Compound
 
-    go (C_Maybe        c) = C_Maybe        <$> mapMaybeF      c
-    go (C_Either       c) = C_Either       <$> mapEitherF     c
-    go (C_List         c) = C_List         <$> mapMaybeF      c
-    go (C_Ratio        c) = C_Ratio        <$> go             c
-    go (C_Set          c) = C_Set          <$> mapMaybeF      c
-    go (C_Map          c) = C_Map          <$> mapMaybePairF  c
-    go (C_IntMap       c) = C_IntMap       <$> mapMaybeF      c
-    go (C_Sequence     c) = C_Sequence     <$> mapMaybeF      c
-    go (C_Tree         c) = C_Tree         <$> go             c
-    go (C_HashSet      c) = C_HashSet      <$> go             c
-    go (C_HashMap      c) = C_HashMap      <$> mapMaybePairF  c
-    go (C_HM_Array     c) = C_HM_Array     <$> mapMaybeF      c
-    go (C_Prim_Array   c) = C_Prim_Array   <$> mapMaybeF      c
-    go (C_Vector_Boxed c) = C_Vector_Boxed <$> mapMaybeF      c
-    go (C_Tuple        c) = C_Tuple        <$> mapClassifiers c
+    go (C_Maybe        c) = C_Maybe        <$> goElems c
+    go (C_Either       c) = C_Either       <$> goElems c
+    go (C_List         c) = C_List         <$> goElems c
+    go (C_Ratio        c) = C_Ratio        <$> goElems c
+    go (C_Set          c) = C_Set          <$> goElems c
+    go (C_Map          c) = C_Map          <$> goElems c
+    go (C_IntMap       c) = C_IntMap       <$> goElems c
+    go (C_Sequence     c) = C_Sequence     <$> goElems c
+    go (C_Tree         c) = C_Tree         <$> goElems c
+    go (C_HashSet      c) = C_HashSet      <$> goElems c
+    go (C_HashMap      c) = C_HashMap      <$> goElems c
+    go (C_HM_Array     c) = C_HM_Array     <$> goElems c
+    go (C_Prim_Array   c) = C_Prim_Array   <$> goElems c
+    go (C_Vector_Boxed c) = C_Vector_Boxed <$> goElems c
+    go (C_Tuple        c) = C_Tuple        <$> goElems c
 
-    mapMaybeF :: forall a. MaybeF o a -> m (MaybeF o' a)
-    mapMaybeF FNothing  = pure FNothing
-    mapMaybeF (FJust c) = FJust <$> go c
+    goElems :: SListI xs => Elems o xs -> m (Elems o' xs)
+    goElems (Elems cs) = Elems <$> htraverse' goElem cs
 
-    mapEitherF :: EitherF o a b -> m (EitherF o' a b)
-    mapEitherF (FLeft  c) = FLeft  <$> go c
-    mapEitherF (FRight c) = FRight <$> go c
-
-    mapMaybePairF :: MaybePairF o a b -> m (MaybePairF o' a b)
-    mapMaybePairF FNothingPair     = pure FNothingPair
-    mapMaybePairF (FJustPair c c') = FJustPair <$> go c <*> go c'
-
-    mapClassifiers :: SListI xs => Classifiers o xs -> m (Classifiers o' xs)
-    mapClassifiers (Classifiers cs) = Classifiers <$> htraverse' go cs
+    goElem :: Elem o a -> m (Elem o' a)
+    goElem (Elem c) = Elem <$> go c
+    goElem NoElem   = pure NoElem

@@ -7,13 +7,11 @@ module Debug.RecoverRTTI (
   , Classifier
   , PrimClassifier(..)
   , IsUserDefined(..)
-  , Classifiers(..)
     -- ** Generalizations
   , Classifier_(..)
     -- ** Unknown or partially known type arguments
-  , MaybeF(..)
-  , EitherF(..)
-  , MaybePairF(..)
+  , Elem(..)
+  , Elems(..)
     -- ** Newtype wrappers for unshowable types
   , SomeSTRef(..)
   , SomeTVar(..)
@@ -31,6 +29,8 @@ module Debug.RecoverRTTI (
     -- ** Equality
   , samePrim
   , sameClassifier_
+  , sameElem
+  , sameElems
     -- * User-defined types
   , UserDefined -- opaque
     -- ** Classify constructor arguments

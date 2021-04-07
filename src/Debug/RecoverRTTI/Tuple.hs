@@ -15,6 +15,9 @@ module Debug.RecoverRTTI.Tuple (
     -- * Conversion between tuples and NP
   , tupleFromNP
   , tupleToNP
+    -- * Mapping
+  , PairWise(..)
+  , mapTuple
     -- * Re-exports
   , module Debug.RecoverRTTI.Tuple.Recursive
   , module Debug.RecoverRTTI.Tuple.Size
@@ -75,6 +78,30 @@ tupleToNP ::
   => WrappedTuple xs -> NP I xs
 tupleToNP TNil         = Nil
 tupleToNP (TCons x xs) = I x :* tupleToNP xs
+
+{-------------------------------------------------------------------------------
+  Mapping
+-------------------------------------------------------------------------------}
+
+data PairWise xs ys where
+  PNil  :: PairWise '[] '[]
+  PCons :: (x -> y) -> PairWise xs ys -> PairWise (x:xs) (y:ys)
+
+data SameListShape xs ys where
+  SameListShape :: (SListI ys, Length xs ~ Length ys) => SameListShape xs ys
+
+mapTuple' ::
+     (SListI xs, IsValidSize (Length xs))
+  => PairWise xs ys -> WrappedTuple xs -> (SameListShape xs ys, WrappedTuple ys)
+mapTuple' PNil          TNil        = (SameListShape, TNil)
+mapTuple' (PCons f fs) (TCons x xs) =
+    case mapTuple' fs xs of
+      (SameListShape, ys) -> (SameListShape, TCons (f x) ys)
+
+mapTuple ::
+     (SListI xs, IsValidSize (Length xs))
+  => PairWise xs ys -> WrappedTuple xs -> WrappedTuple ys
+mapTuple fs = snd . mapTuple' fs
 
 {-------------------------------------------------------------------------------
   Internal auxiliary functions for defining the pattern synonym

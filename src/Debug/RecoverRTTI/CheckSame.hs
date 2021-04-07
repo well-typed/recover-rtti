@@ -1,20 +1,23 @@
-{-# LANGUAGE GADTs                #-}
-{-# LANGUAGE LambdaCase           #-}
-{-# LANGUAGE RankNTypes           #-}
-{-# LANGUAGE ScopedTypeVariables  #-}
-{-# LANGUAGE TypeOperators        #-}
+{-# LANGUAGE DataKinds           #-}
+{-# LANGUAGE FlexibleContexts    #-}
+{-# LANGUAGE GADTs               #-}
+{-# LANGUAGE LambdaCase          #-}
+{-# LANGUAGE RankNTypes          #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeOperators       #-}
 
 module Debug.RecoverRTTI.CheckSame (
     -- * Check if two classifiers are the same
     samePrim
   , sameClassifier_
+  , sameElem
+  , sameElems
   ) where
 
 import Data.SOP
 import Data.Type.Equality
 
 import Debug.RecoverRTTI.Classifier
-import Debug.RecoverRTTI.Tuple
 
 {-------------------------------------------------------------------------------
   Equality check
@@ -155,25 +158,24 @@ sameClassifier_ sameOther = go
     go (C_Other c) (C_Other c') = sameOther c c'
 
     -- Compound
-    go (C_Maybe        c) (C_Maybe        c') = goMaybeF     c c'
-    go (C_Either       c) (C_Either       c') = goEitherF    c c'
-    go (C_List         c) (C_List         c') = goMaybeF     c c'
-    go (C_Ratio        c) (C_Ratio        c') = goF          c c'
-    go (C_Set          c) (C_Set          c') = goMaybeF     c c'
-    go (C_Map          c) (C_Map          c') = goMaybePairF c c'
-    go (C_IntMap       c) (C_IntMap       c') = goMaybeF     c c'
-    go (C_Sequence     c) (C_Sequence     c') = goMaybeF     c c'
-    go (C_Tree         c) (C_Tree         c') = goF          c c'
-    go (C_HashSet      c) (C_HashSet      c') = goF          c c'
-    go (C_HashMap      c) (C_HashMap      c') = goMaybePairF c c'
-    go (C_HM_Array     c) (C_HM_Array     c') = goMaybeF     c c'
-    go (C_Prim_Array   c) (C_Prim_Array   c') = goMaybeF     c c'
-    go (C_Vector_Boxed c) (C_Vector_Boxed c') = goMaybeF     c c'
-    go (C_Tuple        c) (C_Tuple        c') = goTuple      c c'
+    go (C_Maybe        c) (C_Maybe        c') = sameElems sameOther c c' $ Refl
+    go (C_Either       c) (C_Either       c') = sameElems sameOther c c' $ Refl
+    go (C_List         c) (C_List         c') = sameElems sameOther c c' $ Refl
+    go (C_Ratio        c) (C_Ratio        c') = sameElems sameOther c c' $ Refl
+    go (C_Set          c) (C_Set          c') = sameElems sameOther c c' $ Refl
+    go (C_Map          c) (C_Map          c') = sameElems sameOther c c' $ Refl
+    go (C_IntMap       c) (C_IntMap       c') = sameElems sameOther c c' $ Refl
+    go (C_Sequence     c) (C_Sequence     c') = sameElems sameOther c c' $ Refl
+    go (C_Tree         c) (C_Tree         c') = sameElems sameOther c c' $ Refl
+    go (C_HashSet      c) (C_HashSet      c') = sameElems sameOther c c' $ Refl
+    go (C_HashMap      c) (C_HashMap      c') = sameElems sameOther c c' $ Refl
+    go (C_HM_Array     c) (C_HM_Array     c') = sameElems sameOther c c' $ Refl
+    go (C_Prim_Array   c) (C_Prim_Array   c') = sameElems sameOther c c' $ Refl
+    go (C_Vector_Boxed c) (C_Vector_Boxed c') = sameElems sameOther c c' $ Refl
+    go (C_Tuple        c) (C_Tuple        c') = sameElems sameOther c c' $ Refl
 
     -- No match
     go _ _ = Nothing
-
       where
         _checkAllCases :: Classifier_ o a -> ()
         _checkAllCases = \case
@@ -198,40 +200,26 @@ sameClassifier_ sameOther = go
            C_Vector_Boxed{} -> ()
            C_Tuple{}        -> ()
 
-    goF :: Classifier_ o a -> Classifier_ o b -> Maybe (f a :~: f b)
-    goF f x = (\Refl -> Refl) <$> go f x
+sameElem :: forall o.
+     (forall a b. o a -> o b -> Maybe (a :~: b))
+  -> (forall a b. Elem o a -> Elem o b -> Maybe (a :~: b))
+sameElem sameOther = go
+  where
+    go :: Elem o a -> Elem o b -> Maybe (a :~: b)
+    go NoElem     NoElem   = Just Refl
+    go NoElem    (Elem _)  = Nothing
+    go (Elem _)   NoElem   = Nothing
+    go (Elem ca) (Elem cb) = sameClassifier_ sameOther ca cb
 
-    goMaybeF :: MaybeF o a -> MaybeF o b -> Maybe (f a :~: f b)
-    goMaybeF FNothing  FNothing  = Just Refl
-    goMaybeF (FJust f) (FJust x) = (\Refl -> Refl) <$> go f x
-    goMaybeF _         _         = Nothing
-
-    goEitherF :: EitherF o a a' -> EitherF o b b' -> Maybe (f a a' :~: f b b')
-    goEitherF (FLeft  f) (FLeft  x) = (\Refl -> Refl) <$> go f x
-    goEitherF (FRight f) (FRight x) = (\Refl -> Refl) <$> go f x
-    goEitherF _          _          = Nothing
-
-    goMaybePairF ::
-         MaybePairF o a a'
-      -> MaybePairF o b b'
-      -> Maybe (f a a' :~: f b b')
-    goMaybePairF FNothingPair      FNothingPair      = Just Refl
-    goMaybePairF (FJustPair f1 f2) (FJustPair x1 x2) = (\Refl Refl -> Refl)
-                                                         <$> go f1 x1
-                                                         <*> go f2 x2
-    goMaybePairF _                 _                 = Nothing
-
-    goTuple ::
-         Classifiers o xs
-      -> Classifiers o ys
-      -> Maybe (WrappedTuple xs :~: WrappedTuple ys)
-    goTuple = \(Classifiers fs) (Classifiers xs) -> aux fs xs
-      where
-        aux :: NP (Classifier_ o) xs
-            -> NP (Classifier_ o) ys
-            -> Maybe (WrappedTuple xs :~: WrappedTuple ys)
-        aux Nil       Nil       = Just Refl
-        aux (f :* fs) (x :* xs) = (\Refl Refl -> Refl)
-                                    <$> go f x
-                                    <*> aux fs xs
-        aux _         _         = Nothing
+sameElems :: forall o r.
+     (forall a b. o a -> o b -> Maybe (a :~: b))
+  -> (forall as bs. Elems o as -> Elems o bs -> (as ~ bs => r) -> Maybe r)
+sameElems sameOther = go
+  where
+    go :: Elems o as -> Elems o bs -> (as ~ bs => r) -> Maybe r
+    go (Elems Nil)       (Elems Nil)         k = Just k
+    go (Elems Nil)       (Elems (_  :* _))   _ = Nothing
+    go (Elems (_ :* _))  (Elems Nil)         _ = Nothing
+    go (Elems (c :* cs)) (Elems (c' :* cs')) k = do
+        Refl <- sameElem sameOther c c'
+        go (Elems cs) (Elems cs') k
