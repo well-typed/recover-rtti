@@ -24,12 +24,11 @@ Tested-With: GHC ==8.8.4 || ==8.10.4 || ==9.0.1
 
 library
     exposed-modules:  Debug.RecoverRTTI
-
+                      Debug.RecoverRTTI.ClosureTree
 
     other-modules:    Debug.RecoverRTTI.CheckSame
                       Debug.RecoverRTTI.Classifier
                       Debug.RecoverRTTI.Classify
-                      Debug.RecoverRTTI.ClosureTree
                       Debug.RecoverRTTI.Constraint
                       Debug.RecoverRTTI.FlatClosure
                       Debug.RecoverRTTI.Modules
