@@ -1,3 +1,4 @@
+{-# LANGUAGE DataKinds           #-}
 {-# LANGUAGE GADTs               #-}
 {-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -30,6 +31,7 @@ import Data.Void
 import Unsafe.Coerce (unsafeCoerce)
 
 import Debug.RecoverRTTI
+import Debug.RecoverRTTI.Classify
 
 import Test.RecoverRTTI.ConcreteClassifier
 import Test.RecoverRTTI.UserDefined
@@ -77,7 +79,7 @@ reclassify = fmap distribReclassified . reclassify_ go
 
     goTraversable ::
          forall f. (Traversable f, ConstrsOf f)
-      => (forall a. MaybeF ClassifyUser a -> ClassifyUser (f a))
+      => (forall a. Elems ClassifyUser '[a] -> ClassifyUser (f a))
       -> (String, UserDefined)
       -> Except String (Maybe (Reclassified ClassifyUser UserDefined))
     goTraversable cc = \(constr, x) ->
@@ -85,7 +87,7 @@ reclassify = fmap distribReclassified . reclassify_ go
           return Nothing
         else
           case checkEmptyTraversable (coerceToF x) of
-            Right _ -> return . Just $ Reclassified (cc FNothing) coerceToF
+            Right _ -> return . Just $ Reclassified (cc ElemNothing) coerceToF
             Left x' -> Just . aux <$> classifyConcrete x'
       where
         coerceToF :: forall a. UserDefined -> f a
@@ -94,7 +96,7 @@ reclassify = fmap distribReclassified . reclassify_ go
         aux ::
              Reclassified ConcreteClassifier a
           -> Reclassified ClassifyUser UserDefined
-        aux (Reclassified c f) = Reclassified (cc (FJust c)) (fmap f . coerceToF)
+        aux (Reclassified c f) = Reclassified (cc (ElemJust c)) (fmap f . coerceToF)
 
 {-------------------------------------------------------------------------------
   Auxiliary

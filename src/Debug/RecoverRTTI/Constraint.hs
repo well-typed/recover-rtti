@@ -1,4 +1,5 @@
 {-# LANGUAGE ConstraintKinds         #-}
+{-# LANGUAGE DataKinds               #-}
 {-# LANGUAGE FlexibleContexts        #-}
 {-# LANGUAGE FlexibleInstances       #-}
 {-# LANGUAGE GADTs                   #-}
@@ -223,49 +224,25 @@ classifiedSatisfies otherSatisfies = go
     go (C_Other c) = otherSatisfies c
 
     -- Compound
-    go (C_Maybe        c) = goMaybeF     c
-    go (C_Either       c) = goEitherF    c
-    go (C_List         c) = goMaybeF     c
-    go (C_Ratio        c) = goF          c
-    go (C_Set          c) = goMaybeF     c
-    go (C_Map          c) = goMaybePairF c
-    go (C_IntMap       c) = goMaybeF     c
-    go (C_Sequence     c) = goMaybeF     c
-    go (C_Tree         c) = goF          c
-    go (C_HashSet      c) = goF          c
-    go (C_HashMap      c) = goMaybePairF c
-    go (C_HM_Array     c) = goMaybeF     c
-    go (C_Prim_Array   c) = goMaybeF     c
-    go (C_Vector_Boxed c) = goMaybeF     c
-    go (C_Tuple        c) = goTuple      c
+    go (C_Maybe        c) = goElems c $ Dict
+    go (C_Either       c) = goElems c $ Dict
+    go (C_List         c) = goElems c $ Dict
+    go (C_Ratio        c) = goElems c $ Dict
+    go (C_Set          c) = goElems c $ Dict
+    go (C_Map          c) = goElems c $ Dict
+    go (C_IntMap       c) = goElems c $ Dict
+    go (C_Sequence     c) = goElems c $ Dict
+    go (C_Tree         c) = goElems c $ Dict
+    go (C_HashSet      c) = goElems c $ Dict
+    go (C_HashMap      c) = goElems c $ Dict
+    go (C_HM_Array     c) = goElems c $ Dict
+    go (C_Prim_Array   c) = goElems c $ Dict
+    go (C_Vector_Boxed c) = goElems c $ Dict
+    go (C_Tuple        c) = goElems c $ Dict
 
-    goF ::
-         (forall a. c a => c (f a))
-      => (forall a. Classifier_ o a -> Dict c (f a))
-    goF c = (\Dict -> Dict) $ go c
+    goElems :: SListI as => Elems o as -> (All c as => r) -> r
+    goElems (Elems cs) k = case all_NP (hmap goElem cs) of Dict -> k
 
-    goMaybeF ::
-         (forall a. c a => c (f a))
-      => (forall a. MaybeF o a -> Dict c (f a))
-    goMaybeF FNothing  = Dict
-    goMaybeF (FJust c) = (\Dict -> Dict) $ go c
-
-    goEitherF ::
-         (forall a b. (c a, c b) => c (f a b))
-      => (forall a b. EitherF o a b -> Dict c (f a b))
-    goEitherF (FLeft  c) = (\Dict -> Dict) $ go c
-    goEitherF (FRight c) = (\Dict -> Dict) $ go c
-
-    goMaybePairF ::
-         (forall a b. (c a, c b) => c (f a b))
-      => (forall a b. MaybePairF o a b -> Dict c (f a b))
-    goMaybePairF FNothingPair      = Dict
-    goMaybePairF (FJustPair ca cb) = (\Dict Dict -> Dict) (go ca) (go cb)
-
-    goTuple ::
-         (SListI xs, IsValidSize (Length xs))
-      => Classifiers o xs
-      -> Dict c (WrappedTuple xs)
-    goTuple (Classifiers cs) =
-         case all_NP (hmap go cs) of
-           Dict -> Dict
+    goElem :: Elem o a -> Dict c a
+    goElem (Elem c) = go c
+    goElem NoElem   = Dict

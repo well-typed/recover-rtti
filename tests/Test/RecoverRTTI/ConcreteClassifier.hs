@@ -1,11 +1,17 @@
-{-# LANGUAGE FlexibleInstances     #-}
-{-# LANGUAGE GADTs                 #-}
-{-# LANGUAGE KindSignatures        #-}
-{-# LANGUAGE LambdaCase            #-}
-{-# LANGUAGE QuantifiedConstraints #-}
-{-# LANGUAGE RankNTypes            #-}
-{-# LANGUAGE StandaloneDeriving    #-}
-{-# LANGUAGE TypeOperators         #-}
+{-# LANGUAGE ConstraintKinds         #-}
+{-# LANGUAGE DataKinds               #-}
+{-# LANGUAGE FlexibleContexts        #-}
+{-# LANGUAGE FlexibleInstances       #-}
+{-# LANGUAGE GADTs                   #-}
+{-# LANGUAGE KindSignatures          #-}
+{-# LANGUAGE LambdaCase              #-}
+{-# LANGUAGE QuantifiedConstraints   #-}
+{-# LANGUAGE RankNTypes              #-}
+{-# LANGUAGE ScopedTypeVariables     #-}
+{-# LANGUAGE StandaloneDeriving      #-}
+{-# LANGUAGE TypeOperators           #-}
+{-# LANGUAGE UndecidableInstances    #-}
+{-# LANGUAGE UndecidableSuperClasses #-}
 
 module Test.RecoverRTTI.ConcreteClassifier (
     -- * Concrete classifier
@@ -13,9 +19,9 @@ module Test.RecoverRTTI.ConcreteClassifier (
   , ClassifyUser(..)
     -- * Values
   , Value(..)
-    -- * Show
-  , canShowUser
+    -- * Constraints
   , canShowConcrete
+  , canCompareConcrete
     -- * Size
   , sizeUser
   , sizeConcrete
@@ -23,24 +29,24 @@ module Test.RecoverRTTI.ConcreteClassifier (
   , sameUser
   , sameConcrete
     -- * Equality
-  , canCompareUser
-  , canCompareConcrete
     -- * Arbitrary
   , arbitraryUser
   , arbitraryConcrete
   ) where
 
 import Data.Kind
+import Data.SOP
 import Data.SOP.Dict
 import Data.Type.Equality
 import Data.Void
 
 import Debug.RecoverRTTI
+import Debug.RecoverRTTI.Classify
 
 import Test.QuickCheck
 
 import Test.RecoverRTTI.Classifier.Arbitrary
-import Test.RecoverRTTI.Classifier.Equality
+import Test.RecoverRTTI.Classifier.Equality ()
 import Test.RecoverRTTI.Classifier.Size
 import Test.RecoverRTTI.QuickCheck.DepGen
 import Test.RecoverRTTI.QuickCheck.Sized (SizedGen)
@@ -65,8 +71,8 @@ type ConcreteClassifier = Classifier_ ClassifyUser
 
 data ClassifyUser (a :: Type) where
   C_Simple   :: ClassifyUser SimpleType
-  C_NonRec   :: MaybeF ClassifyUser a -> ClassifyUser (NonRecursive a)
-  C_Rec      :: MaybeF ClassifyUser a -> ClassifyUser (Recursive    a)
+  C_NonRec   :: Elems ClassifyUser '[a] -> ClassifyUser (NonRecursive a)
+  C_Rec      :: Elems ClassifyUser '[a] -> ClassifyUser (Recursive    a)
   C_Unlifted :: ClassifyUser ContainsUnlifted
 
 deriving instance Show (ClassifyUser a)
@@ -94,26 +100,51 @@ instance Arbitrary (Some Value) where
       Some . Value cc <$> SG.run 1000 gen
 
 {-------------------------------------------------------------------------------
-  Show
+  Constraints
 -------------------------------------------------------------------------------}
 
-canShowUser :: ClassifyUser a -> Dict Show a
-canShowUser = go
+class (
+    c SimpleType
+  , forall a. c a => c (NonRecursive a)
+  , forall a. c a => c (Recursive    a)
+  , c ContainsUnlifted
+  ) => UserSatisfies c
+
+instance (
+    c SimpleType
+  , forall a. c a => c (NonRecursive a)
+  , forall a. c a => c (Recursive    a)
+  , c ContainsUnlifted
+  ) => UserSatisfies c
+
+userSatisfies :: forall c.
+     (ClassifiedSatisfies c, c Void, UserSatisfies c)
+  => (forall a. ClassifyUser a -> Dict c a)
+userSatisfies = go
   where
-    go :: ClassifyUser a -> Dict Show a
+    go :: ClassifyUser a -> Dict c a
     go  C_Simple    = Dict
-    go (C_NonRec c) = goMaybeF c
-    go (C_Rec    c) = goMaybeF c
+    go (C_NonRec c) = goElems c $ Dict
+    go (C_Rec    c) = goElems c $ Dict
     go  C_Unlifted  = Dict
 
-    goMaybeF ::
-         (forall x. Show x => Show (f x))
-      => MaybeF ClassifyUser a -> Dict Show (f a)
-    goMaybeF FNothing  = Dict
-    goMaybeF (FJust c) = (\Dict -> Dict) $ canShowConcrete c
+    goElems :: SListI as => Elems ClassifyUser as -> (All c as => r) -> r
+    goElems (Elems cs) k = case all_NP (hmap goElem cs) of Dict -> k
+
+    goElem :: Elem ClassifyUser a -> Dict c a
+    goElem (Elem c) = concreteSatisfies c
+    goElem NoElem   = Dict
+
+concreteSatisfies ::
+     (ClassifiedSatisfies c, c Void, UserSatisfies c)
+  => ConcreteClassifier a -> Dict c a
+concreteSatisfies = classifiedSatisfies userSatisfies
 
 canShowConcrete :: ConcreteClassifier a -> Dict Show a
-canShowConcrete = canShowClassified_ canShowUser
+canShowConcrete = concreteSatisfies
+
+canCompareConcrete :: ConcreteClassifier a -> Dict Eq a
+canCompareConcrete = concreteSatisfies
 
 {-------------------------------------------------------------------------------
   Size of the classifier
@@ -126,13 +157,16 @@ sizeUser = go
   where
     go :: ClassifyUser a -> Int
     go  C_Simple    = 1
-    go (C_NonRec c) = 1 + goMaybeF c
-    go (C_Rec    c) = 1 + goMaybeF c
+    go (C_NonRec c) = 1 + goElems c
+    go (C_Rec    c) = 1 + goElems c
     go  C_Unlifted  = 1
 
-    goMaybeF :: MaybeF ClassifyUser a -> Int
-    goMaybeF FNothing  = 0
-    goMaybeF (FJust c) = sizeConcrete c
+    goElems :: SListI as => Elems ClassifyUser as -> Int
+    goElems (Elems cs) = sum . hcollapse $ hmap (K . goElem) cs
+
+    goElem :: Elem ClassifyUser a -> Int
+    goElem NoElem   = 0
+    goElem (Elem c) = sizeConcrete c
 
 sizeConcrete :: ConcreteClassifier a -> Int
 sizeConcrete = classifierSize_ sizeUser
@@ -153,18 +187,10 @@ sameUser = go
   where
     go :: ClassifyUser a -> ClassifyUser b -> Maybe (a :~: b)
     go  C_Simple     C_Simple     = Just Refl
-    go (C_NonRec c) (C_NonRec c') = goMaybeF c c'
-    go (C_Rec    c) (C_Rec    c') = goMaybeF c c'
+    go (C_NonRec c) (C_NonRec c') = sameElems sameUser c c' $ Refl
+    go (C_Rec    c) (C_Rec    c') = sameElems sameUser c c' $ Refl
     go  C_Unlifted   C_Unlifted   = Just Refl
     go  _            _            = Nothing
-
-    goMaybeF ::
-         MaybeF ClassifyUser x
-      -> MaybeF ClassifyUser x'
-      -> Maybe (f x :~: f x')
-    goMaybeF FNothing  FNothing   = Just Refl
-    goMaybeF (FJust x) (FJust x') = (\Refl -> Refl) <$> sameConcrete x x'
-    goMaybeF _          _         = Nothing
 
     _checkAllCases :: ClassifyUser a -> ()
     _checkAllCases = \case
@@ -172,28 +198,6 @@ sameUser = go
         C_NonRec{}   -> ()
         C_Rec{}      -> ()
         C_Unlifted{} -> ()
-
-{-------------------------------------------------------------------------------
-  Equality
--------------------------------------------------------------------------------}
-
-canCompareUser :: forall a. ClassifyUser a -> Dict Eq a
-canCompareUser = go
-  where
-    go :: ClassifyUser a -> Dict Eq a
-    go  C_Simple    = Dict
-    go (C_NonRec c) = goMaybeF c
-    go (C_Rec    c) = goMaybeF c
-    go  C_Unlifted  = Dict
-
-    goMaybeF ::
-         (forall x. Eq x => Eq (f x))
-      => MaybeF ClassifyUser a -> Dict Eq (f a)
-    goMaybeF FNothing  = Dict
-    goMaybeF (FJust c) = (\Dict -> Dict) $ canCompareConcrete c
-
-canCompareConcrete :: ConcreteClassifier a -> Dict Eq a
-canCompareConcrete = canCompareClassified_ canCompareUser
 
 {-------------------------------------------------------------------------------
   Arbitrary
@@ -226,14 +230,14 @@ arbitraryUser = SG.leafOrStep leaf compound
          ( forall x. Show x => Show (f x)
          , forall x. Eq   x => Eq   (f x)
          )
-      => (forall a. MaybeF ClassifyUser a -> ClassifyUser (f a))
+      => (forall a. Elems ClassifyUser '[a] -> ClassifyUser (f a))
       -> f Void
       -> SizedGen (Some (GenJust ConcreteClassifier f))
       -> SizedGen (Some (DepGen ClassifyUser))
     goMaybeF cf nothing just =
         SG.leafOrStep
-          (pure $ Some $ DepGen (cf FNothing) (pure nothing))
-          [(\(Some a) -> Some (genJust (cf . FJust) a)) <$> just]
+          (pure $ Some $ DepGen (cf ElemNothing) (pure nothing))
+          [(\(Some a) -> Some (genJust (cf . ElemJust) a)) <$> just]
 
 arbitraryConcrete :: SizedGen (Some (DepGen ConcreteClassifier))
 arbitraryConcrete = arbitraryClassifier_ arbitraryUser

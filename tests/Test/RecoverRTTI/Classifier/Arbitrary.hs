@@ -28,6 +28,7 @@ import qualified Data.Tree                   as Tree
 import qualified Data.Vector                 as Vector.Boxed
 
 import Debug.RecoverRTTI
+import Debug.RecoverRTTI.Classify
 
 import Test.QuickCheck
 
@@ -151,50 +152,50 @@ arbitraryClassifier_  genOther = go
          ( forall x. Show x => Show (f x)
          , forall x. Eq   x => Eq   (f x)
          )
-      => (forall x. c x -> c (f x))
+      => (forall x. Elems o '[x] -> c (f x))
       -> SizedGen (Some (GenJust c f))
       -> SizedGen (Some (DepGen c))
-    goF cf = fmap (\(Some a) -> Some (genJust cf a))
+    goF cf = fmap (\(Some a) -> Some (genJust (cf . ElemJust) a))
 
     goMaybeF :: forall f.
          ( forall x. Show x => Show (f x)
          , forall x. Eq   x => Eq   (f x)
          )
-      => (forall x. MaybeF o x -> c (f x))
+      => (forall x. Elems o '[x] -> c (f x))
       -> f Void
       -> SizedGen (Some (GenJust c f))
       -> SizedGen (Some (DepGen c))
     goMaybeF cf nothing just =
         SG.leafOrStep
-          (pure $ Some $ DepGen (cf FNothing) (pure nothing))
-          [(\(Some a) -> Some (genJust (cf . FJust) a)) <$> just]
+          (pure $ Some $ DepGen (cf ElemNothing) (pure nothing))
+          [(\(Some a) -> Some (genJust (cf . ElemJust) a)) <$> just]
 
     goEitherF :: forall f.
          ( forall x y. (Show x, Show y) => Show (f x y)
          , forall x y. (Eq   x, Eq   y) => Eq   (f x y)
          )
-      => (forall x y. EitherF o x y -> c (f x y))
+      => (forall x y. Elems o '[x, y] -> c (f x y))
       -> SizedGen (Some (GenLeft  c f))
       -> SizedGen (Some (GenRight c f))
       -> SizedGen (Some (DepGen c))
     goEitherF cf left right =
         SG.oneofStepped [
-            (\(Some a) -> Some (genLeft  (cf . FLeft)  a)) <$> left
-          , (\(Some b) -> Some (genRight (cf . FRight) b)) <$> right
+            (\(Some a) -> Some (genLeft  (cf . ElemLeft)  a)) <$> left
+          , (\(Some b) -> Some (genRight (cf . ElemRight) b)) <$> right
           ]
 
     goMaybePairF :: forall (f :: Type -> Type -> Type).
          ( forall x y. (Show x, Show y) => Show (f x y)
          , forall x y. (Eq   x, Eq   y) => Eq   (f x y)
          )
-      => (forall x y. MaybePairF o x y -> c (f x y))
+      => (forall x y. Elems o '[x, y] -> c (f x y))
       -> f Void Void
       -> SizedGen (Some (GenPair c f))
       -> SizedGen (Some (DepGen c))
     goMaybePairF cf nothing just =
         SG.leafOrStep
-          (pure $ Some $ DepGen (cf FNothingPair) (pure nothing))
-          [(\(Some ab@GenPair{}) -> Some (genPair (cf . uncurry FJustPair) ab)) <$> just]
+          (pure $ Some $ DepGen (cf ElemNothingPair) (pure nothing))
+          [(\(Some ab@GenPair{}) -> Some (genPair (cf . uncurry ElemJustPair) ab)) <$> just]
 
     goTuple :: SizedGen (Some (DepGen c))
     goTuple =
@@ -203,7 +204,7 @@ arbitraryClassifier_  genOther = go
         lift :: (SListI xs, IsValidSize (Length xs))
           => NP (DepGen (Classifier_ o)) xs
           -> DepGen (Classifier_ o) (WrappedTuple xs)
-        lift t = genNP (C_Tuple . Classifiers) $ GenNP {
+        lift t = genNP (C_Tuple . Elems . hmap Elem) $ GenNP {
               npGen  = fmap tupleFromNP . hsequence
             , npElem = t
             }
