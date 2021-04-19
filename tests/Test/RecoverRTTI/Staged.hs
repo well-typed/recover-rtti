@@ -87,7 +87,7 @@ reclassify = fmap distribReclassified . reclassify_ go
           return Nothing
         else
           case checkEmptyTraversable (coerceToF x) of
-            Right _ -> return . Just $ Reclassified (cc ElemNothing) FromUsr
+            Right _ -> return . Just $ Reclassified (cc ElemU) FromUsr
             Left x' -> Just . aux <$> classifyConcrete x'
       where
         coerceToF :: forall a. UserDefined -> f a
@@ -97,7 +97,7 @@ reclassify = fmap distribReclassified . reclassify_ go
              Reclassified ConcreteClassifier a
           -> Reclassified ClassifyUser UserDefined
         aux (Reclassified c pf) =
-            Reclassified (cc (ElemJust c)) (F1 pf `Compose` FromUsr)
+            Reclassified (cc (ElemK c)) (F1 pf `Compose` FromUsr)
 
 {-------------------------------------------------------------------------------
   Auxiliary

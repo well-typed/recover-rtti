@@ -236,8 +236,8 @@ arbitraryUser = SG.leafOrStep leaf compound
       -> SizedGen (Some (DepGen ClassifyUser))
     goMaybeF cf nothing just =
         SG.leafOrStep
-          (pure $ Some $ DepGen (cf ElemNothing) (pure nothing))
-          [(\(Some a) -> Some (genJust (cf . ElemJust) a)) <$> just]
+          (pure $ Some $ DepGen (cf ElemU) (pure nothing))
+          [(\(Some a) -> Some (genJust (cf . ElemK) a)) <$> just]
 
 arbitraryConcrete :: SizedGen (Some (DepGen ConcreteClassifier))
 arbitraryConcrete = arbitraryClassifier_ arbitraryUser
