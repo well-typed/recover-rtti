@@ -75,7 +75,7 @@ reclassify = fmap distribReclassified . reclassify_ go
     goSimple c constr =
         if constr `notElem` constrsOf (Proxy @a)
           then return Nothing
-          else return . Just $ Reclassified c unsafeCoerce
+          else return . Just $ Reclassified c FromUsr
 
     goTraversable ::
          forall f. (Traversable f, ConstrsOf f)
@@ -87,7 +87,7 @@ reclassify = fmap distribReclassified . reclassify_ go
           return Nothing
         else
           case checkEmptyTraversable (coerceToF x) of
-            Right _ -> return . Just $ Reclassified (cc ElemNothing) coerceToF
+            Right _ -> return . Just $ Reclassified (cc ElemNothing) FromUsr
             Left x' -> Just . aux <$> classifyConcrete x'
       where
         coerceToF :: forall a. UserDefined -> f a
@@ -96,7 +96,8 @@ reclassify = fmap distribReclassified . reclassify_ go
         aux ::
              Reclassified ConcreteClassifier a
           -> Reclassified ClassifyUser UserDefined
-        aux (Reclassified c f) = Reclassified (cc (ElemJust c)) (fmap f . coerceToF)
+        aux (Reclassified c pf) =
+            Reclassified (cc (ElemJust c)) (F1 pf `Compose` FromUsr)
 
 {-------------------------------------------------------------------------------
   Auxiliary

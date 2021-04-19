@@ -83,16 +83,17 @@ tupleToNP (TCons x xs) = I x :* tupleToNP xs
   Mapping
 -------------------------------------------------------------------------------}
 
-data PairWise xs ys where
-  PNil  :: PairWise '[] '[]
-  PCons :: (x -> y) -> PairWise xs ys -> PairWise (x:xs) (y:ys)
+data PairWise f xs ys where
+  PNil  :: PairWise f '[] '[]
+  PCons :: f x y -> PairWise f xs ys -> PairWise f (x:xs) (y:ys)
 
 data SameListShape xs ys where
   SameListShape :: (SListI ys, Length xs ~ Length ys) => SameListShape xs ys
 
 mapTuple' ::
      (SListI xs, IsValidSize (Length xs))
-  => PairWise xs ys -> WrappedTuple xs -> (SameListShape xs ys, WrappedTuple ys)
+  => PairWise (->) xs ys
+  -> WrappedTuple xs -> (SameListShape xs ys, WrappedTuple ys)
 mapTuple' PNil          TNil        = (SameListShape, TNil)
 mapTuple' (PCons f fs) (TCons x xs) =
     case mapTuple' fs xs of
@@ -100,7 +101,7 @@ mapTuple' (PCons f fs) (TCons x xs) =
 
 mapTuple ::
      (SListI xs, IsValidSize (Length xs))
-  => PairWise xs ys -> WrappedTuple xs -> WrappedTuple ys
+  => PairWise (->) xs ys -> WrappedTuple xs -> WrappedTuple ys
 mapTuple fs = snd . mapTuple' fs
 
 {-------------------------------------------------------------------------------

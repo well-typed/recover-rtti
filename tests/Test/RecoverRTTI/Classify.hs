@@ -316,10 +316,10 @@ compareClassifier = \(Value cc x) ->
         Left err  ->
             counterexample ("Failed to reclassify. Error: " ++ err)
           $ property False
-        Right (Reclassified cc' f) ->
+        Right (Reclassified cc' _pf) ->
           case sameConcrete cc cc' of
             Nothing ->
                 counterexample ("Inferred different classifier: " ++ show cc')
               $ property False
             Just Refl ->
-              x === f x
+              property True
