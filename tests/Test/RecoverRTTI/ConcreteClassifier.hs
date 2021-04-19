@@ -218,23 +218,23 @@ arbitraryUser = SG.leafOrStep leaf compound
     compound :: [SizedGen (Some (DepGen ClassifyUser))]
     compound = [
           -- NonRecursive
-          goMaybeF C_NonRec (NR1 1234)
-            (mapSome (GenJust (fmap (NR2 True))) <$> arbitraryConcrete)
+          go_U_K C_NonRec (NR1 1234)
+            (mapSome (GenK (fmap (NR2 True))) <$> arbitraryConcrete)
 
           -- Recursive
-        , goMaybeF C_Rec RNil
-            (mapSome (GenJust (SG.genListLike recursiveFromList)) <$> arbitraryConcrete)
+        , go_U_K C_Rec RNil
+            (mapSome (GenK (SG.genListLike recursiveFromList)) <$> arbitraryConcrete)
         ]
 
-    goMaybeF ::
+    go_U_K ::
          ( forall x. Show x => Show (f x)
          , forall x. Eq   x => Eq   (f x)
          )
       => (forall a. Elems ClassifyUser '[a] -> ClassifyUser (f a))
       -> f Void
-      -> SizedGen (Some (GenJust ConcreteClassifier f))
+      -> SizedGen (Some (GenK ConcreteClassifier f))
       -> SizedGen (Some (DepGen ClassifyUser))
-    goMaybeF cf nothing just =
+    go_U_K cf nothing just =
         SG.leafOrStep
           (pure $ Some $ DepGen (cf ElemU) (pure nothing))
           [(\(Some a) -> Some (genJust (cf . ElemK) a)) <$> just]

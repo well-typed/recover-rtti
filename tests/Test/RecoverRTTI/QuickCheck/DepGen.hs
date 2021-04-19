@@ -18,10 +18,10 @@ module Test.RecoverRTTI.QuickCheck.DepGen (
   , arbitraryDepGen
   , primDepGen
     -- * Bundle a dependent generator with a lifting function
-  , GenJust(..)
-  , GenLeft(..)
-  , GenRight(..)
-  , GenPair(..)
+  , GenK(..)
+  , GenKU(..)
+  , GenUK(..)
+  , GenKK(..)
   , GenNP(..)
   , genJust
   , genLeft
@@ -78,28 +78,28 @@ primDepGen c =
   These are designed to work with 'MaybeF' and co.
 -------------------------------------------------------------------------------}
 
-data GenJust c (f :: Type -> Type) a = GenJust {
+data GenK c (f :: Type -> Type) a = GenK {
       justGen  :: SizedGen a -> SizedGen (f a)
     , justElem :: DepGen c a
     }
 
-data GenLeft c (f :: Type -> Type -> Type) a = GenLeft {
+data GenKU c (f :: Type -> Type -> Type) a = GenKU {
       leftGen  :: SizedGen a -> SizedGen (f a Void)
     , leftElem :: DepGen c a
     }
 
-data GenRight c (f :: Type -> Type -> Type) b = GenRight {
+data GenUK c (f :: Type -> Type -> Type) b = GenUK {
       rightGen  :: SizedGen b -> SizedGen (f Void b)
     , rightElem :: DepGen c b
     }
 
-data GenPair c (f :: Type -> Type -> Type) (ab :: (Type, Type)) where
-    GenPair :: forall c f a b. {
+data GenKK c (f :: Type -> Type -> Type) (ab :: (Type, Type)) where
+    GenKK :: forall c f a b. {
            pairGen :: SizedGen a -> SizedGen b -> SizedGen (f a b)
          , pairFst :: DepGen c a
          , pairSnd :: DepGen c b
          }
-      -> GenPair c f '(a, b)
+      -> GenKK c f '(a, b)
 
 data GenNP c f xs = GenNP {
       npGen  :: NP SizedGen xs -> SizedGen (f xs)
@@ -110,32 +110,32 @@ genJust ::
      ( forall x. Show x => Show (f x)
      , forall x. Eq   x => Eq   (f x)
      )
-  => (c a -> c' (f a)) -> GenJust c f a -> DepGen c' (f a)
-genJust cf (GenJust gen (DepGen cx gx)) =
+  => (c a -> c' (f a)) -> GenK c f a -> DepGen c' (f a)
+genJust cf (GenK gen (DepGen cx gx)) =
     DepGen (cf cx) (gen gx)
 
 genLeft ::
      ( forall x y. (Show x, Show y) => Show (f x y)
      , forall x y. (Eq   x, Eq   y) => Eq   (f x y)
      )
-  => (c a -> c' (f a Void)) -> GenLeft c f a -> DepGen c' (f a Void)
-genLeft cf (GenLeft gen (DepGen cx gx)) =
+  => (c a -> c' (f a Void)) -> GenKU c f a -> DepGen c' (f a Void)
+genLeft cf (GenKU gen (DepGen cx gx)) =
     DepGen (cf cx) (gen gx)
 
 genRight ::
      ( forall x y. (Show x, Show y) => Show (f x y)
      , forall x y. (Eq   x, Eq   y) => Eq   (f x y)
      )
-  => (c b -> c' (f Void b)) -> GenRight c f b -> DepGen c' (f Void b)
-genRight cf (GenRight gen (DepGen cy gy)) =
+  => (c b -> c' (f Void b)) -> GenUK c f b -> DepGen c' (f Void b)
+genRight cf (GenUK gen (DepGen cy gy)) =
     DepGen (cf cy) (gen gy)
 
 genPair ::
      ( forall x y. (Show x, Show y) => Show (f x y)
      , forall x y. (Eq   x, Eq   y) => Eq   (f x y)
      )
-  => ((c a, c b) -> c' (f a b)) -> GenPair c f '(a, b) -> DepGen c' (f a b)
-genPair cf (GenPair gen (DepGen cx gx) (DepGen cy gy)) =
+  => ((c a, c b) -> c' (f a b)) -> GenKK c f '(a, b) -> DepGen c' (f a b)
+genPair cf (GenKK gen (DepGen cx gx) (DepGen cy gy)) =
     DepGen (cf (cx, cy)) $
       gen (SG.withSize (`div` 2) gx)
           (SG.withSize (`div` 2) gy)
