@@ -78,49 +78,49 @@ arbitraryClassifier_  genOther = go
           -- to subtract one from the size
           (\(Some (DepGen c gen)) -> Some (DepGen (C_Other c) gen)) <$> genOther
 
-        , goMaybeF C_Maybe Nothing
-            (mapSome (GenJust (fmap Just)) <$> go)
+        , go_U_K C_Maybe Nothing
+            (mapSome (GenK (fmap Just)) <$> go)
 
-        , goEitherF C_Either
-            (mapSome (GenLeft  (fmap Left))  <$> go)
-            (mapSome (GenRight (fmap Right)) <$> go)
+        , go_KU_UK C_Either
+            (mapSome (GenKU  (fmap Left))  <$> go)
+            (mapSome (GenUK (fmap Right)) <$> go)
 
           -- @[Char]@ is classified as @String@
         , let notChar (Some (DepGen (C_Prim C_Char) _)) = False
               notChar _otherwise = True in
-          goMaybeF C_List []
-            (mapSome (GenJust (SG.genListLike id)) <$> (go `SG.suchThat` notChar))
+          go_U_K C_List []
+            (mapSome (GenK (SG.genListLike id)) <$> (go `SG.suchThat` notChar))
 
-        , goF C_Ratio $ pure . Some $ GenJust {
+        , go_K C_Ratio $ pure . Some $ GenK {
               justGen  = \g -> uncurry (:%) <$> SG.divvyPair g g
             , justElem = primDepGen C_Int
             }
 
-        , goMaybeF C_Set Set.empty $ pure . Some $ GenJust {
+        , go_U_K C_Set Set.empty $ pure . Some $ GenK {
               justGen  = SG.genListLike Set.fromList
             , justElem = primDepGen C_Int
             }
 
-        , goMaybePairF C_Map Map.empty
-            ((\(Some genElem) -> Some $ GenPair {
+        , go_UU_KK C_Map Map.empty
+            ((\(Some genElem) -> Some $ GenKK {
                 pairGen = SG.genMapLike Map.fromList
               , pairFst = primDepGen C_Int
               , pairSnd = genElem
               }) <$> go)
 
-        , goMaybeF C_IntMap IntMap.empty
-            ((\(Some genElem) -> Some $ GenJust {
+        , go_U_K C_IntMap IntMap.empty
+            ((\(Some genElem) -> Some $ GenK {
                 justGen  = SG.genMapLike IntMap.fromList SG.arbitrary
               , justElem = genElem
               }) <$> go)
 
-        , goMaybeF C_Sequence Seq.empty
-            (mapSome (GenJust (SG.genListLike Seq.fromList)) <$> go)
+        , go_U_K C_Sequence Seq.empty
+            (mapSome (GenK (SG.genListLike Seq.fromList)) <$> go)
 
-        , goF C_Tree
-            (mapSome (GenJust (SG.genListLike mkSomeTree)) <$> go)
+        , go_K C_Tree
+            (mapSome (GenK (SG.genListLike mkSomeTree)) <$> go)
 
-        , goF C_HashSet $ pure . Some $ GenJust {
+        , go_K C_HashSet $ pure . Some $ GenK {
               justGen  = SG.genListLike HashSet.fromList
             , justElem = primDepGen C_Int
             }
@@ -128,74 +128,74 @@ arbitraryClassifier_  genOther = go
           -- @HashMap a ()@ is classified as a @HashSet@ instead
         , let notUnit (Some (DepGen (C_Prim C_Unit) _)) = False
               notUnit _otherwise = True in
-          goMaybePairF C_HashMap HashMap.empty
-            ((\(Some genElem) -> Some $ GenPair {
+          go_UU_KK C_HashMap HashMap.empty
+            ((\(Some genElem) -> Some $ GenKK {
                 pairGen = SG.genMapLike HashMap.fromList
               , pairFst = primDepGen C_Int
               , pairSnd = genElem
               }) <$> (go `SG.suchThat` notUnit))
 
         , let mkArray xs = HashMap.Array.fromList (length xs) xs in
-          goMaybeF C_HM_Array (mkArray [])
-            (mapSome (GenJust (SG.genListLike mkArray)) <$> go)
+          go_U_K C_HM_Array (mkArray [])
+            (mapSome (GenK (SG.genListLike mkArray)) <$> go)
 
-        , goMaybeF C_Prim_Array (Prim.Array.arrayFromList [])
-            (mapSome (GenJust (SG.genListLike Prim.Array.arrayFromList)) <$> go)
+        , go_U_K C_Prim_Array (Prim.Array.arrayFromList [])
+            (mapSome (GenK (SG.genListLike Prim.Array.arrayFromList)) <$> go)
 
-        , goMaybeF C_Vector_Boxed Vector.Boxed.empty
-            (mapSome (GenJust (SG.genListLike Vector.Boxed.fromList)) <$> go)
+        , go_U_K C_Vector_Boxed Vector.Boxed.empty
+            (mapSome (GenK (SG.genListLike Vector.Boxed.fromList)) <$> go)
 
         , goTuple
         ]
 
-    goF :: forall f.
+    go_K :: forall f.
          ( forall x. Show x => Show (f x)
          , forall x. Eq   x => Eq   (f x)
          )
       => (forall x. Elems o '[x] -> c (f x))
-      -> SizedGen (Some (GenJust c f))
+      -> SizedGen (Some (GenK c f))
       -> SizedGen (Some (DepGen c))
-    goF cf = fmap (\(Some a) -> Some (genJust (cf . ElemK) a))
+    go_K cf = fmap (\(Some a) -> Some (genJust (cf . ElemK) a))
 
-    goMaybeF :: forall f.
+    go_U_K :: forall f.
          ( forall x. Show x => Show (f x)
          , forall x. Eq   x => Eq   (f x)
          )
       => (forall x. Elems o '[x] -> c (f x))
       -> f Void
-      -> SizedGen (Some (GenJust c f))
+      -> SizedGen (Some (GenK c f))
       -> SizedGen (Some (DepGen c))
-    goMaybeF cf nothing just =
+    go_U_K cf nothing just =
         SG.leafOrStep
           (pure $ Some $ DepGen (cf ElemU) (pure nothing))
           [(\(Some a) -> Some (genJust (cf . ElemK) a)) <$> just]
 
-    goEitherF :: forall f.
+    go_KU_UK :: forall f.
          ( forall x y. (Show x, Show y) => Show (f x y)
          , forall x y. (Eq   x, Eq   y) => Eq   (f x y)
          )
       => (forall x y. Elems o '[x, y] -> c (f x y))
-      -> SizedGen (Some (GenLeft  c f))
-      -> SizedGen (Some (GenRight c f))
+      -> SizedGen (Some (GenKU c f))
+      -> SizedGen (Some (GenUK c f))
       -> SizedGen (Some (DepGen c))
-    goEitherF cf left right =
+    go_KU_UK cf left right =
         SG.oneofStepped [
             (\(Some a) -> Some (genLeft  (cf . ElemKU)  a)) <$> left
           , (\(Some b) -> Some (genRight (cf . ElemUK) b)) <$> right
           ]
 
-    goMaybePairF :: forall (f :: Type -> Type -> Type).
+    go_UU_KK :: forall (f :: Type -> Type -> Type).
          ( forall x y. (Show x, Show y) => Show (f x y)
          , forall x y. (Eq   x, Eq   y) => Eq   (f x y)
          )
       => (forall x y. Elems o '[x, y] -> c (f x y))
       -> f Void Void
-      -> SizedGen (Some (GenPair c f))
+      -> SizedGen (Some (GenKK c f))
       -> SizedGen (Some (DepGen c))
-    goMaybePairF cf nothing just =
+    go_UU_KK cf nothing just =
         SG.leafOrStep
           (pure $ Some $ DepGen (cf ElemUU) (pure nothing))
-          [(\(Some ab@GenPair{}) -> Some (genPair (cf . uncurry ElemKK) ab)) <$> just]
+          [(\(Some ab@GenKK{}) -> Some (genPair (cf . uncurry ElemKK) ab)) <$> just]
 
     goTuple :: SizedGen (Some (DepGen c))
     goTuple =
