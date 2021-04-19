@@ -23,6 +23,7 @@ module Debug.RecoverRTTI (
   , SomeStorableVectorM(..)
   , SomePrimitiveVector(..)
   , SomePrimitiveVectorM(..)
+  , GhcArray(..)
     -- * Working with classifiers
     -- ** Mapping
   , mapClassifier

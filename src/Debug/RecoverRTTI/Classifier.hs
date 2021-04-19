@@ -117,6 +117,7 @@ data Classifier_ (o :: Type -> Type) (a :: Type) :: Type where
   C_HM_Array     :: Elems o '[a]    -> Classifier_ o (HashMap.Array a)
   C_Prim_Array   :: Elems o '[a]    -> Classifier_ o (Prim.Array a)
   C_Vector_Boxed :: Elems o '[a]    -> Classifier_ o (Vector.Boxed.Vector a)
+  C_GHC_Array    :: Elems o '[a, b] -> Classifier_ o (GhcArray a b)
 
   C_Tuple ::
        (SListI xs, IsValidSize (Length xs))
@@ -242,6 +243,7 @@ mapClassifier other = go
     go (C_HM_Array     c) = C_HM_Array     <$> goElems c
     go (C_Prim_Array   c) = C_Prim_Array   <$> goElems c
     go (C_Vector_Boxed c) = C_Vector_Boxed <$> goElems c
+    go (C_GHC_Array    c) = C_GHC_Array    <$> goElems c
     go (C_Tuple        c) = C_Tuple        <$> goElems c
 
     goElems :: SListI xs => Elems o xs -> m (Elems o' xs)

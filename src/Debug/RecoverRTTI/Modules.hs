@@ -91,6 +91,7 @@ data instance KnownModule 'PkgBase =
   | GhcConcSync
   | GhcMaybe
   | GhcReal
+  | GhcArr
   | DataEither
 
 {-------------------------------------------------------------------------------
@@ -220,6 +221,7 @@ inKnownModuleNested = go singPkg
           GhcConcSync -> "GHC.Conc.Sync"
           GhcMaybe    -> "GHC.Maybe"
           GhcReal     -> "GHC.Real"
+          GhcArr      -> "GHC.Arr"
           DataEither  -> "Data.Either"
 
         SByteString -> \case
