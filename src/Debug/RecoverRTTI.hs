@@ -50,6 +50,8 @@ module Debug.RecoverRTTI (
   , Reclassified(..)
   , reclassify_
   , distribReclassified
+  , FromUsr(..)
+  , coerceFromUsr
     -- * Inductive tuples
   , WrappedTuple(WrappedTuple, TNil, TCons)
   , unwrapTuple
