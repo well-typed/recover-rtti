@@ -135,19 +135,19 @@ prop_constants = withMaxSuccess 1 $ conjoin [
 
       -- Compound
 
-    , compareClassifier $ Value (C_Maybe ElemNothing) $
+    , compareClassifier $ Value (C_Maybe ElemU) $
         Nothing
-    , compareClassifier $ Value (C_Maybe (ElemJust (C_Prim C_Int))) $
+    , compareClassifier $ Value (C_Maybe (ElemK (C_Prim C_Int))) $
         Just 3
 
-    , compareClassifier $ Value (C_Either (ElemLeft (C_Prim C_Int))) $
+    , compareClassifier $ Value (C_Either (ElemKU (C_Prim C_Int))) $
         Left 3
-    , compareClassifier $ Value (C_Either (ElemRight (C_Prim C_Bool))) $
+    , compareClassifier $ Value (C_Either (ElemUK (C_Prim C_Bool))) $
         Right True
 
-    , compareClassifier $ Value (C_List ElemNothing) $
+    , compareClassifier $ Value (C_List ElemU) $
         []
-    , compareClassifier $ Value (C_List (ElemJust (C_Prim C_Int))) $
+    , compareClassifier $ Value (C_List (ElemK (C_Prim C_Int))) $
         [1, 2, 3]
 
     , compareClassifier $ Value (C_Tuple (Elems (Elem (C_Prim C_Int) :* Elem (C_Prim C_Char) :* Nil))) $
@@ -155,53 +155,53 @@ prop_constants = withMaxSuccess 1 $ conjoin [
     , compareClassifier $ Value (C_Tuple (Elems (Elem (C_Prim C_Int) :* Elem (C_Prim C_Char) :* Elem (C_Prim C_Bool) :* Nil))) $
         WrappedTuple (4, 'a', True)
 
-    , compareClassifier $ Value (C_Ratio (ElemJust (C_Prim C_Integer))) $
+    , compareClassifier $ Value (C_Ratio (ElemK (C_Prim C_Integer))) $
         1 % 2
 
-    , compareClassifier $ Value (C_Set ElemNothing) $
+    , compareClassifier $ Value (C_Set ElemU) $
         Set.empty
-    , compareClassifier $ Value (C_Set (ElemJust (C_Prim C_Int))) $
+    , compareClassifier $ Value (C_Set (ElemK (C_Prim C_Int))) $
         Set.fromList [1, 2, 3]
 
-    , compareClassifier $ Value (C_Map ElemNothingPair) $
+    , compareClassifier $ Value (C_Map ElemUU) $
         Map.empty
-    , compareClassifier $ Value (C_Map (ElemJustPair (C_Prim C_Int) (C_Prim C_Char))) $
+    , compareClassifier $ Value (C_Map (ElemKK (C_Prim C_Int) (C_Prim C_Char))) $
         Map.fromList [(1, 'a'), (2, 'b')]
 
-    , compareClassifier $ Value (C_IntMap ElemNothing) $
+    , compareClassifier $ Value (C_IntMap ElemU) $
         IntMap.empty
-    , compareClassifier $ Value (C_IntMap (ElemJust (C_Prim C_Char))) $
+    , compareClassifier $ Value (C_IntMap (ElemK (C_Prim C_Char))) $
         IntMap.fromList [(1, 'a'), (2, 'b')]
 
-    , compareClassifier $ Value (C_Sequence ElemNothing) $
+    , compareClassifier $ Value (C_Sequence ElemU) $
         Seq.empty
-    , compareClassifier $ Value (C_Sequence (ElemJust (C_Prim C_Int))) $
+    , compareClassifier $ Value (C_Sequence (ElemK (C_Prim C_Int))) $
         Seq.fromList [1, 2, 3]
 
-    , compareClassifier $ Value (C_Tree (ElemJust (C_Prim C_Int))) $
+    , compareClassifier $ Value (C_Tree (ElemK (C_Prim C_Int))) $
         Tree.Node 1 []
 
-    , compareClassifier $ Value (C_HashSet (ElemJust (C_Prim C_Int))) $
+    , compareClassifier $ Value (C_HashSet (ElemK (C_Prim C_Int))) $
         HashSet.fromList [1, 2, 3]
 
-    , compareClassifier $ Value (C_HashMap ElemNothingPair) $
+    , compareClassifier $ Value (C_HashMap ElemUU) $
         HashMap.empty
-    , compareClassifier $ Value (C_HashMap (ElemJustPair (C_Prim C_Int) (C_Prim C_Char))) $
+    , compareClassifier $ Value (C_HashMap (ElemKK (C_Prim C_Int) (C_Prim C_Char))) $
         HashMap.fromList [(1, 'a'), (2, 'b')]
 
-    , compareClassifier $ Value (C_HM_Array ElemNothing) $
+    , compareClassifier $ Value (C_HM_Array ElemU) $
         HashMap.Array.fromList 0 []
-    , compareClassifier $ Value (C_HM_Array (ElemJust (C_Prim C_Int))) $
+    , compareClassifier $ Value (C_HM_Array (ElemK (C_Prim C_Int))) $
         HashMap.Array.fromList 2 [1, 2]
 
-    , compareClassifier $ Value (C_Prim_Array ElemNothing) $
+    , compareClassifier $ Value (C_Prim_Array ElemU) $
         Prim.Array.arrayFromList []
-    , compareClassifier $ Value (C_Prim_Array (ElemJust (C_Prim C_Int))) $
+    , compareClassifier $ Value (C_Prim_Array (ElemK (C_Prim C_Int))) $
         Prim.Array.arrayFromList [1, 2, 3]
 
-    , compareClassifier $ Value (C_Vector_Boxed ElemNothing) $
+    , compareClassifier $ Value (C_Vector_Boxed ElemU) $
         Vector.Boxed.empty
-    , compareClassifier $ Value (C_Vector_Boxed (ElemJust (C_Prim C_Int))) $
+    , compareClassifier $ Value (C_Vector_Boxed (ElemK (C_Prim C_Int))) $
         Vector.Boxed.fromList [1, 2, 3]
 
       -- User defined
@@ -211,14 +211,14 @@ prop_constants = withMaxSuccess 1 $ conjoin [
     , compareClassifier $ Value (C_Other C_Simple) $
         SimpleB
 
-    , compareClassifier $ Value (C_Other (C_NonRec ElemNothing))  $
+    , compareClassifier $ Value (C_Other (C_NonRec ElemU))  $
         (NR1 1234)
-    , compareClassifier $ Value (C_Other (C_NonRec (ElemJust (C_Prim C_Char)))) $
+    , compareClassifier $ Value (C_Other (C_NonRec (ElemK (C_Prim C_Char)))) $
         (NR2 True 'a')
 
-    , compareClassifier $ Value (C_Other (C_Rec ElemNothing)) $
+    , compareClassifier $ Value (C_Other (C_Rec ElemU)) $
         RNil
-    , compareClassifier $ Value (C_Other (C_Rec (ElemJust (C_Prim C_Char)))) $
+    , compareClassifier $ Value (C_Other (C_Rec (ElemK (C_Prim C_Char)))) $
         (RCons 'a' RNil)
 
     , compareClassifier $ Value (C_Other C_Unlifted) $

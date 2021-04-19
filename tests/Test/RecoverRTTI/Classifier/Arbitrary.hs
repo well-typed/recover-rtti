@@ -155,7 +155,7 @@ arbitraryClassifier_  genOther = go
       => (forall x. Elems o '[x] -> c (f x))
       -> SizedGen (Some (GenJust c f))
       -> SizedGen (Some (DepGen c))
-    goF cf = fmap (\(Some a) -> Some (genJust (cf . ElemJust) a))
+    goF cf = fmap (\(Some a) -> Some (genJust (cf . ElemK) a))
 
     goMaybeF :: forall f.
          ( forall x. Show x => Show (f x)
@@ -167,8 +167,8 @@ arbitraryClassifier_  genOther = go
       -> SizedGen (Some (DepGen c))
     goMaybeF cf nothing just =
         SG.leafOrStep
-          (pure $ Some $ DepGen (cf ElemNothing) (pure nothing))
-          [(\(Some a) -> Some (genJust (cf . ElemJust) a)) <$> just]
+          (pure $ Some $ DepGen (cf ElemU) (pure nothing))
+          [(\(Some a) -> Some (genJust (cf . ElemK) a)) <$> just]
 
     goEitherF :: forall f.
          ( forall x y. (Show x, Show y) => Show (f x y)
@@ -180,8 +180,8 @@ arbitraryClassifier_  genOther = go
       -> SizedGen (Some (DepGen c))
     goEitherF cf left right =
         SG.oneofStepped [
-            (\(Some a) -> Some (genLeft  (cf . ElemLeft)  a)) <$> left
-          , (\(Some b) -> Some (genRight (cf . ElemRight) b)) <$> right
+            (\(Some a) -> Some (genLeft  (cf . ElemKU)  a)) <$> left
+          , (\(Some b) -> Some (genRight (cf . ElemUK) b)) <$> right
           ]
 
     goMaybePairF :: forall (f :: Type -> Type -> Type).
@@ -194,8 +194,8 @@ arbitraryClassifier_  genOther = go
       -> SizedGen (Some (DepGen c))
     goMaybePairF cf nothing just =
         SG.leafOrStep
-          (pure $ Some $ DepGen (cf ElemNothingPair) (pure nothing))
-          [(\(Some ab@GenPair{}) -> Some (genPair (cf . uncurry ElemJustPair) ab)) <$> just]
+          (pure $ Some $ DepGen (cf ElemUU) (pure nothing))
+          [(\(Some ab@GenPair{}) -> Some (genPair (cf . uncurry ElemKK) ab)) <$> just]
 
     goTuple :: SizedGen (Some (DepGen c))
     goTuple =
