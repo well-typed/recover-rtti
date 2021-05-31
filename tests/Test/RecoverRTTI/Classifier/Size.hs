@@ -35,6 +35,7 @@ classifierSize_ sizeOther = go
     go (C_HM_Array     c) = 1 + goElems c
     go (C_Prim_Array   c) = 1 + goElems c
     go (C_Vector_Boxed c) = 1 + goElems c
+    go (C_GHC_Array    c) = 1 + goElems c
     go (C_Tuple        c) = 1 + goElems c
 
     goElems :: SListI as => Elems o as -> Int

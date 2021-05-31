@@ -190,6 +190,7 @@ class (
   , forall a.   (c a)      => c (HashMap.Array a)
   , forall a.   (c a)      => c (Prim.Array a)
   , forall a.   (c a)      => c (Vector.Boxed.Vector a)
+  , forall a b. (c a, c b) => c (GhcArray a b)
   , forall xs. (All c xs,  IsValidSize (Length xs)) => c (WrappedTuple xs)
   ) => ClassifiedSatisfies (c :: Type -> Constraint)
 
@@ -210,6 +211,7 @@ instance (
   , forall a.   (c a)      => c (HashMap.Array a)
   , forall a.   (c a)      => c (Prim.Array a)
   , forall a.   (c a)      => c (Vector.Boxed.Vector a)
+  , forall a b. (c a, c b) => c (GhcArray a b)
   , forall xs. (All c xs,  IsValidSize (Length xs)) => c (WrappedTuple xs)
   ) => ClassifiedSatisfies (c :: Type -> Constraint)
 
@@ -238,6 +240,7 @@ classifiedSatisfies otherSatisfies = go
     go (C_HM_Array     c) = goElems c $ Dict
     go (C_Prim_Array   c) = goElems c $ Dict
     go (C_Vector_Boxed c) = goElems c $ Dict
+    go (C_GHC_Array    c) = goElems c $ Dict
     go (C_Tuple        c) = goElems c $ Dict
 
     goElems :: SListI as => Elems o as -> (All c as => r) -> r

@@ -27,6 +27,7 @@ import qualified Data.Tree                   as Tree
 import qualified Data.Vector                 as Vector.Boxed
 import qualified Data.Vector.Storable        as Vector.Storable
 import qualified Data.Vector.Primitive       as Vector.Primitive
+import qualified GHC.Arr                     as GHC.Arr
 
 import Test.Tasty
 import Test.Tasty.QuickCheck hiding (classify, NonEmpty)
@@ -199,6 +200,11 @@ prop_constants = withMaxSuccess 1 $ conjoin [
     , compareClassifier $ Value (C_Prim_Array (ElemK (C_Prim C_Int))) $
         Prim.Array.arrayFromList [1, 2, 3]
 
+    , compareClassifier $ Value (C_GHC_Array (ElemKU (C_Prim C_Int))) $
+        GhcArray $ GHC.Arr.listArray (0, -1) []
+    , compareClassifier $ Value (C_GHC_Array (ElemKK (C_Prim C_Int) (C_Prim C_String))) $
+        GhcArray $ GHC.Arr.listArray (3, 5) ["a", "b", "c"]
+
     , compareClassifier $ Value (C_Vector_Boxed ElemU) $
         Vector.Boxed.empty
     , compareClassifier $ Value (C_Vector_Boxed (ElemK (C_Prim C_Int))) $
@@ -293,6 +299,7 @@ prop_constants = withMaxSuccess 1 $ conjoin [
         C_HashMap{}      -> ()
         C_HM_Array{}     -> ()
         C_Prim_Array{}   -> ()
+        C_GHC_Array{}    -> ()
         C_Vector_Boxed{} -> ()
 
         -- User-defined

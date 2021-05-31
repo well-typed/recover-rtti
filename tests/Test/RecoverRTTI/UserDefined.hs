@@ -23,6 +23,7 @@ import Data.Proxy
 import GHC.Generics
 import GHC.IO
 import GHC.Prim
+import GHC.Show (appPrec, appPrec1)
 
 import Test.QuickCheck
 
@@ -35,7 +36,7 @@ data SimpleType = SimpleA | SimpleB
   deriving (Show, Eq, Generic)
 
 -- | Example of a non-recursive user-defined type
-data NonRecursive a = NR1 Int | NR2 Bool a 
+data NonRecursive a = NR1 Int | NR2 Bool a
   deriving (Show, Eq, Generic, Functor, Foldable, Traversable)
 
 -- | Example of a recursive user-defined type
@@ -56,9 +57,9 @@ recursiveFromList = foldr RCons RNil
 data ContainsUnlifted = ContainsUnlifted (MutableArray# RealWorld Int) Bool
 
 instance Show ContainsUnlifted where
-  showsPrec p (ContainsUnlifted _ x) = showParen (p >= 11) $
+  showsPrec p (ContainsUnlifted _ x) = showParen (p > appPrec) $
         showString "ContainsUnlifted "
-      . showsPrec 11 x
+      . showsPrec appPrec1 x
 
 instance Eq ContainsUnlifted where
   _ == _ = True

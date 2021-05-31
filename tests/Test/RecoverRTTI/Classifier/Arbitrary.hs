@@ -145,6 +145,8 @@ arbitraryClassifier_  genOther = go
         , go_U_K C_Vector_Boxed Vector.Boxed.empty
             (mapSome (GenK (SG.genListLike Vector.Boxed.fromList)) <$> go)
 
+          -- TODO: generator for GhcArray
+
         , goTuple
         ]
 
@@ -230,6 +232,7 @@ arbitraryClassifier_  genOther = go
         C_HM_Array{}     -> ()
         C_Prim_Array{}   -> ()
         C_Vector_Boxed{} -> ()
+        C_GHC_Array{}    -> ()
         C_Tuple{}        -> ()
 
 {-------------------------------------------------------------------------------
