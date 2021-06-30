@@ -4,7 +4,7 @@ Recover run-time type information from the GHC heap. The key function in this
 library is
 
 ```haskell
-classify :: a -> Classifier a
+classify :: a -> Either Closure (Classifier a)
 ```
 
 which recovers type information about values about which we know nothing (in
