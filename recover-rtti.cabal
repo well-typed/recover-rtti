@@ -1,6 +1,6 @@
 cabal-version:      2.4
 name:               recover-rtti
-version:            0.3.0.0
+version:            0.4.0.0
 synopsis:           Recover run-time type information from the GHC heap
 description:        The main function in this package is 'classify', which looks
                     at the GHC heap to recover type information about arbitrary
@@ -40,18 +40,24 @@ library
                       Debug.RecoverRTTI.Util
                       Debug.RecoverRTTI.Wrappers
 
-    build-depends:    base                 >= 4.13  && < 4.16
-                    , aeson                >= 1.4   && < 1.6
-                    , bytestring           >= 0.10  && < 0.11
-                    , containers           >= 0.6   && < 0.7
-                    , ghc-heap             >= 8.8   && < 9.1
-                    , mtl                  >= 2.2   && < 2.3
-                    , primitive
-                    , sop-core             >= 0.5   && < 0.6
-                    , stm                  >= 2.5   && < 2.6
-                    , text                 >= 1.2   && < 1.3
-                    , unordered-containers
-                    , vector
+    build-depends:    base                 >= 4.13     && < 4.16
+                    , aeson                >= 1.4      && < 1.6
+                    , bytestring           >= 0.10     && < 0.11
+                    , containers           >= 0.6      && < 0.7
+                    , ghc-heap             >= 8.8      && < 9.1
+                    , mtl                  >= 2.2      && < 2.3
+                    , sop-core             >= 0.5      && < 0.6
+                    , stm                  >= 2.5      && < 2.6
+                    , text                 >= 1.2      && < 1.3
+                      -- 0.2.12 introduces Data.HashMap.Internal.Array
+                    , unordered-containers >= 0.2.12   && < 0.3
+
+                      -- THe oldest ghc we support is 8.8.
+		      -- The dependencies below are the oldest versions of
+		      -- these packages that compile with this ghc version.
+                    , vector               >= 0.12.1.2 && < 0.13
+                    , primitive            >= 0.7      && < 0.8
+
     hs-source-dirs:   src
     default-language: Haskell2010
     ghc-options:      -Wall
