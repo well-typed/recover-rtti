@@ -1,5 +1,17 @@
 # Revision history for recover-rtti
 
+## 0.4 -- 2021-06-30
+
+* Correctly set some required lower bounds.
+* Add support for reclassification
+* Add classification equality check
+* Add support for primitive arrays and vectors
+* Fix classification on OSX
+* General internal cleanup of the library
+
+This release is backwards incompatible with 0.3, but users that simply use
+`anythingToString` should be unaffected.
+
 ## 0.3.0.0 -- 2021-03-17
 
 * Fix bug that could cause `anythingToString` to fail on lists with an

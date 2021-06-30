@@ -139,8 +139,8 @@ arbitraryClassifier_  genOther = go
           go_U_K C_HM_Array (mkArray [])
             (mapSome (GenK (SG.genListLike mkArray)) <$> go)
 
-        , go_U_K C_Prim_Array (Prim.Array.arrayFromList [])
-            (mapSome (GenK (SG.genListLike Prim.Array.arrayFromList)) <$> go)
+        , go_U_K C_Prim_Array (Prim.Array.fromList [])
+            (mapSome (GenK (SG.genListLike Prim.Array.fromList)) <$> go)
 
         , go_U_K C_Vector_Boxed Vector.Boxed.empty
             (mapSome (GenK (SG.genListLike Vector.Boxed.fromList)) <$> go)

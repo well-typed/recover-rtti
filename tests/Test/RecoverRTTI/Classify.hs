@@ -195,9 +195,9 @@ prop_constants = withMaxSuccess 1 $ conjoin [
         HashMap.Array.fromList 2 [1, 2]
 
     , compareClassifier $ Value (C_Prim_Array ElemU) $
-        Prim.Array.arrayFromList []
+        Prim.Array.fromList []
     , compareClassifier $ Value (C_Prim_Array (ElemK (C_Prim C_Int))) $
-        Prim.Array.arrayFromList [1, 2, 3]
+        Prim.Array.fromList [1, 2, 3]
 
     , compareClassifier $ Value (C_Vector_Boxed ElemU) $
         Vector.Boxed.empty
