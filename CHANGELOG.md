@@ -1,5 +1,11 @@
 # Revision history for recover-rtti
 
+## 0.4.1 -- 2022-03-17
+
+* Support for ghc 9.2, bytestring 0.11, aeson 0.2
+* Added `traceAnything` and `traceAnythingId` (#13)
+* Added deriving-via support (`AnythingToString`, `BoxAnything`) (#3)
+
 ## 0.4 -- 2021-06-30
 
 * Correctly set some required lower bounds.
