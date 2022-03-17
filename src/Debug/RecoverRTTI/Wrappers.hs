@@ -26,14 +26,18 @@ module Debug.RecoverRTTI.Wrappers (
   , SomeStorableVectorM(..)
   , SomePrimitiveVector(..)
   , SomePrimitiveVectorM(..)
+  , GhcArray(..)
   ) where
 
 import Control.Concurrent.MVar (MVar)
 import Control.Concurrent.STM (TVar)
 import Data.STRef (STRef)
 import GHC.Exts
+import GHC.Show (appPrec, appPrec1)
 
 import qualified Data.Primitive.Array as Prim (MutableArray)
+import qualified GHC.Arr              as GHC (Array)
+import qualified GHC.Arr              as GHC.Arr
 
 {-------------------------------------------------------------------------------
   User-defined types
@@ -62,13 +66,19 @@ newtype SomeFun = SomeFun (Any -> Any)
   elements; the show instance merely shows an address.
 -------------------------------------------------------------------------------}
 
-newtype SomeSTRef = SomeSTRef (STRef Any Any)
+newtype SomeSTRef = SomeSTRef {
+      getSomeSTRef :: STRef Any Any
+    }
   deriving (Eq)
 
-newtype SomeMVar = SomeMVar (MVar Any)
+newtype SomeMVar = SomeMVar {
+      getSomeMVar :: MVar Any
+    }
   deriving (Eq)
 
-newtype SomeTVar = SomeTVar (TVar Any)
+newtype SomeTVar = SomeTVar {
+      getSomeTVar :: TVar Any
+    }
   deriving (Eq)
 
 {-------------------------------------------------------------------------------
@@ -82,7 +92,9 @@ newtype SomeTVar = SomeTVar (TVar Any)
   which could look inside mutable structures (references, arrays, ..).
 -------------------------------------------------------------------------------}
 
-newtype SomePrimArrayM = SomePrimArrayM (Prim.MutableArray RealWorld Any)
+newtype SomePrimArrayM = SomePrimArrayM {
+      getSomePrimArrayM :: Prim.MutableArray RealWorld Any
+    }
 
 -- | Storable vector ("Data.Vector.Storable")
 --
@@ -91,20 +103,36 @@ newtype SomePrimArrayM = SomePrimArrayM (Prim.MutableArray RealWorld Any)
 -- through the 'Storable' type class. In order to get at any element, we'd need
 -- to have the corresponding 'Storable' instance, but of course we don't have it
 -- if we don't have the type.
-newtype SomeStorableVector = SomeStorableVector Any
+newtype SomeStorableVector = SomeStorableVector {
+      getSomeStorableVector :: Any
+    }
 
 -- | Mutable storage vector ("Data.Vector.Storable")
 --
 -- See 'SomeStorableVector' for some details on why we don't infer anything here.
-newtype SomeStorableVectorM = SomeStorableVectorM Any
+newtype SomeStorableVectorM = SomeStorableVectorM {
+      getSomeStorableVectorM :: Any
+    }
 
 -- | Primitive vector ("Data.Vector.Primitive")
 --
 -- See 'SomeStorableVector' for why we can't classify elements of these vectors.
-newtype SomePrimitiveVector = SomePrimitiveVector Any
+newtype SomePrimitiveVector = SomePrimitiveVector {
+      getSomePrimitiveVector :: Any
+    }
 
 -- | Mutable primitive vector
-newtype SomePrimitiveVectorM = SomePrimitiveVectorM Any
+newtype SomePrimitiveVectorM = SomePrimitiveVectorM {
+      getSomePrimitiveVectorM :: Any
+    }
+
+-- | GHC Array
+--
+-- The sole purpose of this wrapper is to provide a different 'Show' instance
+-- which does not depend on 'Ix'
+newtype GhcArray i e = GhcArray {
+      getGhcArray :: GHC.Array i e
+    }
 
 {-------------------------------------------------------------------------------
   Show instances
@@ -144,3 +172,10 @@ instance Show SomePrimitiveVector where
 
 instance Show SomePrimitiveVectorM where
   show _ = "<Data.Vector.Primitive.MVector>"
+
+instance (Show i, Show e) => Show (GhcArray i e) where
+  showsPrec p (GhcArray a) = showParen (p > appPrec) $
+        showString "listArray "
+      . showsPrec appPrec1 (GHC.Arr.bounds a)
+      . showChar ' '
+      . showsPrec appPrec1 (GHC.Arr.elems a)

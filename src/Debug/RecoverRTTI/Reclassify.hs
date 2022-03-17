@@ -80,6 +80,7 @@ distribReclassified = go
     go (C_HM_Array     c) = go1 C_HM_Array     c
     go (C_Prim_Array   c) = go1 C_Prim_Array   c
     go (C_Vector_Boxed c) = go1 C_Vector_Boxed c
+    go (C_GHC_Array    c) = go2 C_GHC_Array    c
     go (C_Tuple        c) = goN C_Tuple        c
 
     go1 :: forall f a.

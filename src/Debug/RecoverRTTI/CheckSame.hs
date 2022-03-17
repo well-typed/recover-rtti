@@ -172,6 +172,7 @@ sameClassifier_ sameOther = go
     go (C_HM_Array     c) (C_HM_Array     c') = sameElems sameOther c c' $ Refl
     go (C_Prim_Array   c) (C_Prim_Array   c') = sameElems sameOther c c' $ Refl
     go (C_Vector_Boxed c) (C_Vector_Boxed c') = sameElems sameOther c c' $ Refl
+    go (C_GHC_Array    c) (C_GHC_Array    c') = sameElems sameOther c c' $ Refl
     go (C_Tuple        c) (C_Tuple        c') = sameElems sameOther c c' $ Refl
 
     -- No match
@@ -198,6 +199,7 @@ sameClassifier_ sameOther = go
            C_HM_Array{}     -> ()
            C_Prim_Array{}   -> ()
            C_Vector_Boxed{} -> ()
+           C_GHC_Array{}    -> ()
            C_Tuple{}        -> ()
 
 sameElem :: forall o.

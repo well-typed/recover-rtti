@@ -48,6 +48,7 @@ import Data.Tree (Tree)
 import Data.Void
 import GHC.Exts.Heap (Closure)
 import GHC.Real
+import GHC.Show (appPrec, appPrec1)
 import System.IO.Unsafe (unsafePerformIO)
 import Unsafe.Coerce (unsafeCoerce)
 
@@ -60,6 +61,7 @@ import qualified Data.Primitive.Array        as Prim.Array
 import qualified Data.Primitive.Array        as Prim (Array)
 import qualified Data.Tree                   as Tree
 import qualified Data.Vector                 as Vector.Boxed
+import qualified GHC.Arr                     as GHC.Arr
 
 import Debug.RecoverRTTI.Classifier
 import Debug.RecoverRTTI.Constraint
@@ -258,6 +260,10 @@ classifyIO x = do
       (inKnownModule DataVectorPrimitiveMutable -> Just "MVector") ->
         return $ mustBe $ C_Prim C_Vector_PrimitiveM
 
+      -- GHC arrays from base
+      (inKnownModule GhcArr -> Just "Array") ->
+        mustBe <$> classifyGhcArray (unsafeCoerce x)
+
       --
       -- Reference cells
       --
@@ -376,6 +382,20 @@ classifyVectorBoxed =
       C_Vector_Boxed
       Vector.Boxed.length
       Vector.Boxed.head
+
+classifyGhcArray :: forall a b.
+     GhcArray a b
+  -> ExceptT Closure IO (Classifier (GhcArray a b))
+classifyGhcArray (GhcArray arr) = do
+    ca <- classifyIO lo
+    if GHC.Arr.numElements arr == 0 then
+      return $ mustBe $ C_GHC_Array (ElemKU ca)
+    else do
+      cb <- classifyIO (GHC.Arr.unsafeAt arr 0) -- safe due to size check
+      return $ C_GHC_Array (ElemKK ca cb)  
+  where
+    lo, _hi :: a
+    (lo, _hi) = GHC.Arr.bounds arr
 
 classifyTuple ::
      (SListI xs, IsValidSize (Length xs))
@@ -523,13 +543,13 @@ anythingToString x =
 deriving instance Show (Some Classified)
 
 instance Show (Classified a) where
-  showsPrec p (Classified c x) = showParen (p >= 11) $
+  showsPrec p (Classified c x) = showParen (p > appPrec) $
       case canShowClassified c of
         Dict ->
             showString "Classified "
-          . showsPrec 11 c
+          . showsPrec appPrec1 c
           . showString " "
-          . showsPrec 11 x
+          . showsPrec appPrec1 x
 
 -- | Show the classified value (without the classifier)
 showClassifiedValue :: Int -> Classified a -> ShowS
@@ -555,10 +575,10 @@ instance Show UserDefined where
   showsPrec p x =
       case args of
         [] -> showString constrName
-        xs -> showParen (p >= 11)
+        xs -> showParen (p > appPrec)
             . (showString constrName .)
             . foldl (.) id
-            . map (\(Some x') -> showString " " . showClassifiedValue 11 x')
+            . map (\(Some x') -> showString " " . showClassifiedValue appPrec1 x')
             $ xs
     where
       (constrName, args) = fromUserDefined x
