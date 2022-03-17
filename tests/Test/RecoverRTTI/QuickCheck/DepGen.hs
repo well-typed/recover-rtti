@@ -70,7 +70,7 @@ primDepGen C_String = DepGen (C_Prim C_String) $ SG.lift $
     arbitrary `suchThat` (not . null) -- empty string classified as @[Void]@
 primDepGen c =
     case (primSatisfiesArbitrary c, canShowPrim c, canComparePrim c) of
-      (Dict, Dict, Dict) -> arbitraryDepGen (C_Prim c)
+      (Dict, Dict, Dict) -> DepGen (C_Prim c) $ unwrap <$> SG.arbitrary
 
 {-------------------------------------------------------------------------------
   Bundle a dependent generator with a lifting function
