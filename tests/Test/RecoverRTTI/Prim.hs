@@ -1,17 +1,27 @@
-{-# LANGUAGE GADTs             #-}
-{-# LANGUAGE LambdaCase        #-}
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE DerivingStrategies         #-}
+{-# LANGUAGE FlexibleInstances          #-}
+{-# LANGUAGE GADTs                      #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE LambdaCase                 #-}
+{-# LANGUAGE OverloadedStrings          #-}
+{-# LANGUAGE StandaloneDeriving         #-}
 
 module Test.RecoverRTTI.Prim (
     -- * Equality
     canComparePrim
     -- * Arbitrary
+  , Wrap(..)
   , primSatisfiesArbitrary
   , arbitraryPrimClassifier
   ) where
 
-import Control.Monad
+import Control.Monad (replicateM)
+import Data.Int
+import Data.IntSet (IntSet)
+import Data.SOP (Compose)
 import Data.SOP.Dict
+import Data.String (fromString)
+import Data.Word
 import Unsafe.Coerce (unsafeCoerce)
 
 import qualified Data.Aeson            as Aeson
@@ -21,13 +31,14 @@ import qualified Data.ByteString.Short as BS.Short
 import qualified Data.Text             as Text.Strict
 import qualified Data.Text.Lazy        as Text.Lazy
 import qualified Data.Vector           as Vector.Boxed
-import qualified Data.Vector.Storable  as Vector.Storable
 import qualified Data.Vector.Primitive as Vector.Primitive
+import qualified Data.Vector.Storable  as Vector.Storable
 
 import Debug.RecoverRTTI
 
 import Test.QuickCheck
 
+import Test.RecoverRTTI.Classifier.Equality ()
 import Test.RecoverRTTI.Globals
 
 {-------------------------------------------------------------------------------
@@ -41,7 +52,7 @@ canComparePrim = primSatisfies
   Arbitrary support for the primitive types
 -------------------------------------------------------------------------------}
 
-primSatisfiesArbitrary :: PrimClassifier a -> Dict Arbitrary a
+primSatisfiesArbitrary :: PrimClassifier a -> Dict (Compose Arbitrary Wrap) a
 primSatisfiesArbitrary = primSatisfies
 
 arbitraryPrimClassifier :: Gen (Some PrimClassifier)
@@ -154,26 +165,52 @@ arbitraryPrimClassifier = elements [
         C_Vector_PrimitiveM -> ()
 
 {-------------------------------------------------------------------------------
-  Orphan instances
--------------------------------------------------------------------------------}
+  Arbitrary instances for specific types
+  -------------------------------------------------------------------------------}
 
-instance Arbitrary BS.Strict.ByteString where
-  arbitrary = BS.Strict.pack <$> arbitrary
+-- | 'Wrap' makes it possible to override an 'Arbitrary' instance if needed.
+newtype Wrap a = Wrap { unwrap :: a }
 
-instance Arbitrary BS.Lazy.ByteString where
-  arbitrary = BS.Lazy.pack <$> arbitrary
+deriving newtype instance Arbitrary (Wrap ())
+deriving newtype instance Arbitrary (Wrap Bool)
+deriving newtype instance Arbitrary (Wrap Char)
+deriving newtype instance Arbitrary (Wrap Double)
+deriving newtype instance Arbitrary (Wrap Float)
+deriving newtype instance Arbitrary (Wrap Int)
+deriving newtype instance Arbitrary (Wrap Int16)
+deriving newtype instance Arbitrary (Wrap Int32)
+deriving newtype instance Arbitrary (Wrap Int64)
+deriving newtype instance Arbitrary (Wrap Int8)
+deriving newtype instance Arbitrary (Wrap Integer)
+deriving newtype instance Arbitrary (Wrap IntSet)
+deriving newtype instance Arbitrary (Wrap Ordering)
+deriving newtype instance Arbitrary (Wrap String)
+deriving newtype instance Arbitrary (Wrap Word)
+deriving newtype instance Arbitrary (Wrap Word16)
+deriving newtype instance Arbitrary (Wrap Word32)
+deriving newtype instance Arbitrary (Wrap Word64)
+deriving newtype instance Arbitrary (Wrap Word8)
 
-instance Arbitrary BS.Short.ShortByteString where
-  arbitrary = BS.Short.pack <$> arbitrary
+instance Arbitrary (Wrap BS.Strict.ByteString) where
+  arbitrary = Wrap . BS.Strict.pack <$> arbitrary
 
-instance Arbitrary Text.Strict.Text where
-  arbitrary = Text.Strict.pack <$> arbitrary
+instance Arbitrary (Wrap BS.Lazy.ByteString) where
+  arbitrary = Wrap . BS.Lazy.pack <$> arbitrary
 
-instance Arbitrary Text.Lazy.Text where
-  arbitrary = Text.Lazy.pack <$> arbitrary
+instance Arbitrary (Wrap BS.Short.ShortByteString) where
+  arbitrary = Wrap . BS.Short.pack <$> arbitrary
 
-instance Arbitrary Aeson.Value where
-  arbitrary = choose (0, 10) >>= go
+instance Arbitrary (Wrap Text.Strict.Text) where
+  arbitrary = Wrap . Text.Strict.pack <$> arbitrary
+
+instance Arbitrary (Wrap Text.Lazy.Text) where
+  arbitrary = Wrap . Text.Lazy.pack <$> arbitrary
+
+-- | aeson >= 2.0.3.0 does define an 'Arbitrary' instance for 'Aeson.Value',
+-- but it generates values that are too big, which cause the size sanity check
+-- on the generator 'prop_showGenerated' to start to fail.
+instance Arbitrary (Wrap Aeson.Value) where
+  arbitrary = choose (0, 10) >>= fmap Wrap . go
     where
       go :: Int -> Gen Aeson.Value
       go 0  = oneof nonRecursive
@@ -194,19 +231,19 @@ instance Arbitrary Aeson.Value where
           , do n <- choose (0, 5)
                Aeson.object <$> replicateM n (
                        (Aeson..=)
-                   <$> fieldName
+                   <$> (fromString <$> fieldName)
                    <*> go (sz `div` n)
                  )
           ]
 
       -- We're not interested in testing crazy values
-      fieldName :: Gen Text.Strict.Text
+      fieldName :: Gen String
       fieldName = elements ["a", "b", "c"]
 
 -- | Rather than trying to be clever here, we just generate a handful of
 -- examples in different categories.
-instance Arbitrary SomeFun where
-  arbitrary = elements [
+instance Arbitrary (Wrap SomeFun) where
+  arbitrary = fmap Wrap $ elements [
         -- Parametrically polymorphic function
         fun (id    :: Int -> Int)
       , fun (const :: Int -> Bool -> Int)
@@ -221,8 +258,8 @@ instance Arbitrary SomeFun where
       fun :: (a -> b) -> SomeFun
       fun = unsafeCoerce
 
-instance Arbitrary SomeStorableVector where
-  arbitrary = elements [
+instance Arbitrary (Wrap SomeStorableVector) where
+  arbitrary = fmap Wrap $ elements [
         some $ Vector.Storable.fromList ([1, 2, 3] :: [Int])
       , some $ Vector.Storable.fromList ("abc"     :: String)
       ]
@@ -230,8 +267,8 @@ instance Arbitrary SomeStorableVector where
       some :: Vector.Storable.Vector a -> SomeStorableVector
       some = unsafeCoerce
 
-instance Arbitrary SomePrimitiveVector where
-  arbitrary = elements [
+instance Arbitrary (Wrap SomePrimitiveVector) where
+  arbitrary = fmap Wrap $ elements [
         some $ Vector.Primitive.fromList ([1, 2, 3] :: [Int])
       , some $ Vector.Primitive.fromList ("abc"     :: String)
       ]
@@ -243,50 +280,20 @@ instance Arbitrary SomePrimitiveVector where
   For the mutable variables, we just use the one global example
 -------------------------------------------------------------------------------}
 
-instance Arbitrary SomeSTRef where
-  arbitrary = return exampleSTRef
+instance Arbitrary (Wrap SomeSTRef) where
+  arbitrary = return $ Wrap exampleSTRef
 
-instance Arbitrary SomeTVar where
-  arbitrary = return exampleTVar
+instance Arbitrary (Wrap SomeTVar) where
+  arbitrary = return $ Wrap exampleTVar
 
-instance Arbitrary SomeMVar where
-  arbitrary = return exampleMVar
+instance Arbitrary (Wrap SomeMVar) where
+  arbitrary = return $ Wrap exampleMVar
 
-instance Arbitrary SomePrimArrayM where
-  arbitrary = return examplePrimArrayM
+instance Arbitrary (Wrap SomePrimArrayM) where
+  arbitrary = return $ Wrap examplePrimArrayM
 
-instance Arbitrary SomeStorableVectorM where
-  arbitrary = return exampleStorableVectorM
+instance Arbitrary (Wrap SomeStorableVectorM) where
+  arbitrary = return $ Wrap exampleStorableVectorM
 
-instance Arbitrary SomePrimitiveVectorM where
-  arbitrary = return examplePrimitiveVectorM
-
-{-------------------------------------------------------------------------------
-  Orphan equality instances
--------------------------------------------------------------------------------}
-
--- | Degenerate 'Eq' instance for functions that always says 'True'
---
--- When we compare values up to the coercion returned by 'reclassify', we need
--- an 'Eq' instance. We can't compare functions in any meaningful way though,
--- and so we just return 'True' here no matter what.
---
--- This is an orphan defined in the test suite only, so that users of the
--- library don't have acccess to this (misleading) instance.
-instance Eq SomeFun where
-  _ == _ = True
-
-instance Eq SomePrimArrayM where
-  _ == _ = True
-
-instance Eq SomeStorableVector where
-  _ == _ = True
-
-instance Eq SomeStorableVectorM where
-  _ == _ = True
-
-instance Eq SomePrimitiveVector where
-  _ == _ = True
-
-instance Eq SomePrimitiveVectorM where
-  _ == _ = True
+instance Arbitrary (Wrap SomePrimitiveVectorM) where
+  arbitrary = return $ Wrap examplePrimitiveVectorM
