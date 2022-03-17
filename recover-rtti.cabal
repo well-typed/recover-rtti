@@ -30,6 +30,7 @@ library
     other-modules:    Debug.RecoverRTTI.CheckSame
                       Debug.RecoverRTTI.Classifier
                       Debug.RecoverRTTI.Constraint
+                      Debug.RecoverRTTI.Debugging
                       Debug.RecoverRTTI.FlatClosure
                       Debug.RecoverRTTI.Modules
                       Debug.RecoverRTTI.Nat
@@ -95,6 +96,7 @@ test-suite test-recover-rtti
                     , sop-core
                     , stm
                     , tasty
+                    , tasty-hunit
                     , tasty-quickcheck
                     , text
                     , unordered-containers

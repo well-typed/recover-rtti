@@ -2,6 +2,13 @@
 module Debug.RecoverRTTI (
     -- * Take advance of the recovered type information
     anythingToString
+    -- * Debugging support
+    -- ** Tracing
+  , traceAnything
+  , traceAnythingId
+    -- ** Deriving-via
+  , AnythingToString(..)
+  , BoxAnything(..)
     -- * Recover type information
   , classify
   , Classifier
@@ -81,6 +88,7 @@ import Debug.RecoverRTTI.CheckSame
 import Debug.RecoverRTTI.Classifier
 import Debug.RecoverRTTI.Classify
 import Debug.RecoverRTTI.Constraint
+import Debug.RecoverRTTI.Debugging
 import Debug.RecoverRTTI.Nat
 import Debug.RecoverRTTI.Reclassify
 import Debug.RecoverRTTI.Tuple
