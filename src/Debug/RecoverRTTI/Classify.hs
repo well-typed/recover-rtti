@@ -36,7 +36,9 @@ module Debug.RecoverRTTI.Classify (
   , pattern ElemUK
   ) where
 
+import Control.Monad
 import Control.Monad.Except
+import Control.Monad.Trans
 import Data.HashMap.Lazy (HashMap)
 import Data.IntMap (IntMap)
 import Data.Map (Map)
