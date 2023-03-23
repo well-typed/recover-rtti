@@ -1,5 +1,10 @@
 # Revision history for recover-rtti
 
+## 0.4.2 -- 2023-03-23
+
+* Support mtl 2.3 (requiring at least 2.3.1) (#26).
+  Thanks to Rebecca Turner.
+
 ## 0.4.1 -- 2022-03-17
 
 * Support for ghc 9.2, bytestring 0.11, aeson 0.2

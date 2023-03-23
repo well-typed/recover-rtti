@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP                   #-}
 {-# LANGUAGE DataKinds             #-}
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE FlexibleInstances     #-}
@@ -38,7 +39,6 @@ module Debug.RecoverRTTI.Classify (
 
 import Control.Monad
 import Control.Monad.Except
-import Control.Monad.Trans
 import Data.HashMap.Lazy (HashMap)
 import Data.IntMap (IntMap)
 import Data.Map (Map)
@@ -52,6 +52,10 @@ import GHC.Exts.Heap (Closure)
 import GHC.Real
 import System.IO.Unsafe (unsafePerformIO)
 import Unsafe.Coerce (unsafeCoerce)
+
+#if MIN_VERSION_mtl(2,3,0)
+import Control.Monad.Trans
+#endif
 
 import qualified Data.Foldable               as Foldable
 import qualified Data.HashMap.Internal.Array as HashMap (Array)
