@@ -46,7 +46,7 @@ library
                       Debug.RecoverRTTI.Wrappers
 
     build-depends:    base       >= 4.13 && < 4.17
-                    , aeson      >= 1.4  && < 2.1
+                    , aeson      >= 1.4  && < 2.2
                     , bytestring >= 0.10 && < 0.12
                     , containers >= 0.6  && < 0.7
                     , ghc-heap   >= 8.8  && < 9.3
