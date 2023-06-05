@@ -213,7 +213,12 @@ inKnownModuleNested = go singPkg
     nameModl = \case
         SGhcPrim -> \case
           GhcTypes -> "GHC.Types"
+
+#if MIN_VERSION_ghc_prim(0,10,0)
+          GhcTuple -> "GHC.Tuple.Prim"
+#else
           GhcTuple -> "GHC.Tuple"
+#endif
 
         SBase -> \case
           GhcInt      -> "GHC.Int"
