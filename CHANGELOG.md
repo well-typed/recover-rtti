@@ -1,5 +1,12 @@
 # Revision history for recover-rtti
 
+## 0.4.3 -- 2023-06-05
+
+* Support aeson 2.1, vector 0.13, and primitive 0.8
+  (Mitchell Rosen, #29, #35, #36)
+* Support bytestring 0.11.4
+* Support ghc 9.4 and 9.6
+
 ## 0.4.2 -- 2023-03-23
 
 * Support mtl 2.3 (requiring at least 2.3.1) (#26).
