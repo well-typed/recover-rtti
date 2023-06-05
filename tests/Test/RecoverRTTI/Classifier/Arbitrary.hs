@@ -6,6 +6,7 @@
 {-# LANGUAGE QuantifiedConstraints #-}
 {-# LANGUAGE RankNTypes            #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
+{-# LANGUAGE TypeOperators         #-}
 
 module Test.RecoverRTTI.Classifier.Arbitrary (arbitraryClassifier_) where
 

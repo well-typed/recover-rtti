@@ -128,10 +128,11 @@ classifyIO x = do
       --
 
       -- bytestring
-      --
-      -- bytestring changed from PS to BS in version 0.11
-      (inKnownModule DataByteStringInternal      -> Just "PS")    -> return $ mustBe $ C_Prim C_BS_Strict
+#if MIN_VERSION_bytestring(0,11,0)
       (inKnownModule DataByteStringInternal      -> Just "BS")    -> return $ mustBe $ C_Prim C_BS_Strict
+#else
+      (inKnownModule DataByteStringInternal      -> Just "PS")    -> return $ mustBe $ C_Prim C_BS_Strict
+#endif
       (inKnownModule DataByteStringLazyInternal  -> Just "Empty") -> return $ mustBe $ C_Prim C_BS_Lazy
       (inKnownModule DataByteStringLazyInternal  -> Just "Chunk") -> return $ mustBe $ C_Prim C_BS_Lazy
       (inKnownModule DataByteStringShortInternal -> Just "SBS")   -> return $ mustBe $ C_Prim C_BS_Short
