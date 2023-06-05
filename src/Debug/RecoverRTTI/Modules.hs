@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP            #-}
 {-# LANGUAGE DataKinds      #-}
 {-# LANGUAGE GADTs          #-}
 {-# LANGUAGE KindSignatures #-}
@@ -185,9 +186,11 @@ inKnownModuleNested :: IsKnownPkg pkg
   -> FlatClosure -> Maybe (String, [Box])
 inKnownModuleNested = go singPkg
   where
+    -- We ignore the package version: we assume that we are linked against only
+    -- a single version of each package, and that those versions are statically
+    -- known (that is, we can use CPP where necessary).
     go :: SPkg pkg -> KnownModule pkg -> FlatClosure -> Maybe (String, [Box])
     go knownPkg knownModl ConstrClosure{pkg, modl, name, ptrArgs} = do
-        -- We ignore the package version for now
         guard (stripVowels (namePkg knownPkg) `isPrefixOf` stripVowels pkg)
         guard (modl == nameModl knownPkg knownModl)
         return (name, ptrArgs)
@@ -223,7 +226,11 @@ inKnownModuleNested = go singPkg
           DataEither  -> "Data.Either"
 
         SByteString -> \case
+#if MIN_VERSION_bytestring(0,11,4)
+          DataByteStringInternal      -> "Data.ByteString.Internal.Type"
+#else
           DataByteStringInternal      -> "Data.ByteString.Internal"
+#endif
           DataByteStringLazyInternal  -> "Data.ByteString.Lazy.Internal"
           DataByteStringShortInternal -> "Data.ByteString.Short.Internal"
 

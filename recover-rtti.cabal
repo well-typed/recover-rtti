@@ -47,7 +47,7 @@ library
 
     build-depends:    base       >= 4.13 && < 4.18
                     , aeson      >= 1.4  && < 2.2
-                    , bytestring >= 0.10 && < 0.11.4
+                    , bytestring >= 0.10 && < 0.12
                     , containers >= 0.6  && < 0.7
                     , ghc-heap   >= 8.8  && < 9.5
                     , sop-core   >= 0.5  && < 0.6
