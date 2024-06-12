@@ -135,7 +135,9 @@ classifyIO x = do
 #endif
       (inKnownModule DataByteStringLazyInternal  -> Just "Empty") -> return $ mustBe $ C_Prim C_BS_Lazy
       (inKnownModule DataByteStringLazyInternal  -> Just "Chunk") -> return $ mustBe $ C_Prim C_BS_Lazy
+#if !MIN_VERSION_bytestring(0,12,0)
       (inKnownModule DataByteStringShortInternal -> Just "SBS")   -> return $ mustBe $ C_Prim C_BS_Short
+#endif
 
       -- text
       (inKnownModule DataTextInternal     -> Just "Text")  -> return $ mustBe $ C_Prim C_Text_Strict
@@ -251,6 +253,18 @@ classifyIO x = do
         mustBe <$> classifyPrimArray (unsafeCoerce x)
       (inKnownModule DataPrimitiveArray -> Just "MutableArray") ->
         return $ mustBe $ C_Prim C_Prim_ArrayM
+
+#if !MIN_VERSION_primitive(0,8,0)
+      (inKnownModule DataPrimitiveByteArray -> Just "ByteArray") ->
+        return $ mustBe $ C_Prim C_ByteArray
+      (inKnownModule DataPrimitiveByteArray -> Just "MutableByteArray") ->
+        return $ mustBe $ C_Prim C_MutableByteArray
+#else
+      (inKnownModule DataArrayByte -> Just "ByteArray") ->
+        return $ mustBe $ C_Prim C_ByteArray
+      (inKnownModule DataArrayByte -> Just "MutableByteArray") ->
+        return $ mustBe $ C_Prim C_MutableByteArray
+#endif
 
       -- Boxed vectors
       (inKnownModule DataVector -> Just "Vector") ->

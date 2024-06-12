@@ -1,3 +1,5 @@
+{-# LANGUAGE CPP #-}
+
 -- | Global mutable variables
 --
 -- The tests are entirely pure, but occassionally needs examples of these
@@ -10,6 +12,7 @@ module Test.RecoverRTTI.Globals (
   , examplePrimArrayM
   , exampleStorableVectorM
   , examplePrimitiveVectorM
+  , exampleMutableByteArray
   ) where
 
 import Control.Concurrent.MVar (newEmptyMVar)
@@ -20,9 +23,16 @@ import Data.STRef (newSTRef)
 import System.IO.Unsafe (unsafePerformIO)
 import Unsafe.Coerce (unsafeCoerce)
 
-import qualified Data.Primitive.Array  as Prim.Array
-import qualified Data.Vector.Primitive as Vector.Primitive
-import qualified Data.Vector.Storable  as Vector.Storable
+#if MIN_VERSION_base(4,17,0)
+import qualified GHC.IsList as IsList
+#else
+import qualified GHC.Exts as IsList (fromList)
+#endif
+
+import qualified Data.Primitive.Array     as Prim.Array
+import qualified Data.Primitive.ByteArray as Prim.ByteArray
+import qualified Data.Vector.Primitive    as Vector.Primitive
+import qualified Data.Vector.Storable     as Vector.Storable
 
 import Debug.RecoverRTTI
 
@@ -60,3 +70,8 @@ examplePrimitiveVectorM :: SomePrimitiveVectorM
 {-# NOINLINE examplePrimitiveVectorM #-}
 examplePrimitiveVectorM = unsafePerformIO $
     unsafeCoerce <$> Vector.Primitive.thaw (Vector.Primitive.fromList "abc")
+
+exampleMutableByteArray :: SomeMutableByteArray
+{-# NOINLINE exampleMutableByteArray #-}
+exampleMutableByteArray = unsafePerformIO $
+    SomeMutableByteArray <$> Prim.ByteArray.thawByteArray (IsList.fromList [0, 1, 2]) 0 3

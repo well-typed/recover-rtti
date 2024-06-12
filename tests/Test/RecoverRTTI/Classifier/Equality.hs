@@ -40,3 +40,6 @@ instance Eq SomePrimitiveVector where
 
 instance Eq SomePrimitiveVectorM where
   _ == _ = True
+
+instance Eq SomeMutableByteArray where
+  _ == _ = True

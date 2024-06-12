@@ -35,7 +35,7 @@ data SimpleType = SimpleA | SimpleB
   deriving (Show, Eq, Generic)
 
 -- | Example of a non-recursive user-defined type
-data NonRecursive a = NR1 Int | NR2 Bool a 
+data NonRecursive a = NR1 Int | NR2 Bool a
   deriving (Show, Eq, Generic, Functor, Foldable, Traversable)
 
 -- | Example of a recursive user-defined type

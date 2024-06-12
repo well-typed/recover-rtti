@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP                        #-}
 {-# LANGUAGE DerivingStrategies         #-}
 {-# LANGUAGE FlexibleInstances          #-}
 {-# LANGUAGE GADTs                      #-}
@@ -24,15 +25,25 @@ import Data.String (fromString)
 import Data.Word
 import Unsafe.Coerce (unsafeCoerce)
 
-import qualified Data.Aeson            as Aeson
-import qualified Data.ByteString       as BS.Strict
-import qualified Data.ByteString.Lazy  as BS.Lazy
+#if MIN_VERSION_base(4,17,0)
+import qualified GHC.IsList as IsList
+#else
+import qualified GHC.Exts as IsList (fromList)
+#endif
+
+import qualified Data.Aeson               as Aeson
+import qualified Data.ByteString          as BS.Strict
+import qualified Data.ByteString.Lazy     as BS.Lazy
+import qualified Data.Primitive.ByteArray as Prim (ByteArray)
+import qualified Data.Text                as Text.Strict
+import qualified Data.Text.Lazy           as Text.Lazy
+import qualified Data.Vector              as Vector.Boxed
+import qualified Data.Vector.Primitive    as Vector.Primitive
+import qualified Data.Vector.Storable     as Vector.Storable
+
+#if !MIN_VERSION_bytestring(0,12,0)
 import qualified Data.ByteString.Short as BS.Short
-import qualified Data.Text             as Text.Strict
-import qualified Data.Text.Lazy        as Text.Lazy
-import qualified Data.Vector           as Vector.Boxed
-import qualified Data.Vector.Primitive as Vector.Primitive
-import qualified Data.Vector.Storable  as Vector.Storable
+#endif
 
 import Debug.RecoverRTTI
 
@@ -82,9 +93,12 @@ arbitraryPrimClassifier = elements [
     , Some C_String
     , Some C_BS_Strict
     , Some C_BS_Lazy
-    , Some C_BS_Short
     , Some C_Text_Strict
     , Some C_Text_Lazy
+
+#if !MIN_VERSION_bytestring(0,12,0)
+    , Some C_BS_Short
+#endif
 
     -- Aeson
 
@@ -108,6 +122,8 @@ arbitraryPrimClassifier = elements [
     , Some C_Vector_StorableM
     , Some C_Vector_Primitive
     , Some C_Vector_PrimitiveM
+    , Some C_ByteArray
+    , Some C_MutableByteArray
     ]
   where
     _checkAllCases :: PrimClassifier a -> ()
@@ -137,9 +153,12 @@ arbitraryPrimClassifier = elements [
         C_String      -> ()
         C_BS_Strict   -> ()
         C_BS_Lazy     -> ()
-        C_BS_Short    -> ()
         C_Text_Strict -> ()
         C_Text_Lazy   -> ()
+
+#if !MIN_VERSION_bytestring(0,12,0)
+        C_BS_Short    -> ()
+#endif
 
         -- Aeson
 
@@ -163,6 +182,8 @@ arbitraryPrimClassifier = elements [
         C_Vector_StorableM  -> ()
         C_Vector_Primitive  -> ()
         C_Vector_PrimitiveM -> ()
+        C_ByteArray         -> ()
+        C_MutableByteArray  -> ()
 
 {-------------------------------------------------------------------------------
   Arbitrary instances for specific types
@@ -197,8 +218,10 @@ instance Arbitrary (Wrap BS.Strict.ByteString) where
 instance Arbitrary (Wrap BS.Lazy.ByteString) where
   arbitrary = Wrap . BS.Lazy.pack <$> arbitrary
 
+#if !MIN_VERSION_bytestring(0,12,0)
 instance Arbitrary (Wrap BS.Short.ShortByteString) where
   arbitrary = Wrap . BS.Short.pack <$> arbitrary
+#endif
 
 instance Arbitrary (Wrap Text.Strict.Text) where
   arbitrary = Wrap . Text.Strict.pack <$> arbitrary
@@ -276,6 +299,9 @@ instance Arbitrary (Wrap SomePrimitiveVector) where
       some :: Vector.Primitive.Vector a -> SomePrimitiveVector
       some = unsafeCoerce
 
+instance Arbitrary (Wrap Prim.ByteArray) where
+  arbitrary = Wrap . IsList.fromList <$> arbitrary
+
 {-------------------------------------------------------------------------------
   For the mutable variables, we just use the one global example
 -------------------------------------------------------------------------------}
@@ -297,3 +323,8 @@ instance Arbitrary (Wrap SomeStorableVectorM) where
 
 instance Arbitrary (Wrap SomePrimitiveVectorM) where
   arbitrary = return $ Wrap examplePrimitiveVectorM
+
+instance Arbitrary (Wrap SomeMutableByteArray) where
+  arbitrary = return $ Wrap exampleMutableByteArray
+
+

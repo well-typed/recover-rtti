@@ -1,6 +1,6 @@
 cabal-version:      2.4
 name:               recover-rtti
-version:            0.4.3
+version:            0.5.0
 synopsis:           Recover run-time type information from the GHC heap
 description:        The main function in this package is 'classify', which looks
                     at the GHC heap to recover type information about arbitrary
@@ -20,12 +20,13 @@ extra-source-files:
     README.md
     CHANGELOG.md
 
-Tested-With: GHC ==8.8.4
-              || ==8.10.7
+Tested-With: GHC ==8.10.7
               || ==9.0.2
               || ==9.2.7
               || ==9.4.5
               || ==9.6.2
+              || ==9.8.2
+              || ==9.10.1
 
 source-repository head
   type:     git
@@ -50,15 +51,15 @@ library
                       Debug.RecoverRTTI.Util
                       Debug.RecoverRTTI.Wrappers
 
-    build-depends:    base       >= 4.13 && < 4.19
-                    , aeson      >= 1.4  && < 2.2
-                    , bytestring >= 0.10 && < 0.12
-                    , containers >= 0.6  && < 0.7
-                    , ghc-heap   >= 8.8  && < 9.7
-                    , ghc-prim   >= 0.5  && < 0.11
+    build-depends:    base       >= 4.13 && < 4.21
+                    , aeson      >= 1.4  && < 2.3
+                    , bytestring >= 0.10 && < 0.13
+                    , containers >= 0.6  && < 0.8
+                    , ghc-heap   >= 8.8  && < 9.11
+                    , ghc-prim   >= 0.5  && < 0.12
                     , sop-core   >= 0.5  && < 0.6
                     , stm        >= 2.5  && < 2.6
-                    , text       >= 1.2  && < 2.1
+                    , text       >= 1.2  && < 2.2
 
                       -- mtl 2.3 does not have ExceptT?
                     , mtl (>= 2.2 && < 2.3) || (>= 2.3.1 && < 2.4)
@@ -70,7 +71,14 @@ library
                       -- The dependencies below are the oldest versions of
                       -- these packages that compile with this ghc version.
                     , vector    >= 0.12.1.2 && < 0.14
-                    , primitive >= 0.7      && < 0.9
+                    , primitive >= 0.7      && < 0.10
+
+    -- later versions of primitive use a compat package for Data.Array.Byte
+    if impl(ghc < 9.4)
+      build-depends: data-array-byte >= 0.1 && < 0.2
+
+    if impl(ghc >= 9.10)
+      build-depends: ghc-internal
 
     hs-source-dirs:   src
     default-language: Haskell2010

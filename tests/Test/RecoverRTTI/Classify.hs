@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP                 #-}
 {-# LANGUAGE GADTs               #-}
 {-# LANGUAGE LambdaCase          #-}
 {-# LANGUAGE OverloadedStrings   #-}
@@ -13,6 +14,12 @@ import Data.SOP
 import Data.Type.Equality
 import Unsafe.Coerce (unsafeCoerce)
 
+#if MIN_VERSION_base(4,17,0)
+import qualified GHC.IsList as IsList
+#else
+import qualified GHC.Exts as IsList (fromList)
+#endif
+
 import qualified Data.Aeson                  as Aeson
 import qualified Data.HashMap.Internal.Array as HashMap.Array
 import qualified Data.HashMap.Lazy           as HashMap
@@ -20,7 +27,6 @@ import qualified Data.HashSet                as HashSet
 import qualified Data.IntMap                 as IntMap
 import qualified Data.IntSet                 as IntSet
 import qualified Data.Map                    as Map
-import qualified Data.Primitive.Array        as Prim.Array
 import qualified Data.Sequence               as Seq
 import qualified Data.Set                    as Set
 import qualified Data.Tree                   as Tree
@@ -87,12 +93,15 @@ prop_constants = withMaxSuccess 1 $ conjoin [
     , compareClassifier $ Value (C_Prim C_BS_Strict)   "abcdefg"
     , compareClassifier $ Value (C_Prim C_BS_Lazy)     ""
     , compareClassifier $ Value (C_Prim C_BS_Lazy)     "abcdefg"
-    , compareClassifier $ Value (C_Prim C_BS_Short)    ""
-    , compareClassifier $ Value (C_Prim C_BS_Short)    "abcdefg"
     , compareClassifier $ Value (C_Prim C_Text_Strict) ""
     , compareClassifier $ Value (C_Prim C_Text_Strict) "abcdefg"
     , compareClassifier $ Value (C_Prim C_Text_Lazy)   ""
     , compareClassifier $ Value (C_Prim C_Text_Lazy)   "abcdefg"
+
+#if !MIN_VERSION_bytestring(0,12,0)
+    , compareClassifier $ Value (C_Prim C_BS_Short)    ""
+    , compareClassifier $ Value (C_Prim C_BS_Short)    "abcdefg"
+#endif
 
       -- Aeson
 
@@ -132,6 +141,11 @@ prop_constants = withMaxSuccess 1 $ conjoin [
 
     , compareClassifier $ Value (C_Prim C_Vector_PrimitiveM) $
         examplePrimitiveVectorM
+
+    , compareClassifier $ Value (C_Prim C_ByteArray) $
+        IsList.fromList [0, 1, 2]
+    , compareClassifier $ Value (C_Prim C_MutableByteArray) $
+        exampleMutableByteArray
 
       -- Compound
 
@@ -195,9 +209,9 @@ prop_constants = withMaxSuccess 1 $ conjoin [
         HashMap.Array.fromList 2 [1, 2]
 
     , compareClassifier $ Value (C_Prim_Array ElemU) $
-        Prim.Array.fromList []
+        IsList.fromList []
     , compareClassifier $ Value (C_Prim_Array (ElemK (C_Prim C_Int))) $
-        Prim.Array.fromList [1, 2, 3]
+        IsList.fromList [1, 2, 3]
 
     , compareClassifier $ Value (C_Vector_Boxed ElemU) $
         Vector.Boxed.empty
@@ -250,9 +264,12 @@ prop_constants = withMaxSuccess 1 $ conjoin [
         C_Prim C_String      -> ()
         C_Prim C_BS_Strict   -> ()
         C_Prim C_BS_Lazy     -> ()
-        C_Prim C_BS_Short    -> ()
         C_Prim C_Text_Strict -> ()
         C_Prim C_Text_Lazy   -> ()
+
+#if !MIN_VERSION_bytestring(0,12,0)
+        C_Prim C_BS_Short    -> ()
+#endif
 
         -- Aeson
 
@@ -266,6 +283,8 @@ prop_constants = withMaxSuccess 1 $ conjoin [
         C_Prim C_Vector_StorableM  -> ()
         C_Prim C_Vector_Primitive  -> ()
         C_Prim C_Vector_PrimitiveM -> ()
+        C_Prim C_ByteArray         -> ()
+        C_Prim C_MutableByteArray  -> ()
 
         -- Functions
 

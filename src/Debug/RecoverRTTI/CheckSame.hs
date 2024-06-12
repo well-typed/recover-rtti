@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP                 #-}
 {-# LANGUAGE DataKinds           #-}
 {-# LANGUAGE FlexibleContexts    #-}
 {-# LANGUAGE GADTs               #-}
@@ -52,9 +53,12 @@ samePrim = go
     go C_String      C_String      = Just Refl
     go C_BS_Strict   C_BS_Strict   = Just Refl
     go C_BS_Lazy     C_BS_Lazy     = Just Refl
-    go C_BS_Short    C_BS_Short    = Just Refl
     go C_Text_Strict C_Text_Strict = Just Refl
     go C_Text_Lazy   C_Text_Lazy   = Just Refl
+
+#if !MIN_VERSION_bytestring(0,12,0)
+    go C_BS_Short    C_BS_Short    = Just Refl
+#endif
 
     -- Aeson
 
@@ -74,6 +78,8 @@ samePrim = go
     go C_Vector_StorableM  C_Vector_StorableM  = Just Refl
     go C_Vector_Primitive  C_Vector_Primitive  = Just Refl
     go C_Vector_PrimitiveM C_Vector_PrimitiveM = Just Refl
+    go C_ByteArray         C_ByteArray         = Just Refl
+    go C_MutableByteArray  C_MutableByteArray  = Just Refl
 
     -- Functions
 
@@ -109,9 +115,12 @@ samePrim = go
         C_String      -> ()
         C_BS_Strict   -> ()
         C_BS_Lazy     -> ()
-        C_BS_Short    -> ()
         C_Text_Strict -> ()
         C_Text_Lazy   -> ()
+
+#if !MIN_VERSION_bytestring(0,12,0)
+        C_BS_Short    -> ()
+#endif
 
         -- Aeson
 
@@ -131,6 +140,8 @@ samePrim = go
         C_Vector_StorableM  -> ()
         C_Vector_Primitive  -> ()
         C_Vector_PrimitiveM -> ()
+        C_ByteArray         -> ()
+        C_MutableByteArray  -> ()
 
         -- Functions
 

@@ -26,6 +26,7 @@ module Debug.RecoverRTTI.Wrappers (
   , SomeStorableVectorM(..)
   , SomePrimitiveVector(..)
   , SomePrimitiveVectorM(..)
+  , SomeMutableByteArray(..)
   ) where
 
 import Control.Concurrent.MVar (MVar)
@@ -33,7 +34,8 @@ import Control.Concurrent.STM (TVar)
 import Data.STRef (STRef)
 import GHC.Exts
 
-import qualified Data.Primitive.Array as Prim (MutableArray)
+import qualified Data.Primitive.Array     as Prim (MutableArray)
+import qualified Data.Primitive.ByteArray as Prim (MutableByteArray)
 
 {-------------------------------------------------------------------------------
   User-defined types
@@ -106,6 +108,9 @@ newtype SomePrimitiveVector = SomePrimitiveVector Any
 -- | Mutable primitive vector
 newtype SomePrimitiveVectorM = SomePrimitiveVectorM Any
 
+-- | Mutable byte array
+newtype SomeMutableByteArray = SomeMutableByteArray (Prim.MutableByteArray RealWorld)
+
 {-------------------------------------------------------------------------------
   Show instances
 
@@ -144,3 +149,6 @@ instance Show SomePrimitiveVector where
 
 instance Show SomePrimitiveVectorM where
   show _ = "<Data.Vector.Primitive.MVector>"
+
+instance Show SomeMutableByteArray where
+  show _ = "<Data.Primitive.ByteArray.MutableByteArray>"
