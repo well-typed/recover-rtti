@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP                   #-}
 {-# LANGUAGE DataKinds             #-}
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE GADTs                 #-}
@@ -41,12 +42,16 @@ import Data.Word
 
 import qualified Data.ByteString             as BS.Strict
 import qualified Data.ByteString.Lazy        as BS.Lazy
-import qualified Data.ByteString.Short       as BS.Short
 import qualified Data.HashMap.Internal.Array as HashMap (Array)
 import qualified Data.Primitive.Array        as Prim (Array)
+import qualified Data.Primitive.ByteArray    as Prim (ByteArray)
 import qualified Data.Text                   as Text.Strict
 import qualified Data.Text.Lazy              as Text.Lazy
 import qualified Data.Vector                 as Vector.Boxed
+
+#if !MIN_VERSION_bytestring(0,12,0)
+import qualified Data.ByteString.Short as BS.Short
+#endif
 
 import Debug.RecoverRTTI.Nat
 import Debug.RecoverRTTI.Tuple
@@ -153,9 +158,13 @@ data PrimClassifier (a :: Type) where
   C_String      :: PrimClassifier String
   C_BS_Strict   :: PrimClassifier BS.Strict.ByteString
   C_BS_Lazy     :: PrimClassifier BS.Lazy.ByteString
-  C_BS_Short    :: PrimClassifier BS.Short.ShortByteString
   C_Text_Strict :: PrimClassifier Text.Strict.Text
   C_Text_Lazy   :: PrimClassifier Text.Lazy.Text
+
+-- in bytestring 0.12, 'ShortByteStringSource' is a newtype around 'ByteArray'
+#if !MIN_VERSION_bytestring(0,12,0)
+  C_BS_Short    :: PrimClassifier BS.Short.ShortByteString
+#endif
 
   -- Aeson
 
@@ -182,6 +191,8 @@ data PrimClassifier (a :: Type) where
   C_Vector_StorableM  :: PrimClassifier SomeStorableVectorM
   C_Vector_Primitive  :: PrimClassifier SomePrimitiveVector
   C_Vector_PrimitiveM :: PrimClassifier SomePrimitiveVectorM
+  C_ByteArray         :: PrimClassifier Prim.ByteArray
+  C_MutableByteArray  :: PrimClassifier SomeMutableByteArray
 
 {-------------------------------------------------------------------------------
   Nested classification

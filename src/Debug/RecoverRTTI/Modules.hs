@@ -28,6 +28,9 @@ import Debug.RecoverRTTI.FlatClosure
 data KnownPkg =
     PkgGhcPrim
   | PkgBase
+#if !MIN_VERSION_base(4,17,0)
+  | PkgDataArrayByte
+#endif
   | PkgByteString
   | PkgText
   | PkgIntegerWiredIn
@@ -47,6 +50,9 @@ data family KnownModule (pkg :: KnownPkg)
 data SPkg (pkg :: KnownPkg) where
   SGhcPrim             :: SPkg 'PkgGhcPrim
   SBase                :: SPkg 'PkgBase
+#if !MIN_VERSION_base(4,17,0)
+  SDataArrayByte       :: SPkg 'PkgDataArrayByte
+#endif
   SByteString          :: SPkg 'PkgByteString
   SText                :: SPkg 'PkgText
   SIntegerWiredIn      :: SPkg 'PkgIntegerWiredIn
@@ -62,6 +68,9 @@ class IsKnownPkg pkg where
 
 instance IsKnownPkg 'PkgGhcPrim             where singPkg = SGhcPrim
 instance IsKnownPkg 'PkgBase                where singPkg = SBase
+#if !MIN_VERSION_base(4,17,0)
+instance IsKnownPkg 'PkgDataArrayByte       where singPkg = SDataArrayByte
+#endif
 instance IsKnownPkg 'PkgByteString          where singPkg = SByteString
 instance IsKnownPkg 'PkgText                where singPkg = SText
 instance IsKnownPkg 'PkgIntegerWiredIn      where singPkg = SIntegerWiredIn
@@ -73,7 +82,7 @@ instance IsKnownPkg 'PkgVector              where singPkg = SVector
 instance IsKnownPkg 'PkgPrimitive           where singPkg = SPrimitive
 
 {-------------------------------------------------------------------------------
-  Modules in @ghc-pri@
+  Modules in @ghc-prim@
 -------------------------------------------------------------------------------}
 
 data instance KnownModule 'PkgGhcPrim =
@@ -93,6 +102,14 @@ data instance KnownModule 'PkgBase =
   | GhcMaybe
   | GhcReal
   | DataEither
+
+#if MIN_VERSION_base(4,17,0)
+  | DataArrayByte
+#else
+
+data instance KnownModule 'PkgDataArrayByte =
+    DataArrayByte
+#endif
 
 {-------------------------------------------------------------------------------
   Modules in @bytestring@
@@ -169,6 +186,7 @@ data instance KnownModule 'PkgVector =
 
 data instance KnownModule 'PkgPrimitive =
     DataPrimitiveArray
+  | DataPrimitiveByteArray
 
 {-------------------------------------------------------------------------------
   Matching
@@ -199,6 +217,9 @@ inKnownModuleNested = go singPkg
     namePkg :: SPkg pkg -> String
     namePkg SGhcPrim             = "ghc-prim"
     namePkg SBase                = "base"
+#if !MIN_VERSION_base(4,17,0)
+    namePkg SDataArrayByte       = "data-array-byte"
+#endif
     namePkg SByteString          = "bytestring"
     namePkg SText                = "text"
     namePkg SIntegerWiredIn      = "integer-wired-in"
@@ -221,14 +242,20 @@ inKnownModuleNested = go singPkg
 #endif
 
         SBase -> \case
-          GhcInt      -> "GHC.Int"
-          GhcWord     -> "GHC.Word"
-          GhcSTRef    -> "GHC.STRef"
-          GhcMVar     -> "GHC.MVar"
-          GhcConcSync -> "GHC.Conc.Sync"
-          GhcMaybe    -> "GHC.Maybe"
-          GhcReal     -> "GHC.Real"
-          DataEither  -> "Data.Either"
+          GhcInt        -> "GHC.Int"
+          GhcWord       -> "GHC.Word"
+          GhcSTRef      -> "GHC.STRef"
+          GhcMVar       -> "GHC.MVar"
+          GhcConcSync   -> "GHC.Conc.Sync"
+          GhcMaybe      -> "GHC.Maybe"
+          GhcReal       -> "GHC.Real"
+          DataEither    -> "Data.Either"
+#if MIN_VERSION_base(4,17,0)
+          DataArrayByte -> "Data.Array.Byte"
+#else
+        SDataArrayByte -> \case
+          DataArrayByte -> "Data.Array.Byte"
+#endif
 
         SByteString -> \case
 #if MIN_VERSION_bytestring(0,11,4)
@@ -272,7 +299,8 @@ inKnownModuleNested = go singPkg
           DataVectorPrimitiveMutable -> "Data.Vector.Primitive.Mutable"
 
         SPrimitive -> \case
-          DataPrimitiveArray -> "Data.Primitive.Array"
+          DataPrimitiveArray     -> "Data.Primitive.Array"
+          DataPrimitiveByteArray -> "Data.Primitive.ByteArray"
 
     -- On OSX, cabal strips vowels from package IDs in order to work around
     -- limitations around path lengths

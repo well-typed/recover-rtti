@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP                   #-}
 {-# LANGUAGE DataKinds             #-}
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE GADTs                 #-}
@@ -17,12 +18,17 @@ import Data.Tree (Tree)
 import Data.Void
 import GHC.Real (Ratio((:%)))
 
+#if MIN_VERSION_base(4,17,0)
+import qualified GHC.IsList as IsList
+#else
+import qualified GHC.Exts as IsList (fromList)
+#endif
+
 import qualified Data.HashMap.Internal.Array as HashMap.Array
 import qualified Data.HashMap.Lazy           as HashMap
 import qualified Data.HashSet                as HashSet
 import qualified Data.IntMap                 as IntMap
 import qualified Data.Map                    as Map
-import qualified Data.Primitive.Array        as Prim.Array
 import qualified Data.Sequence               as Seq
 import qualified Data.Set                    as Set
 import qualified Data.Tree                   as Tree
@@ -140,8 +146,8 @@ arbitraryClassifier_  genOther = go
           go_U_K C_HM_Array (mkArray [])
             (mapSome (GenK (SG.genListLike mkArray)) <$> go)
 
-        , go_U_K C_Prim_Array (Prim.Array.fromList [])
-            (mapSome (GenK (SG.genListLike Prim.Array.fromList)) <$> go)
+        , go_U_K C_Prim_Array (IsList.fromList [])
+            (mapSome (GenK (SG.genListLike IsList.fromList)) <$> go)
 
         , go_U_K C_Vector_Boxed Vector.Boxed.empty
             (mapSome (GenK (SG.genListLike Vector.Boxed.fromList)) <$> go)

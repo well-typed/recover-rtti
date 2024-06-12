@@ -30,6 +30,7 @@ module Debug.RecoverRTTI (
   , SomeStorableVectorM(..)
   , SomePrimitiveVector(..)
   , SomePrimitiveVectorM(..)
+  , SomeMutableByteArray(..)
     -- * Working with classifiers
     -- ** Mapping
   , mapClassifier

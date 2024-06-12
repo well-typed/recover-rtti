@@ -1,4 +1,5 @@
 {-# LANGUAGE ConstraintKinds         #-}
+{-# LANGUAGE CPP                     #-}
 {-# LANGUAGE DataKinds               #-}
 {-# LANGUAGE FlexibleContexts        #-}
 {-# LANGUAGE FlexibleInstances       #-}
@@ -37,12 +38,16 @@ import Data.Word
 
 import qualified Data.ByteString             as BS.Strict
 import qualified Data.ByteString.Lazy        as BS.Lazy
-import qualified Data.ByteString.Short       as BS.Short
 import qualified Data.HashMap.Internal.Array as HashMap (Array)
 import qualified Data.Primitive.Array        as Prim (Array)
+import qualified Data.Primitive.ByteArray    as Prim (ByteArray)
 import qualified Data.Text                   as Text.Strict
 import qualified Data.Text.Lazy              as Text.Lazy
 import qualified Data.Vector                 as Vector.Boxed
+
+#if !MIN_VERSION_bytestring(0,12,0)
+import qualified Data.ByteString.Short as BS.Short
+#endif
 
 import Debug.RecoverRTTI.Classifier
 import Debug.RecoverRTTI.Nat
@@ -79,9 +84,12 @@ type PrimSatisfies (c :: Type -> Constraint) = (
   , c String
   , c BS.Strict.ByteString
   , c BS.Lazy.ByteString
-  , c BS.Short.ShortByteString
   , c Text.Strict.Text
   , c Text.Lazy.Text
+
+#if !MIN_VERSION_bytestring(0,12,0)
+  , c BS.Short.ShortByteString
+#endif
 
   -- Aeson
 
@@ -105,6 +113,8 @@ type PrimSatisfies (c :: Type -> Constraint) = (
   , c SomeStorableVectorM
   , c SomePrimitiveVector
   , c SomePrimitiveVectorM
+  , c Prim.ByteArray
+  , c SomeMutableByteArray
   )
 
 primSatisfies :: forall c.
@@ -139,9 +149,12 @@ primSatisfies = go
     go C_String      = Dict
     go C_BS_Strict   = Dict
     go C_BS_Lazy     = Dict
-    go C_BS_Short    = Dict
     go C_Text_Strict = Dict
     go C_Text_Lazy   = Dict
+
+#if !MIN_VERSION_bytestring(0,12,0)
+    go C_BS_Short    = Dict
+#endif
 
     -- Aeson
 
@@ -165,6 +178,8 @@ primSatisfies = go
     go C_Vector_StorableM  = Dict
     go C_Vector_Primitive  = Dict
     go C_Vector_PrimitiveM = Dict
+    go C_ByteArray         = Dict
+    go C_MutableByteArray  = Dict
 
 {-------------------------------------------------------------------------------
   Compound
