@@ -78,6 +78,9 @@ library
     if impl(ghc < 9.4)
       build-depends: data-array-byte
 
+    if impl(ghc >= 9.10)
+      build-depends: ghc-internal
+
     hs-source-dirs:   src
     default-language: Haskell2010
     ghc-options:      -Wall

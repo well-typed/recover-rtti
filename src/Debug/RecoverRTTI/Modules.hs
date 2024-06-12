@@ -27,6 +27,9 @@ import Debug.RecoverRTTI.FlatClosure
 
 data KnownPkg =
     PkgGhcPrim
+#if MIN_VERSION_base(4,20,0)
+  | PkgGhcInternal
+#endif
   | PkgBase
 #if !MIN_VERSION_base(4,17,0)
   | PkgDataArrayByte
@@ -49,6 +52,9 @@ data family KnownModule (pkg :: KnownPkg)
 
 data SPkg (pkg :: KnownPkg) where
   SGhcPrim             :: SPkg 'PkgGhcPrim
+#if MIN_VERSION_base(4,20,0)
+  SGhcInternal         :: SPkg 'PkgGhcInternal
+#endif
   SBase                :: SPkg 'PkgBase
 #if !MIN_VERSION_base(4,17,0)
   SDataArrayByte       :: SPkg 'PkgDataArrayByte
@@ -67,6 +73,9 @@ class IsKnownPkg pkg where
   singPkg :: SPkg pkg
 
 instance IsKnownPkg 'PkgGhcPrim             where singPkg = SGhcPrim
+#if MIN_VERSION_base(4,20,0)
+instance IsKnownPkg 'PkgGhcInternal         where singPkg = SGhcInternal
+#endif
 instance IsKnownPkg 'PkgBase                where singPkg = SBase
 #if !MIN_VERSION_base(4,17,0)
 instance IsKnownPkg 'PkgDataArrayByte       where singPkg = SDataArrayByte
@@ -90,8 +99,32 @@ data instance KnownModule 'PkgGhcPrim =
   | GhcTuple
 
 {-------------------------------------------------------------------------------
+  Modules in @ghc-internal@ (ghc 9.10 and up)
+-------------------------------------------------------------------------------}
+
+#if MIN_VERSION_base(4,20,0)
+data instance KnownModule 'PkgGhcInternal =
+    GhcInt
+  | GhcWord
+  | GhcSTRef
+  | GhcMVar
+  | GhcConcSync
+  | GhcMaybe
+  | GhcReal
+  | DataEither
+#endif
+
+{-------------------------------------------------------------------------------
   Modules in @base@
 -------------------------------------------------------------------------------}
+
+
+#if MIN_VERSION_base(4,20,0)
+
+data instance KnownModule 'PkgBase =
+    DataArrayByte
+
+#else
 
 data instance KnownModule 'PkgBase =
     GhcInt
@@ -106,9 +139,10 @@ data instance KnownModule 'PkgBase =
 #if MIN_VERSION_base(4,17,0)
   | DataArrayByte
 #else
-
 data instance KnownModule 'PkgDataArrayByte =
     DataArrayByte
+#endif
+
 #endif
 
 {-------------------------------------------------------------------------------
@@ -216,6 +250,9 @@ inKnownModuleNested = go singPkg
 
     namePkg :: SPkg pkg -> String
     namePkg SGhcPrim             = "ghc-prim"
+#if MIN_VERSION_base(4,20,0)
+    namePkg SGhcInternal         = "ghc-internal"
+#endif
     namePkg SBase                = "base"
 #if !MIN_VERSION_base(4,17,0)
     namePkg SDataArrayByte       = "data-array-byte"
@@ -235,13 +272,28 @@ inKnownModuleNested = go singPkg
         SGhcPrim -> \case
           GhcTypes -> "GHC.Types"
 
-#if MIN_VERSION_ghc_prim(0,10,0)
+#if MIN_VERSION_base(4,20,0)
+          GhcTuple -> "GHC.Tuple"
+#elif MIN_VERSION_ghc_prim(0,10,0)
           GhcTuple -> "GHC.Tuple.Prim"
 #else
           GhcTuple -> "GHC.Tuple"
 #endif
 
+#if MIN_VERSION_base(4,20,0)
+        SGhcInternal -> \case
+          GhcInt      -> "GHC.Internal.Int"
+          GhcWord     -> "GHC.Internal.Word"
+          GhcSTRef    -> "GHC.Internal.STRef"
+          GhcMVar     -> "GHC.Internal.MVar"
+          GhcConcSync -> "GHC.Internal.Conc.Sync"
+          GhcMaybe    -> "GHC.Internal.Maybe"
+          GhcReal     -> "GHC.Internal.Real"
+          DataEither  -> "GHC.Internal.Data.Either"
+#endif
+
         SBase -> \case
+#if !MIN_VERSION_base(4,20,0)
           GhcInt        -> "GHC.Int"
           GhcWord       -> "GHC.Word"
           GhcSTRef      -> "GHC.STRef"
@@ -250,6 +302,7 @@ inKnownModuleNested = go singPkg
           GhcMaybe      -> "GHC.Maybe"
           GhcReal       -> "GHC.Real"
           DataEither    -> "Data.Either"
+#endif
 #if MIN_VERSION_base(4,17,0)
           DataArrayByte -> "Data.Array.Byte"
 #else
