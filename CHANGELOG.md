@@ -1,5 +1,12 @@
 # Revision history for recover-rtti
 
+## 0.5.0 -- 2024-06-12
+
+* Support ghc 9.8 and 9.10, including bytestring 0.12
+* Support `ByteArray` and `MutableByteArray`
+* Relax bounds (Marcin Szamotulski, #38)
+* Drop support for ghc 8.8
+
 ## 0.4.3 -- 2023-06-05
 
 * Support aeson 2.1, vector 0.13, and primitive 0.8

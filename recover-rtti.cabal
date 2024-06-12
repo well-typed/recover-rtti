@@ -1,6 +1,6 @@
 cabal-version:      2.4
 name:               recover-rtti
-version:            0.4.3
+version:            0.5.0
 synopsis:           Recover run-time type information from the GHC heap
 description:        The main function in this package is 'classify', which looks
                     at the GHC heap to recover type information about arbitrary
@@ -20,8 +20,7 @@ extra-source-files:
     README.md
     CHANGELOG.md
 
-Tested-With: GHC ==8.8.4
-              || ==8.10.7
+Tested-With: GHC ==8.10.7
               || ==9.0.2
               || ==9.2.7
               || ==9.4.5
@@ -76,7 +75,7 @@ library
 
     -- later versions of primitive use a compat package for Data.Array.Byte
     if impl(ghc < 9.4)
-      build-depends: data-array-byte
+      build-depends: data-array-byte >= 0.1 && < 0.2
 
     if impl(ghc >= 9.10)
       build-depends: ghc-internal
