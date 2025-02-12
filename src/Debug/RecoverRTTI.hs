@@ -1,6 +1,6 @@
 -- | Recover runtime type information
 module Debug.RecoverRTTI (
-    -- * Take advance of the recovered type information
+    -- * Take advantage of the recovered type information
     anythingToString
     -- * Debugging support
     -- ** Tracing
