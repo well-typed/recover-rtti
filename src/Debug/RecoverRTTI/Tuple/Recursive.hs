@@ -1,11 +1,5 @@
 {-# OPTIONS_GHC -Wno-overlapping-patterns -Wno-incomplete-patterns -Wno-incomplete-uni-patterns -fno-opt-coercion #-}
 
-{-# LANGUAGE DataKinds               #-}
-{-# LANGUAGE FlexibleContexts        #-}
-{-# LANGUAGE ScopedTypeVariables     #-}
-{-# LANGUAGE TypeFamilies            #-}
-{-# LANGUAGE TypeOperators           #-}
-
 -- | Provide a recursive views on tuples
 --
 -- NOTE: We disable the GHC pattern match checker (this makes compilation /much/

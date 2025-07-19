@@ -1,6 +1,6 @@
 cabal-version:      2.4
 name:               recover-rtti
-version:            0.5.0
+version:            0.5.1
 synopsis:           Recover run-time type information from the GHC heap
 description:        The main function in this package is 'classify', which looks
                     at the GHC heap to recover type information about arbitrary
@@ -16,111 +16,131 @@ author:             Edsko de Vries
 maintainer:         edsko@well-typed.com
 copyright:          Juspay Technologies Pvt Ltd, Well-Typed LLP
 category:           Debugging
-extra-source-files:
-    README.md
-    CHANGELOG.md
-
-Tested-With: GHC ==8.10.7
-              || ==9.0.2
-              || ==9.2.7
-              || ==9.4.5
-              || ==9.6.2
-              || ==9.8.2
-              || ==9.10.1
-              || ==9.12.1
+extra-doc-files:    README.md
+                    CHANGELOG.md
+tested-with:        GHC==9.2.8
+                    GHC==9.4.8
+                    GHC==9.6.7
+                    GHC==9.8.4
+                    GHC==9.10.2
+                    GHC==9.12.2
 
 source-repository head
   type:     git
   location: https://github.com/well-typed/recover-rtti
 
+common lang
+  build-depends:    base >= 4.16 && < 4.22
+  default-language: GHC2021
+
+  ghc-options:
+      -Wall
+      -Wprepositive-qualified-module
+      -Wredundant-constraints
+      -Wunused-packages
+
+  default-extensions:
+      DataKinds
+      DerivingVia
+      DerivingStrategies
+      LambdaCase
+      PatternSynonyms
+      QuantifiedConstraints
+      RecordWildCards
+      TypeFamilies
+      UndecidableInstances
+      UndecidableSuperClasses
+      ViewPatterns
+
 library
-    exposed-modules:  Debug.RecoverRTTI
-                      Debug.RecoverRTTI.Classify
-                      Debug.RecoverRTTI.ClosureTree
+  import:         lang
+  hs-source-dirs: src
 
-    other-modules:    Debug.RecoverRTTI.CheckSame
-                      Debug.RecoverRTTI.Classifier
-                      Debug.RecoverRTTI.Constraint
-                      Debug.RecoverRTTI.Debugging
-                      Debug.RecoverRTTI.FlatClosure
-                      Debug.RecoverRTTI.Modules
-                      Debug.RecoverRTTI.Nat
-                      Debug.RecoverRTTI.Reclassify
-                      Debug.RecoverRTTI.Tuple
-                      Debug.RecoverRTTI.Tuple.Recursive
-                      Debug.RecoverRTTI.Tuple.Size
-                      Debug.RecoverRTTI.Util
-                      Debug.RecoverRTTI.Wrappers
+  exposed-modules:
+      Debug.RecoverRTTI
+      Debug.RecoverRTTI.Classify
+      Debug.RecoverRTTI.ClosureTree
 
-    build-depends:    base       >= 4.13 && < 4.22
-                    , aeson      >= 1.4  && < 2.3
-                    , bytestring >= 0.10 && < 0.13
-                    , containers >= 0.6  && < 0.9
-                    , ghc-heap   >= 8.8  && < 9.13
-                    , ghc-prim   >= 0.5  && < 0.14
-                    , sop-core   >= 0.5  && < 0.6
-                    , stm        >= 2.5  && < 2.6
-                    , text       >= 1.2  && < 2.2
+  other-modules:
+      Debug.RecoverRTTI.CheckSame
+      Debug.RecoverRTTI.Classifier
+      Debug.RecoverRTTI.Constraint
+      Debug.RecoverRTTI.Debugging
+      Debug.RecoverRTTI.FlatClosure
+      Debug.RecoverRTTI.Modules
+      Debug.RecoverRTTI.Nat
+      Debug.RecoverRTTI.Reclassify
+      Debug.RecoverRTTI.Tuple
+      Debug.RecoverRTTI.Tuple.Recursive
+      Debug.RecoverRTTI.Tuple.Size
+      Debug.RecoverRTTI.Util
+      Debug.RecoverRTTI.Wrappers
 
-                      -- mtl 2.3 does not have ExceptT?
-                    , mtl (>= 2.2 && < 2.3) || (>= 2.3.1 && < 2.4)
+  build-depends:
+      -- bundled libraries
+    , bytestring >= 0.11 && < 0.13
+    , containers >= 0.6  && < 0.8
+    , ghc-heap   >= 9.2  && < 9.13
+    , mtl        >= 2.2  && < 2.4
+    , stm        >= 2.5  && < 2.6
+    , text       >= 1.2  && < 2.2
 
-                      -- 0.2.12 introduces Data.HashMap.Internal.Array
-                    , unordered-containers >= 0.2.12 && < 0.3
+  build-depends:
+    , aeson      >= 1.4  && < 2.3
+    , sop-core   >= 0.5  && < 0.6
+    , vector     >= 0.12 && < 0.14
+    , primitive  >= 0.7  && < 0.10
 
-                      -- The oldest ghc we support is 8.8.
-                      -- The dependencies below are the oldest versions of
-                      -- these packages that compile with this ghc version.
-                    , vector    >= 0.12.1.2 && < 0.14
-                    , primitive >= 0.7      && < 0.10
+      -- 0.2.12 introduces Data.HashMap.Internal.Array
+    , unordered-containers >= 0.2.12 && < 0.3
 
-    -- later versions of primitive use a compat package for Data.Array.Byte
-    if impl(ghc < 9.4)
-      build-depends: data-array-byte >= 0.1 && < 0.2
-
-    if impl(ghc >= 9.10)
-      build-depends: ghc-internal
-
-    hs-source-dirs:   src
-    default-language: Haskell2010
-    ghc-options:      -Wall
-                      -Wredundant-constraints
+  other-extensions:
+      CPP
 
 test-suite test-recover-rtti
-    default-language: Haskell2010
-    type:             exitcode-stdio-1.0
-    hs-source-dirs:   tests
-    main-is:          RecoverRttiTests.hs
-    other-modules:    Test.RecoverRTTI.Classifier.Arbitrary
-                      Test.RecoverRTTI.Classifier.Equality
-                      Test.RecoverRTTI.Classifier.Size
-                      Test.RecoverRTTI.Classify
-                      Test.RecoverRTTI.ConcreteClassifier
-                      Test.RecoverRTTI.Globals
-                      Test.RecoverRTTI.Prim
-                      Test.RecoverRTTI.QuickCheck.DepGen
-                      Test.RecoverRTTI.QuickCheck.Sized
-                      Test.RecoverRTTI.Sanity
-                      Test.RecoverRTTI.Show
-                      Test.RecoverRTTI.Staged
-                      Test.RecoverRTTI.UserDefined
-    build-depends:    base >= 4.13
-                    , recover-rtti
+  import: lang
+  type:             exitcode-stdio-1.0
+  hs-source-dirs:   tests
+  main-is:          RecoverRttiTests.hs
+  build-depends:    recover-rtti
 
-                    , aeson
-                    , bytestring
-                    , containers
-                    , ghc-heap
-                    , ghc-prim
-                    , mtl
-                    , primitive
-                    , QuickCheck
-                    , sop-core
-                    , stm
-                    , tasty
-                    , tasty-hunit
-                    , tasty-quickcheck
-                    , text
-                    , unordered-containers
-                    , vector
-    ghc-options:      -Wall
+  other-modules:
+      Test.RecoverRTTI.Classifier.Arbitrary
+      Test.RecoverRTTI.Classifier.Equality
+      Test.RecoverRTTI.Classifier.Size
+      Test.RecoverRTTI.Classify
+      Test.RecoverRTTI.ConcreteClassifier
+      Test.RecoverRTTI.Globals
+      Test.RecoverRTTI.Prim
+      Test.RecoverRTTI.QuickCheck.DepGen
+      Test.RecoverRTTI.QuickCheck.Sized
+      Test.RecoverRTTI.Sanity
+      Test.RecoverRTTI.Show
+      Test.RecoverRTTI.Staged
+      Test.RecoverRTTI.UserDefined
+
+  build-depends:
+      -- inherited dependencies
+    , aeson
+    , bytestring
+    , containers
+    , mtl
+    , primitive
+    , sop-core
+    , stm
+    , text
+    , unordered-containers
+    , vector
+
+  build-depends:
+      -- new dependencies
+    , QuickCheck       >= 2.15 && < 2.17
+    , tasty            >= 1.5  && < 1.6
+    , tasty-hunit      >= 0.10 && < 0.11
+    , tasty-quickcheck >= 0.11 && < 0.12
+
+  other-extensions:
+      CPP
+      MagicHash
+      UnboxedTuples
+      OverloadedStrings

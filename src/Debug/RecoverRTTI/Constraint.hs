@@ -1,15 +1,4 @@
-{-# LANGUAGE ConstraintKinds         #-}
-{-# LANGUAGE CPP                     #-}
-{-# LANGUAGE DataKinds               #-}
-{-# LANGUAGE FlexibleContexts        #-}
-{-# LANGUAGE FlexibleInstances       #-}
-{-# LANGUAGE GADTs                   #-}
-{-# LANGUAGE KindSignatures          #-}
-{-# LANGUAGE QuantifiedConstraints   #-}
-{-# LANGUAGE RankNTypes              #-}
-{-# LANGUAGE ScopedTypeVariables     #-}
-{-# LANGUAGE UndecidableInstances    #-}
-{-# LANGUAGE UndecidableSuperClasses #-}
+{-# LANGUAGE CPP #-}
 
 -- | Establish that a constraint holds for all classified types
 module Debug.RecoverRTTI.Constraint (
@@ -20,6 +9,9 @@ module Debug.RecoverRTTI.Constraint (
   ) where
 
 import Data.Aeson (Value)
+import Data.ByteString qualified as BS.Strict
+import Data.ByteString.Lazy qualified as BS.Lazy
+import Data.HashMap.Internal.Array qualified as HashMap (Array)
 import Data.HashMap.Lazy (HashMap)
 import Data.HashSet (HashSet)
 import Data.Int
@@ -27,26 +19,22 @@ import Data.IntMap (IntMap)
 import Data.IntSet (IntSet)
 import Data.Kind
 import Data.Map (Map)
+import Data.Primitive.Array qualified as Prim (Array)
+import Data.Primitive.ByteArray qualified as Prim (ByteArray)
 import Data.Ratio
 import Data.Sequence (Seq)
 import Data.Set (Set)
 import Data.SOP
 import Data.SOP.Dict
+import Data.Text qualified as Text.Strict
+import Data.Text.Lazy qualified as Text.Lazy
 import Data.Tree (Tree)
+import Data.Vector qualified as Vector.Boxed
 import Data.Void
 import Data.Word
 
-import qualified Data.ByteString             as BS.Strict
-import qualified Data.ByteString.Lazy        as BS.Lazy
-import qualified Data.HashMap.Internal.Array as HashMap (Array)
-import qualified Data.Primitive.Array        as Prim (Array)
-import qualified Data.Primitive.ByteArray    as Prim (ByteArray)
-import qualified Data.Text                   as Text.Strict
-import qualified Data.Text.Lazy              as Text.Lazy
-import qualified Data.Vector                 as Vector.Boxed
-
 #if !MIN_VERSION_bytestring(0,12,0)
-import qualified Data.ByteString.Short as BS.Short
+import Data.ByteString.Short qualified as BS.Short
 #endif
 
 import Debug.RecoverRTTI.Classifier

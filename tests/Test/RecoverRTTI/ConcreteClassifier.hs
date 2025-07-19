@@ -1,18 +1,3 @@
-{-# LANGUAGE ConstraintKinds         #-}
-{-# LANGUAGE DataKinds               #-}
-{-# LANGUAGE FlexibleContexts        #-}
-{-# LANGUAGE FlexibleInstances       #-}
-{-# LANGUAGE GADTs                   #-}
-{-# LANGUAGE KindSignatures          #-}
-{-# LANGUAGE LambdaCase              #-}
-{-# LANGUAGE QuantifiedConstraints   #-}
-{-# LANGUAGE RankNTypes              #-}
-{-# LANGUAGE ScopedTypeVariables     #-}
-{-# LANGUAGE StandaloneDeriving      #-}
-{-# LANGUAGE TypeOperators           #-}
-{-# LANGUAGE UndecidableInstances    #-}
-{-# LANGUAGE UndecidableSuperClasses #-}
-
 module Test.RecoverRTTI.ConcreteClassifier (
     -- * Concrete classifier
     ConcreteClassifier
@@ -43,16 +28,16 @@ import Data.Void
 import Debug.RecoverRTTI
 import Debug.RecoverRTTI.Classify
 
-import Test.QuickCheck
+import Test.QuickCheck (Arbitrary(..), Gen)
+import Test.QuickCheck qualified as QC
 
 import Test.RecoverRTTI.Classifier.Arbitrary
 import Test.RecoverRTTI.Classifier.Equality ()
 import Test.RecoverRTTI.Classifier.Size
 import Test.RecoverRTTI.QuickCheck.DepGen
 import Test.RecoverRTTI.QuickCheck.Sized (SizedGen)
+import Test.RecoverRTTI.QuickCheck.Sized qualified as SG
 import Test.RecoverRTTI.UserDefined
-
-import qualified Test.RecoverRTTI.QuickCheck.Sized as SG
 
 {-------------------------------------------------------------------------------
   Concrete classifier
@@ -207,7 +192,7 @@ arbitraryUser :: SizedGen (Some (DepGen ClassifyUser))
 arbitraryUser = SG.leafOrStep leaf compound
   where
     leaf :: Gen (Some (DepGen ClassifyUser))
-    leaf = oneof [
+    leaf = QC.oneof [
           -- SimpleType
           pure . Some $ arbitraryDepGen C_Simple
 

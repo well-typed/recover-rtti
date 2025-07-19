@@ -1,12 +1,5 @@
-{-# LANGUAGE BangPatterns      #-}
-{-# LANGUAGE DataKinds         #-}
-{-# LANGUAGE DeriveGeneric     #-}
-{-# LANGUAGE DeriveTraversable #-}
-{-# LANGUAGE MagicHash         #-}
-{-# LANGUAGE PolyKinds         #-}
-{-# LANGUAGE TypeFamilies      #-}
-{-# LANGUAGE TypeOperators     #-}
-{-# LANGUAGE UnboxedTuples     #-}
+{-# LANGUAGE MagicHash     #-}
+{-# LANGUAGE UnboxedTuples #-}
 
 -- | Just some examples of user-defined types
 module Test.RecoverRTTI.UserDefined (
@@ -20,9 +13,10 @@ module Test.RecoverRTTI.UserDefined (
   ) where
 
 import Data.Proxy
+import GHC.Exts (RealWorld, MutableArray#, newArray#)
 import GHC.Generics
-import GHC.IO
-import GHC.Prim
+import GHC.IO (IO(..))
+import System.IO.Unsafe (unsafePerformIO)
 
 import Test.QuickCheck
 

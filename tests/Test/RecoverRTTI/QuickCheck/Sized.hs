@@ -1,15 +1,3 @@
-{-# LANGUAGE DataKinds                  #-}
-{-# LANGUAGE DeriveFunctor              #-}
-{-# LANGUAGE DerivingStrategies         #-}
-{-# LANGUAGE FlexibleContexts           #-}
-{-# LANGUAGE GADTs                      #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE KindSignatures             #-}
-{-# LANGUAGE RankNTypes                 #-}
-{-# LANGUAGE ScopedTypeVariables        #-}
-{-# LANGUAGE TypeApplications           #-}
-{-# LANGUAGE TypeOperators              #-}
-
 -- | Sized generators
 --
 -- Intended for qualified import
@@ -48,8 +36,7 @@ import Data.SOP.Dict
 import Debug.RecoverRTTI
 
 import Test.QuickCheck (Arbitrary, Gen)
-
-import qualified Test.QuickCheck as QC
+import Test.QuickCheck qualified as QC
 
 {-------------------------------------------------------------------------------
   Sized generators

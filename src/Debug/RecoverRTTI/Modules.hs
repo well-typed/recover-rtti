@@ -1,10 +1,5 @@
-{-# LANGUAGE CPP            #-}
-{-# LANGUAGE DataKinds      #-}
-{-# LANGUAGE GADTs          #-}
-{-# LANGUAGE KindSignatures #-}
-{-# LANGUAGE LambdaCase     #-}
-{-# LANGUAGE NamedFieldPuns #-}
-{-# LANGUAGE TypeFamilies   #-}
+{-# LANGUAGE CPP       #-}
+{-# LANGUAGE MagicHash #-}
 
 -- | Modules we recognize types from
 module Debug.RecoverRTTI.Modules (
@@ -272,9 +267,26 @@ inKnownModuleNested = go singPkg
         SGhcPrim -> \case
           GhcTypes -> "GHC.Types"
 
+    -- ghc-prim versions bundled with ghc:
+    --
+    -- >         base   ghc-prim
+    -- > -----------------------
+    -- > 9.2.8   4.16   0.8
+    -- > 9.4.8   4.17   0.9.1
+    -- > 9.6.7   4.18   0.10.0
+    -- > 9.8.4   4.19   0.11.0
+    -- > 9.10.2  4.20   0.12.0
+    -- > 9.12.2  4.21   0.13.0
+    --
+    -- If we want to use @MIN_VERSION_ghc_prim@, we need to declare a dependency
+    -- on @ghc-prim@; since, we don't /actually/ depend on it, however, other
+    -- than to check the version, this results in unused package warnings.
+    -- We therefore use the version of base as a proxy.
+
 #if MIN_VERSION_base(4,20,0)
           GhcTuple -> "GHC.Tuple"
-#elif MIN_VERSION_ghc_prim(0,10,0)
+#elif MIN_VERSION_base(4,18,0)
+          -- from ghc-prim-0.10
           GhcTuple -> "GHC.Tuple.Prim"
 #else
           GhcTuple -> "GHC.Tuple"
@@ -311,11 +323,7 @@ inKnownModuleNested = go singPkg
 #endif
 
         SByteString -> \case
-#if MIN_VERSION_bytestring(0,11,4)
           DataByteStringInternal      -> "Data.ByteString.Internal.Type"
-#else
-          DataByteStringInternal      -> "Data.ByteString.Internal"
-#endif
           DataByteStringLazyInternal  -> "Data.ByteString.Lazy.Internal"
           DataByteStringShortInternal -> "Data.ByteString.Short.Internal"
 

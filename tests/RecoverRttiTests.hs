@@ -2,9 +2,9 @@ module Main (main) where
 
 import Test.Tasty
 
-import qualified Test.RecoverRTTI.Sanity
-import qualified Test.RecoverRTTI.Classify
-import qualified Test.RecoverRTTI.Show
+import Test.RecoverRTTI.Sanity   qualified
+import Test.RecoverRTTI.Classify qualified
+import Test.RecoverRTTI.Show     qualified
 
 main :: IO ()
 main = defaultMain tests

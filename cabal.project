@@ -1,0 +1,5 @@
+packages: .
+
+package recover-rtti
+  tests: True
+  ghc-options: -fno-show-valid-hole-fits

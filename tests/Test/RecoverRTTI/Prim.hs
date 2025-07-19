@@ -1,11 +1,4 @@
-{-# LANGUAGE CPP                        #-}
-{-# LANGUAGE DerivingStrategies         #-}
-{-# LANGUAGE FlexibleInstances          #-}
-{-# LANGUAGE GADTs                      #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE LambdaCase                 #-}
-{-# LANGUAGE OverloadedStrings          #-}
-{-# LANGUAGE StandaloneDeriving         #-}
+{-# LANGUAGE CPP #-}
 
 module Test.RecoverRTTI.Prim (
     -- * Equality
@@ -17,37 +10,37 @@ module Test.RecoverRTTI.Prim (
   ) where
 
 import Control.Monad (replicateM)
+import Data.Aeson qualified as Aeson
+import Data.ByteString qualified as BS.Strict
+import Data.ByteString.Lazy qualified as BS.Lazy
 import Data.Int
 import Data.IntSet (IntSet)
+import Data.Primitive.ByteArray qualified as Prim (ByteArray)
 import Data.SOP (Compose)
 import Data.SOP.Dict
 import Data.String (fromString)
+import Data.Text qualified as Text.Strict
+import Data.Text.Lazy qualified as Text.Lazy
+import Data.Vector qualified as Vector.Boxed
+import Data.Vector.Primitive qualified as Vector.Primitive
+import Data.Vector.Storable qualified as Vector.Storable
 import Data.Word
 import Unsafe.Coerce (unsafeCoerce)
 
 #if MIN_VERSION_base(4,17,0)
-import qualified GHC.IsList as IsList
+import GHC.IsList qualified as IsList
 #else
-import qualified GHC.Exts as IsList (fromList)
+import GHC.Exts qualified as IsList (fromList)
 #endif
 
-import qualified Data.Aeson               as Aeson
-import qualified Data.ByteString          as BS.Strict
-import qualified Data.ByteString.Lazy     as BS.Lazy
-import qualified Data.Primitive.ByteArray as Prim (ByteArray)
-import qualified Data.Text                as Text.Strict
-import qualified Data.Text.Lazy           as Text.Lazy
-import qualified Data.Vector              as Vector.Boxed
-import qualified Data.Vector.Primitive    as Vector.Primitive
-import qualified Data.Vector.Storable     as Vector.Storable
-
 #if !MIN_VERSION_bytestring(0,12,0)
-import qualified Data.ByteString.Short as BS.Short
+import Data.ByteString.Short qualified as BS.Short
 #endif
 
 import Debug.RecoverRTTI
 
-import Test.QuickCheck
+import Test.QuickCheck (Arbitrary(..), Gen)
+import Test.QuickCheck qualified as QC
 
 import Test.RecoverRTTI.Classifier.Equality ()
 import Test.RecoverRTTI.Globals
@@ -67,7 +60,7 @@ primSatisfiesArbitrary :: PrimClassifier a -> Dict (Compose Arbitrary Wrap) a
 primSatisfiesArbitrary = primSatisfies
 
 arbitraryPrimClassifier :: Gen (Some PrimClassifier)
-arbitraryPrimClassifier = elements [
+arbitraryPrimClassifier = QC.elements [
     -- Primitive types
 
       Some C_Bool
@@ -233,11 +226,11 @@ instance Arbitrary (Wrap Text.Lazy.Text) where
 -- but it generates values that are too big, which cause the size sanity check
 -- on the generator 'prop_showGenerated' to start to fail.
 instance Arbitrary (Wrap Aeson.Value) where
-  arbitrary = choose (0, 10) >>= fmap Wrap . go
+  arbitrary = QC.choose (0, 10) >>= fmap Wrap . go
     where
       go :: Int -> Gen Aeson.Value
-      go 0  = oneof nonRecursive
-      go sz = oneof (nonRecursive ++ recursive sz)
+      go 0  = QC.oneof nonRecursive
+      go sz = QC.oneof (nonRecursive ++ recursive sz)
 
       nonRecursive :: [Gen Aeson.Value]
       nonRecursive = [
@@ -249,9 +242,9 @@ instance Arbitrary (Wrap Aeson.Value) where
 
       recursive :: Int -> [Gen Aeson.Value]
       recursive sz = [
-            do n <- choose (0, 5)
+            do n <- QC.choose (0, 5)
                Aeson.Array . Vector.Boxed.fromList <$> replicateM n (go (sz `div` n))
-          , do n <- choose (0, 5)
+          , do n <- QC.choose (0, 5)
                Aeson.object <$> replicateM n (
                        (Aeson..=)
                    <$> (fromString <$> fieldName)
@@ -261,12 +254,12 @@ instance Arbitrary (Wrap Aeson.Value) where
 
       -- We're not interested in testing crazy values
       fieldName :: Gen String
-      fieldName = elements ["a", "b", "c"]
+      fieldName = QC.elements ["a", "b", "c"]
 
 -- | Rather than trying to be clever here, we just generate a handful of
 -- examples in different categories.
 instance Arbitrary (Wrap SomeFun) where
-  arbitrary = fmap Wrap $ elements [
+  arbitrary = fmap Wrap $ QC.elements [
         -- Parametrically polymorphic function
         fun (id    :: Int -> Int)
       , fun (const :: Int -> Bool -> Int)
@@ -282,7 +275,7 @@ instance Arbitrary (Wrap SomeFun) where
       fun = unsafeCoerce
 
 instance Arbitrary (Wrap SomeStorableVector) where
-  arbitrary = fmap Wrap $ elements [
+  arbitrary = fmap Wrap $ QC.elements [
         some $ Vector.Storable.fromList ([1, 2, 3] :: [Int])
       , some $ Vector.Storable.fromList ("abc"     :: String)
       ]
@@ -291,7 +284,7 @@ instance Arbitrary (Wrap SomeStorableVector) where
       some = unsafeCoerce
 
 instance Arbitrary (Wrap SomePrimitiveVector) where
-  arbitrary = fmap Wrap $ elements [
+  arbitrary = fmap Wrap $ QC.elements [
         some $ Vector.Primitive.fromList ([1, 2, 3] :: [Int])
       , some $ Vector.Primitive.fromList ("abc"     :: String)
       ]

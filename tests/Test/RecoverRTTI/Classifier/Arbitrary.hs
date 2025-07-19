@@ -1,50 +1,39 @@
-{-# LANGUAGE CPP                   #-}
-{-# LANGUAGE DataKinds             #-}
-{-# LANGUAGE FlexibleContexts      #-}
-{-# LANGUAGE GADTs                 #-}
-{-# LANGUAGE KindSignatures        #-}
-{-# LANGUAGE LambdaCase            #-}
-{-# LANGUAGE QuantifiedConstraints #-}
-{-# LANGUAGE RankNTypes            #-}
-{-# LANGUAGE ScopedTypeVariables   #-}
-{-# LANGUAGE TypeOperators         #-}
+{-# LANGUAGE CPP #-}
 
 module Test.RecoverRTTI.Classifier.Arbitrary (arbitraryClassifier_) where
 
 import Data.Bifunctor
+import Data.HashMap.Internal.Array qualified as HashMap.Array
+import Data.HashMap.Lazy qualified as HashMap
+import Data.HashSet qualified as HashSet
+import Data.IntMap qualified as IntMap
 import Data.Kind
+import Data.Map qualified as Map
+import Data.Sequence qualified as Seq
+import Data.Set qualified as Set
 import Data.SOP
 import Data.Tree (Tree)
+import Data.Tree qualified as Tree
+import Data.Vector qualified as Vector.Boxed
 import Data.Void
 import GHC.Real (Ratio((:%)))
 
 #if MIN_VERSION_base(4,17,0)
-import qualified GHC.IsList as IsList
+import GHC.IsList qualified as IsList
 #else
-import qualified GHC.Exts as IsList (fromList)
+import GHC.Exts qualified as IsList (fromList)
 #endif
-
-import qualified Data.HashMap.Internal.Array as HashMap.Array
-import qualified Data.HashMap.Lazy           as HashMap
-import qualified Data.HashSet                as HashSet
-import qualified Data.IntMap                 as IntMap
-import qualified Data.Map                    as Map
-import qualified Data.Sequence               as Seq
-import qualified Data.Set                    as Set
-import qualified Data.Tree                   as Tree
-import qualified Data.Vector                 as Vector.Boxed
 
 import Debug.RecoverRTTI
 import Debug.RecoverRTTI.Classify
 
-import Test.QuickCheck
+import Test.QuickCheck (Gen)
 
 import Test.RecoverRTTI.Classifier.Equality ()
 import Test.RecoverRTTI.Prim
 import Test.RecoverRTTI.QuickCheck.DepGen
 import Test.RecoverRTTI.QuickCheck.Sized (SizedGen)
-
-import qualified Test.RecoverRTTI.QuickCheck.Sized as SG
+import Test.RecoverRTTI.QuickCheck.Sized qualified as SG
 
 {-------------------------------------------------------------------------------
   Generate arbitiary classifiers

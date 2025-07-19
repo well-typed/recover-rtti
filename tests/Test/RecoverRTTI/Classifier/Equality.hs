@@ -4,9 +4,8 @@
 module Test.RecoverRTTI.Classifier.Equality () where
 
 import Data.Function (on)
-
-import qualified Data.HashMap.Internal.Array as HashMap (Array)
-import qualified Data.HashMap.Internal.Array as HashMap.Array
+import Data.HashMap.Internal.Array qualified as HashMap (Array)
+import Data.HashMap.Internal.Array qualified as HashMap.Array
 
 import Debug.RecoverRTTI
 

@@ -1,5 +1,3 @@
-{-# LANGUAGE ExistentialQuantification #-}
-
 -- | Debugging support
 module Debug.RecoverRTTI.Debugging (
     -- * Tracing
