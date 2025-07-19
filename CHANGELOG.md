@@ -1,5 +1,10 @@
 # Revision history for recover-rtti
 
+## 0.5.1 -- 2025-07-19
+
+* Relax bounds, including support for `QuickCheck-2.16`
+* Drop support for `ghc < 9.2`
+
 ## 0.5.0 -- 2024-06-12
 
 * Support ghc 9.8 and 9.10, including bytestring 0.12

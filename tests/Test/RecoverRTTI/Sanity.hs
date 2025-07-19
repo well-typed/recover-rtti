@@ -1,7 +1,3 @@
-{-# LANGUAGE DerivingVia        #-}
-{-# LANGUAGE FlexibleInstances  #-}
-{-# LANGUAGE StandaloneDeriving #-}
-
 module Test.RecoverRTTI.Sanity (tests) where
 
 import Data.SOP.BasicFunctors
@@ -12,12 +8,13 @@ import Debug.RecoverRTTI
 
 import Test.Tasty
 import Test.Tasty.HUnit
-import Test.Tasty.QuickCheck
+import Test.Tasty.QuickCheck (testProperty)
+import Test.QuickCheck (Property)
+import Test.QuickCheck qualified as QC
 
 import Test.RecoverRTTI.ConcreteClassifier
 import Test.RecoverRTTI.QuickCheck.DepGen
-
-import qualified Test.RecoverRTTI.QuickCheck.Sized as SG
+import Test.RecoverRTTI.QuickCheck.Sized qualified as SG
 
 tests :: TestTree
 tests = testGroup "Test.RecoverRTTI.Sanity" [
@@ -28,10 +25,10 @@ tests = testGroup "Test.RecoverRTTI.Sanity" [
 
 prop_typeSize :: Property
 prop_typeSize =
-    forAll (Blind <$> SG.run 10 arbitraryConcrete) $
-      \(Blind (Some (DepGen classifier _))) ->
-          counterexample ("classifier: " ++ show classifier)
-        $ counterexample ("size: " ++ show (sizeConcrete classifier))
+    QC.forAll (QC.Blind <$> SG.run 10 arbitraryConcrete) $
+      \(QC.Blind (Some (DepGen classifier _))) ->
+          QC.counterexample ("classifier: " ++ show classifier)
+        $ QC.counterexample ("size: " ++ show (sizeConcrete classifier))
         $ sizeConcrete classifier <= 100
 
 {-------------------------------------------------------------------------------

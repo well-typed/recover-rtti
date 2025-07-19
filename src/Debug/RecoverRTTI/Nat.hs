@@ -1,10 +1,3 @@
-{-# LANGUAGE DataKinds            #-}
-{-# LANGUAGE GADTs                #-}
-{-# LANGUAGE PolyKinds            #-}
-{-# LANGUAGE ScopedTypeVariables  #-}
-{-# LANGUAGE TypeFamilies         #-}
-{-# LANGUAGE TypeOperators        #-}
-
 -- | Inductive type-level natural numbers
 module Debug.RecoverRTTI.Nat (
     -- * Type-level natural numbers

@@ -1,41 +1,38 @@
-{-# LANGUAGE CPP                 #-}
-{-# LANGUAGE GADTs               #-}
-{-# LANGUAGE LambdaCase          #-}
-{-# LANGUAGE OverloadedStrings   #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TypeApplications    #-}
+{-# LANGUAGE CPP               #-}
+{-# LANGUAGE OverloadedStrings #-}
 
 -- | Verify we infer the right classifier
 module Test.RecoverRTTI.Classify (tests) where
 
 import Control.Monad.Except
+import Data.Aeson qualified as Aeson
+import Data.HashMap.Internal.Array qualified as HashMap.Array
+import Data.HashMap.Lazy qualified as HashMap
+import Data.HashSet qualified as HashSet
+import Data.IntMap qualified as IntMap
+import Data.IntSet qualified as IntSet
+import Data.Map qualified as Map
 import Data.Ratio
+import Data.Sequence qualified as Seq
+import Data.Set qualified as Set
 import Data.SOP
+import Data.Tree qualified as Tree
 import Data.Type.Equality
+import Data.Vector qualified as Vector.Boxed
+import Data.Vector.Primitive qualified as Vector.Primitive
+import Data.Vector.Storable qualified as Vector.Storable
 import Unsafe.Coerce (unsafeCoerce)
 
 #if MIN_VERSION_base(4,17,0)
-import qualified GHC.IsList as IsList
+import GHC.IsList qualified as IsList
 #else
-import qualified GHC.Exts as IsList (fromList)
+import GHC.Exts qualified as IsList (fromList)
 #endif
 
-import qualified Data.Aeson                  as Aeson
-import qualified Data.HashMap.Internal.Array as HashMap.Array
-import qualified Data.HashMap.Lazy           as HashMap
-import qualified Data.HashSet                as HashSet
-import qualified Data.IntMap                 as IntMap
-import qualified Data.IntSet                 as IntSet
-import qualified Data.Map                    as Map
-import qualified Data.Sequence               as Seq
-import qualified Data.Set                    as Set
-import qualified Data.Tree                   as Tree
-import qualified Data.Vector                 as Vector.Boxed
-import qualified Data.Vector.Storable        as Vector.Storable
-import qualified Data.Vector.Primitive       as Vector.Primitive
-
 import Test.Tasty
-import Test.Tasty.QuickCheck hiding (classify, NonEmpty)
+import Test.Tasty.QuickCheck (testProperty)
+import Test.QuickCheck (Property)
+import Test.QuickCheck qualified as QC
 
 import Debug.RecoverRTTI
 import Debug.RecoverRTTI.Classify
@@ -57,7 +54,7 @@ tests = testGroup "Test.RecoverRTTI.Classify" [
 -- but their on-heap representation may be different, and this may effect the
 -- RTTI recovery.
 prop_constants :: Property
-prop_constants = withMaxSuccess 1 $ conjoin [
+prop_constants = QC.withMaxSuccess 1 $ QC.conjoin [
       -- Primitive types
 
       compareClassifier $ Value (C_Prim C_Bool)     True
@@ -330,15 +327,15 @@ prop_arbitrary (Some v) = compareClassifier v
 -- The tests in this module differ only in how the produce the 'Value's.
 compareClassifier :: Value a -> Property
 compareClassifier = \(Value cc x) ->
-      counterexample ("Generated classifier: " ++ show cc)
+      QC.counterexample ("Generated classifier: " ++ show cc)
     $ case runExcept $ classifyConcrete x of
         Left err  ->
-            counterexample ("Failed to reclassify. Error: " ++ err)
-          $ property False
+            QC.counterexample ("Failed to reclassify. Error: " ++ err)
+          $ QC.property False
         Right (Reclassified cc' _pf) ->
           case sameConcrete cc cc' of
             Nothing ->
-                counterexample ("Inferred different classifier: " ++ show cc')
-              $ property False
+                QC.counterexample ("Inferred different classifier: " ++ show cc')
+              $ QC.property False
             Just Refl ->
-              property True
+              QC.property True

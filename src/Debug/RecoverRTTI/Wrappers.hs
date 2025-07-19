@@ -31,11 +31,10 @@ module Debug.RecoverRTTI.Wrappers (
 
 import Control.Concurrent.MVar (MVar)
 import Control.Concurrent.STM (TVar)
+import Data.Primitive.Array qualified as Prim (MutableArray)
+import Data.Primitive.ByteArray qualified as Prim (MutableByteArray)
 import Data.STRef (STRef)
 import GHC.Exts
-
-import qualified Data.Primitive.Array     as Prim (MutableArray)
-import qualified Data.Primitive.ByteArray as Prim (MutableByteArray)
 
 {-------------------------------------------------------------------------------
   User-defined types

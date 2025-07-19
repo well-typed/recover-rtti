@@ -1,8 +1,3 @@
-{-# LANGUAGE FlexibleContexts    #-}
-{-# LANGUAGE GADTs               #-}
-{-# LANGUAGE RankNTypes          #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-
 module Test.RecoverRTTI.Classifier.Size (classifierSize_) where
 
 import Data.SOP

@@ -1,8 +1,3 @@
-{-# LANGUAGE BangPatterns    #-}
-{-# LANGUAGE LambdaCase      #-}
-{-# LANGUAGE NamedFieldPuns  #-}
-{-# LANGUAGE RecordWildCards #-}
-
 module Debug.RecoverRTTI.FlatClosure (
     FlatClosure(..)
   , getBoxedClosureData
@@ -14,7 +9,7 @@ module Debug.RecoverRTTI.FlatClosure (
 import Control.Exception (evaluate)
 import Control.Monad
 import GHC.Exts.Heap (Box(..), asBox)
-import qualified GHC.Exts.Heap as H
+import GHC.Exts.Heap qualified as H
 
 -- | Flattened form of 'Closure' (with indirection nodes removed)
 --

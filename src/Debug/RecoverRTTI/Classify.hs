@@ -1,19 +1,4 @@
-{-# LANGUAGE CPP                   #-}
-{-# LANGUAGE DataKinds             #-}
-{-# LANGUAGE FlexibleContexts      #-}
-{-# LANGUAGE FlexibleInstances     #-}
-{-# LANGUAGE GADTs                 #-}
-{-# LANGUAGE NamedFieldPuns        #-}
-{-# LANGUAGE PatternSynonyms       #-}
-{-# LANGUAGE QuantifiedConstraints #-}
-{-# LANGUAGE RankNTypes            #-}
-{-# LANGUAGE ScopedTypeVariables   #-}
-{-# LANGUAGE StandaloneDeriving    #-}
-{-# LANGUAGE TupleSections         #-}
-{-# LANGUAGE TypeApplications      #-}
-{-# LANGUAGE TypeOperators         #-}
-{-# LANGUAGE UndecidableInstances  #-}
-{-# LANGUAGE ViewPatterns          #-}
+{-# LANGUAGE CPP #-}
 
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
@@ -38,34 +23,30 @@ module Debug.RecoverRTTI.Classify (
   ) where
 
 import Control.Monad
-import Control.Monad.Except
+import Control.Monad.Except (ExceptT(..), runExceptT)
+import Control.Monad.Trans (lift)
+import Data.Foldable qualified as Foldable
+import Data.HashMap.Internal.Array qualified as HashMap (Array)
+import Data.HashMap.Internal.Array qualified as HashMap.Array
 import Data.HashMap.Lazy (HashMap)
+import Data.HashMap.Lazy qualified as HashMap
 import Data.IntMap (IntMap)
 import Data.Map (Map)
+import Data.Map qualified as Map
+import Data.Primitive.Array qualified as Prim (Array)
+import Data.Primitive.Array qualified as Prim.Array
 import Data.Sequence (Seq)
 import Data.Set (Set)
 import Data.SOP
 import Data.SOP.Dict
 import Data.Tree (Tree)
+import Data.Tree qualified as Tree
+import Data.Vector qualified as Vector.Boxed
 import Data.Void
 import GHC.Exts.Heap (Closure)
 import GHC.Real
 import System.IO.Unsafe (unsafePerformIO)
 import Unsafe.Coerce (unsafeCoerce)
-
-#if MIN_VERSION_mtl(2,3,0)
-import Control.Monad.Trans
-#endif
-
-import qualified Data.Foldable               as Foldable
-import qualified Data.HashMap.Internal.Array as HashMap (Array)
-import qualified Data.HashMap.Internal.Array as HashMap.Array
-import qualified Data.HashMap.Lazy           as HashMap
-import qualified Data.Map                    as Map
-import qualified Data.Primitive.Array        as Prim.Array
-import qualified Data.Primitive.Array        as Prim (Array)
-import qualified Data.Tree                   as Tree
-import qualified Data.Vector                 as Vector.Boxed
 
 import Debug.RecoverRTTI.Classifier
 import Debug.RecoverRTTI.Constraint
@@ -128,11 +109,7 @@ classifyIO x = do
       --
 
       -- bytestring
-#if MIN_VERSION_bytestring(0,11,0)
       (inKnownModule DataByteStringInternal      -> Just "BS")    -> return $ mustBe $ C_Prim C_BS_Strict
-#else
-      (inKnownModule DataByteStringInternal      -> Just "PS")    -> return $ mustBe $ C_Prim C_BS_Strict
-#endif
       (inKnownModule DataByteStringLazyInternal  -> Just "Empty") -> return $ mustBe $ C_Prim C_BS_Lazy
       (inKnownModule DataByteStringLazyInternal  -> Just "Chunk") -> return $ mustBe $ C_Prim C_BS_Lazy
 #if !MIN_VERSION_bytestring(0,12,0)

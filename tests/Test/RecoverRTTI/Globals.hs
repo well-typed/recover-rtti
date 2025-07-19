@@ -19,20 +19,19 @@ import Control.Concurrent.MVar (newEmptyMVar)
 import Control.Concurrent.STM (newTVarIO)
 import Control.Monad.ST.Unsafe (unsafeSTToIO)
 import Data.IORef (newIORef)
+import Data.Primitive.Array qualified as Prim.Array
+import Data.Primitive.ByteArray qualified as Prim.ByteArray
 import Data.STRef (newSTRef)
+import Data.Vector.Primitive qualified as Vector.Primitive
+import Data.Vector.Storable qualified as Vector.Storable
 import System.IO.Unsafe (unsafePerformIO)
 import Unsafe.Coerce (unsafeCoerce)
 
 #if MIN_VERSION_base(4,17,0)
-import qualified GHC.IsList as IsList
+import GHC.IsList qualified as IsList
 #else
-import qualified GHC.Exts as IsList (fromList)
+import GHC.Exts qualified as IsList (fromList)
 #endif
-
-import qualified Data.Primitive.Array     as Prim.Array
-import qualified Data.Primitive.ByteArray as Prim.ByteArray
-import qualified Data.Vector.Primitive    as Vector.Primitive
-import qualified Data.Vector.Storable     as Vector.Storable
 
 import Debug.RecoverRTTI
 

@@ -1,14 +1,3 @@
-{-# LANGUAGE DataKinds             #-}
-{-# LANGUAGE FlexibleContexts      #-}
-{-# LANGUAGE GADTs                 #-}
-{-# LANGUAGE KindSignatures        #-}
-{-# LANGUAGE NamedFieldPuns        #-}
-{-# LANGUAGE QuantifiedConstraints #-}
-{-# LANGUAGE RankNTypes            #-}
-{-# LANGUAGE ScopedTypeVariables   #-}
-{-# LANGUAGE TypeApplications      #-}
-{-# LANGUAGE UndecidableInstances  #-}
-
 module Test.RecoverRTTI.QuickCheck.DepGen (
     -- * Dependent generator
     DepGen(..)
@@ -41,8 +30,7 @@ import Test.QuickCheck
 
 import Test.RecoverRTTI.Prim
 import Test.RecoverRTTI.QuickCheck.Sized (SizedGen)
-
-import qualified Test.RecoverRTTI.QuickCheck.Sized as SG
+import Test.RecoverRTTI.QuickCheck.Sized qualified as SG
 
 {-------------------------------------------------------------------------------
   Dependent generator
