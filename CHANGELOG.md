@@ -1,5 +1,9 @@
 # Revision history for recover-rtti
 
+## 0.5.2 -- 2025-12-16
+
+* Support `unordered-containers-0.2.21` (Brandon Chinn, #45)
+
 ## 0.5.1 -- 2025-07-19
 
 * Relax bounds, including support for `QuickCheck-2.16`

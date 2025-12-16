@@ -1,4 +1,6 @@
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE MagicHash #-}
+{-# LANGUAGE UnboxedTuples #-}
 
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
@@ -358,7 +360,9 @@ classifyHMArray =
     classifyArrayLike
       C_HM_Array
       HashMap.Array.length
-      (`HashMap.Array.index` 0)
+      hmHead
+  where
+    hmHead a = case HashMap.Array.index# a 0 of (# x #) -> x
 
 classifyPrimArray ::
      Prim.Array a
