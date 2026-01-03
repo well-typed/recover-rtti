@@ -21,18 +21,22 @@ import Debug.RecoverRTTI.FlatClosure
 -------------------------------------------------------------------------------}
 
 data KnownPkg =
-    PkgGhcPrim
+    PkgBase
+#if !MIN_VERSION_base(4,22,0)
+  | PkgGhcPrim
+#endif
 #if MIN_VERSION_base(4,20,0)
   | PkgGhcInternal
 #endif
-  | PkgBase
 #if !MIN_VERSION_base(4,17,0)
   | PkgDataArrayByte
 #endif
   | PkgByteString
   | PkgText
   | PkgIntegerWiredIn
+#if !MIN_VERSION_base(4,22,0)
   | PkgGhcBignum
+#endif
   | PkgContainers
   | PkgAeson
   | PkgUnorderedContainers
@@ -46,7 +50,9 @@ data family KnownModule (pkg :: KnownPkg)
 -------------------------------------------------------------------------------}
 
 data SPkg (pkg :: KnownPkg) where
+#if !MIN_VERSION_base(4,22,0)
   SGhcPrim             :: SPkg 'PkgGhcPrim
+#endif
 #if MIN_VERSION_base(4,20,0)
   SGhcInternal         :: SPkg 'PkgGhcInternal
 #endif
@@ -57,7 +63,9 @@ data SPkg (pkg :: KnownPkg) where
   SByteString          :: SPkg 'PkgByteString
   SText                :: SPkg 'PkgText
   SIntegerWiredIn      :: SPkg 'PkgIntegerWiredIn
+#if !MIN_VERSION_base(4,22,0)
   SGhcBignum           :: SPkg 'PkgGhcBignum
+#endif
   SContainers          :: SPkg 'PkgContainers
   SAeson               :: SPkg 'PkgAeson
   SUnorderedContainers :: SPkg 'PkgUnorderedContainers
@@ -67,7 +75,9 @@ data SPkg (pkg :: KnownPkg) where
 class IsKnownPkg pkg where
   singPkg :: SPkg pkg
 
+#if !MIN_VERSION_base(4,22,0)
 instance IsKnownPkg 'PkgGhcPrim             where singPkg = SGhcPrim
+#endif
 #if MIN_VERSION_base(4,20,0)
 instance IsKnownPkg 'PkgGhcInternal         where singPkg = SGhcInternal
 #endif
@@ -78,7 +88,9 @@ instance IsKnownPkg 'PkgDataArrayByte       where singPkg = SDataArrayByte
 instance IsKnownPkg 'PkgByteString          where singPkg = SByteString
 instance IsKnownPkg 'PkgText                where singPkg = SText
 instance IsKnownPkg 'PkgIntegerWiredIn      where singPkg = SIntegerWiredIn
+#if !MIN_VERSION_base(4,22,0)
 instance IsKnownPkg 'PkgGhcBignum           where singPkg = SGhcBignum
+#endif
 instance IsKnownPkg 'PkgContainers          where singPkg = SContainers
 instance IsKnownPkg 'PkgAeson               where singPkg = SAeson
 instance IsKnownPkg 'PkgUnorderedContainers where singPkg = SUnorderedContainers
@@ -89,9 +101,11 @@ instance IsKnownPkg 'PkgPrimitive           where singPkg = SPrimitive
   Modules in @ghc-prim@
 -------------------------------------------------------------------------------}
 
+#if !MIN_VERSION_base(4,22,0)
 data instance KnownModule 'PkgGhcPrim =
     GhcTypes
   | GhcTuple
+#endif
 
 {-------------------------------------------------------------------------------
   Modules in @ghc-internal@ (ghc 9.10 and up)
@@ -107,6 +121,11 @@ data instance KnownModule 'PkgGhcInternal =
   | GhcMaybe
   | GhcReal
   | DataEither
+#endif
+#if MIN_VERSION_base(4,22,0)
+  | GhcTypes -- Moved from ghc-prim
+  | GhcTuple -- Moved from ghc-prim
+  | GhcNumInteger -- Moved from ghc-internal
 #endif
 
 {-------------------------------------------------------------------------------
@@ -168,8 +187,10 @@ data instance KnownModule 'PkgIntegerWiredIn =
   Modules in @ghc-bignum@
 -------------------------------------------------------------------------------}
 
+#if !MIN_VERSION_base(4,22,0)
 data instance KnownModule 'PkgGhcBignum =
     GhcNumInteger
+#endif
 
 {-------------------------------------------------------------------------------
   Modules in @containers@
@@ -244,7 +265,9 @@ inKnownModuleNested = go singPkg
     go _ _ _otherClosure = Nothing
 
     namePkg :: SPkg pkg -> String
+#if !MIN_VERSION_base(4,22,0)
     namePkg SGhcPrim             = "ghc-prim"
+#endif
 #if MIN_VERSION_base(4,20,0)
     namePkg SGhcInternal         = "ghc-internal"
 #endif
@@ -255,7 +278,9 @@ inKnownModuleNested = go singPkg
     namePkg SByteString          = "bytestring"
     namePkg SText                = "text"
     namePkg SIntegerWiredIn      = "integer-wired-in"
+#if !MIN_VERSION_base(4,22,0)
     namePkg SGhcBignum           = "ghc-bignum"
+#endif
     namePkg SContainers          = "containers"
     namePkg SAeson               = "aeson"
     namePkg SUnorderedContainers = "unordered-containers"
@@ -264,9 +289,8 @@ inKnownModuleNested = go singPkg
 
     nameModl :: SPkg pkg -> KnownModule pkg -> String
     nameModl = \case
+#if !MIN_VERSION_base(4,22,0)
         SGhcPrim -> \case
-          GhcTypes -> "GHC.Types"
-
     -- ghc-prim versions bundled with ghc:
     --
     -- >         base   ghc-prim
@@ -277,11 +301,14 @@ inKnownModuleNested = go singPkg
     -- > 9.8.4   4.19   0.11.0
     -- > 9.10.2  4.20   0.12.0
     -- > 9.12.2  4.21   0.13.0
+    -- > 9.14.1  4.22   0.13.1
     --
     -- If we want to use @MIN_VERSION_ghc_prim@, we need to declare a dependency
     -- on @ghc-prim@; since, we don't /actually/ depend on it, however, other
     -- than to check the version, this results in unused package warnings.
     -- We therefore use the version of base as a proxy.
+
+          GhcTypes -> "GHC.Types"
 
 #if MIN_VERSION_base(4,20,0)
           GhcTuple -> "GHC.Tuple"
@@ -290,6 +317,7 @@ inKnownModuleNested = go singPkg
           GhcTuple -> "GHC.Tuple.Prim"
 #else
           GhcTuple -> "GHC.Tuple"
+#endif
 #endif
 
 #if MIN_VERSION_base(4,20,0)
@@ -302,6 +330,11 @@ inKnownModuleNested = go singPkg
           GhcMaybe    -> "GHC.Internal.Maybe"
           GhcReal     -> "GHC.Internal.Real"
           DataEither  -> "GHC.Internal.Data.Either"
+#endif
+#if MIN_VERSION_base(4,22,0)
+          GhcTypes    -> "GHC.Internal.Types"
+          GhcTuple    -> "GHC.Internal.Tuple"
+          GhcNumInteger -> "GHC.Internal.Bignum.Integer"
 #endif
 
         SBase -> \case
@@ -334,8 +367,10 @@ inKnownModuleNested = go singPkg
         SIntegerWiredIn -> \case
           GhcIntegerType -> "GHC.Integer.Type"
 
+#if !MIN_VERSION_base(4,22,0)
         SGhcBignum -> \case
           GhcNumInteger -> "GHC.Num.Integer"
+#endif
 
         SContainers -> \case
           DataSetInternal      -> "Data.Set.Internal"
