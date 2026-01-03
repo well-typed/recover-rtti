@@ -24,13 +24,14 @@ tested-with:        GHC==9.2.8
                     GHC==9.8.4
                     GHC==9.10.2
                     GHC==9.12.2
+                    GHC==9.14.1
 
 source-repository head
   type:     git
   location: https://github.com/well-typed/recover-rtti
 
 common lang
-  build-depends:    base >= 4.16 && < 4.22
+  build-depends:    base >= 4.16 && < 4.23
   default-language: GHC2021
 
   ghc-options:
@@ -80,7 +81,7 @@ library
       -- bundled libraries
     , bytestring >= 0.11 && < 0.13
     , containers >= 0.6  && < 0.8
-    , ghc-heap   >= 9.2  && < 9.13
+    , ghc-heap   >= 9.2  && < 9.15
     , mtl        >= 2.2  && < 2.4
     , stm        >= 2.5  && < 2.6
     , text       >= 1.2  && < 2.2
