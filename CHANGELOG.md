@@ -1,5 +1,10 @@
 # Revision history for recover-rtti
 
+## 0.5.3 -- 2026-01-07
+
+* Support `ghc-9.14` (Brandon Chinn, #48)
+* Support `containers-0.8` (Brandon Chinn, #49)
+
 ## 0.5.2 -- 2025-12-16
 
 * Support `unordered-containers-0.2.21` (Brandon Chinn, #45)
