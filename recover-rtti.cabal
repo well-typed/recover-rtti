@@ -79,7 +79,7 @@ library
   build-depends:
       -- bundled libraries
     , bytestring >= 0.11 && < 0.13
-    , containers >= 0.6  && < 0.8
+    , containers >= 0.6  && < 0.9
     , ghc-heap   >= 9.2  && < 9.13
     , mtl        >= 2.2  && < 2.4
     , stm        >= 2.5  && < 2.6
