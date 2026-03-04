@@ -30,7 +30,6 @@ import Data.Text qualified as Text.Strict
 import Data.Text.Lazy qualified as Text.Lazy
 import Data.Tree (Tree)
 import Data.Vector qualified as Vector.Boxed
-import Data.Void
 import Data.Word
 
 #if !MIN_VERSION_bytestring(0,12,0)
@@ -134,7 +133,6 @@ primSatisfies = go
 
     -- String types
 
-    go C_String      = Dict
     go C_BS_Strict   = Dict
     go C_BS_Lazy     = Dict
     go C_Text_Strict = Dict
@@ -217,7 +215,7 @@ instance (
   ) => ClassifiedSatisfies (c :: Type -> Constraint)
 
 classifiedSatisfies :: forall c o.
-     (ClassifiedSatisfies c, c Void)
+     (ClassifiedSatisfies c, c Deferred)
   => (forall a. o a -> Dict c a)
   -> (forall a. Classifier_ o a -> Dict c a)
 classifiedSatisfies otherSatisfies = go
@@ -226,26 +224,53 @@ classifiedSatisfies otherSatisfies = go
     go (C_Prim  c) = primSatisfies  c
     go (C_Other c) = otherSatisfies c
 
-    -- Compound
-    go (C_Maybe        c) = goElems c $ Dict
-    go (C_Either       c) = goElems c $ Dict
-    go (C_List         c) = goElems c $ Dict
-    go (C_Ratio        c) = goElems c $ Dict
-    go (C_Set          c) = goElems c $ Dict
-    go (C_Map          c) = goElems c $ Dict
-    go (C_IntMap       c) = goElems c $ Dict
-    go (C_Sequence     c) = goElems c $ Dict
-    go (C_Tree         c) = goElems c $ Dict
-    go (C_HashSet      c) = goElems c $ Dict
-    go (C_HashMap      c) = goElems c $ Dict
-    go (C_HM_Array     c) = goElems c $ Dict
-    go (C_Prim_Array   c) = goElems c $ Dict
-    go (C_Vector_Boxed c) = goElems c $ Dict
-    go (C_Tuple        c) = goElems c $ Dict
+    -- Compound types with unclassified elements
+    go C_Maybe            = Dict
+    go C_Ratio            = Dict
+    go C_Set              = Dict
+    go C_IntMap           = Dict
+    go C_Tree             = Dict
+    go C_HashSet          = Dict
 
-    goElems :: SListI as => Elems o as -> (All c as => r) -> r
-    goElems (Elems cs) k = case all_NP (hmap goElem cs) of Dict -> k
+    go (C_HM_Array     c) = goHMArray     c
+    go (C_List         c) = goList        c
+    go (C_Prim_Array   c) = goPrimArray   c
+    go (C_Sequence     c) = goSequence    c
+    go (C_Vector_Boxed c) = goVectorBoxed c
 
-    goElem :: Elem o a -> Dict c a
-    goElem (Elem c) = go c
-    goElem NoElem   = Dict
+    go C_Either           = Dict
+    go C_HashMap          = Dict
+    go C_Map              = Dict
+
+    -- Compound types with classified elements
+    go (C_Tuple cs) = goNP cs Dict
+
+    goNP :: SListI as => Classifiers_ o as -> (All c as => r) -> r
+    goNP (Classifiers_ cs) k = case all_NP (hmap go cs) of Dict -> k
+
+    --
+    -- For list-like types we must explicitly, monomorphically, consider the
+    -- 'Char' case separately, so that instance resolution can correctly deal
+    -- with the overlapping instances.
+    --
+
+    goHMArray     :: ClassifyListElem a -> Dict c (HashMap.Array a)
+    goList        :: ClassifyListElem a -> Dict c [a]
+    goPrimArray   :: ClassifyListElem a -> Dict c (Prim.Array a)
+    goSequence    :: ClassifyListElem a -> Dict c (Seq a)
+    goVectorBoxed :: ClassifyListElem a -> Dict c (Vector.Boxed.Vector a)
+
+    goList        C_List_Deferred = Dict
+    goList        C_List_Char     = Dict
+
+    goHMArray     C_List_Deferred = Dict
+    goHMArray     C_List_Char     = Dict
+
+    goVectorBoxed C_List_Deferred = Dict
+    goVectorBoxed C_List_Char     = Dict
+
+    goSequence    C_List_Deferred = Dict
+    goSequence    C_List_Char     = Dict
+
+    goPrimArray   C_List_Deferred = Dict
+    goPrimArray   C_List_Char     = Dict

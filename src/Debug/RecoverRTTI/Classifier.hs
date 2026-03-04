@@ -6,9 +6,8 @@ module Debug.RecoverRTTI.Classifier (
   , IsUserDefined(..)
     -- * Generalizations
   , Classifier_(..)
-    -- * Nested classification
-  , Elem(..)
-  , Elems(..)
+  , ClassifyListElem(..)
+  , Classifiers_(..)
     -- * Mapping
   , mapClassifier
   ) where
@@ -35,7 +34,6 @@ import Data.Text qualified as Text.Strict
 import Data.Text.Lazy qualified as Text.Lazy
 import Data.Tree (Tree)
 import Data.Vector qualified as Vector.Boxed
-import Data.Void
 import Data.Word
 
 #if !MIN_VERSION_bytestring(0,12,0)
@@ -56,6 +54,11 @@ import Debug.RecoverRTTI.Wrappers
 -- the type of @a@ is. This is similar to a @TypeRep@, but since we recover
 -- this information from the heap, we have less accurate type information than
 -- @TypeRep@ does.
+--
+-- For containers only the outer shape is inferred; for example, a value of
+-- type @Maybe Int@ will be classified as @C_Maybe@, implying it is of type
+-- @Maybe Deferred@. Specific applications, such as 'anythingToString', then
+-- depend on recursive classification for the elements.
 type Classifier = Classifier_ IsUserDefined
 
 -- | User-defined types
@@ -89,32 +92,42 @@ data Classifier_ (o :: Type -> Type) (a :: Type) :: Type where
   C_Prim  :: PrimClassifier a -> Classifier_ o a
   C_Other :: o              a -> Classifier_ o a
 
-  -- Compound
-  --
-  -- NOTE: C_HashSet requires an argument; 'HashSet' and 'HashMap' cannot be
-  -- distinguished from just looking at the heap ('HashSet' is a newtype
-  -- around 'HashMap'), and so we classify a 'HashMap' with value type @()@
-  -- as a 'HashSet'; however, we can only do this of course if we have at
-  -- least one element.
+  -- Compound types with unclassified elements
 
-  C_Maybe        :: Elems o '[a]    -> Classifier_ o (Maybe a)
-  C_Either       :: Elems o '[a, b] -> Classifier_ o (Either a b)
-  C_List         :: Elems o '[a]    -> Classifier_ o [a]
-  C_Ratio        :: Elems o '[a]    -> Classifier_ o (Ratio a)
-  C_Set          :: Elems o '[a]    -> Classifier_ o (Set a)
-  C_Map          :: Elems o '[a, b] -> Classifier_ o (Map a b)
-  C_IntMap       :: Elems o '[a]    -> Classifier_ o (IntMap a)
-  C_Sequence     :: Elems o '[a]    -> Classifier_ o (Seq a)
-  C_Tree         :: Elems o '[a]    -> Classifier_ o (Tree a)
-  C_HashSet      :: Elems o '[a]    -> Classifier_ o (HashSet a)
-  C_HashMap      :: Elems o '[a, b] -> Classifier_ o (HashMap a b)
-  C_HM_Array     :: Elems o '[a]    -> Classifier_ o (HashMap.Array a)
-  C_Prim_Array   :: Elems o '[a]    -> Classifier_ o (Prim.Array a)
-  C_Vector_Boxed :: Elems o '[a]    -> Classifier_ o (Vector.Boxed.Vector a)
+  C_HashSet      :: Classifier_ o (HashSet Deferred)
+  C_IntMap       :: Classifier_ o (IntMap Deferred)
+  C_Maybe        :: Classifier_ o (Maybe Deferred)
+  C_Ratio        :: Classifier_ o (Ratio Deferred)
+  C_Set          :: Classifier_ o (Set Deferred)
+  C_Tree         :: Classifier_ o (Tree Deferred)
+
+  C_HM_Array     :: ClassifyListElem a -> Classifier_ o (HashMap.Array a)
+  C_List         :: ClassifyListElem a -> Classifier_ o [a]
+  C_Prim_Array   :: ClassifyListElem a -> Classifier_ o (Prim.Array a)
+  C_Sequence     :: ClassifyListElem a -> Classifier_ o (Seq a)
+  C_Vector_Boxed :: ClassifyListElem a -> Classifier_ o (Vector.Boxed.Vector a)
+
+  C_Either       :: Classifier_ o (Either Deferred Deferred)
+  C_HashMap      :: Classifier_ o (HashMap Deferred Deferred)
+  C_Map          :: Classifier_ o (Map Deferred Deferred)
+
+  -- Compound types with classified elements
+  --
+  -- We should infer type arguments /only/ if there is exactly one use of that
+  -- type variable in values; in all other cases we might infer something based
+  -- on the first value wihich might not be true for the other values, and
+  -- therefore we should instead defer.
 
   C_Tuple ::
        (SListI xs, IsValidSize (Length xs))
-    => Elems o xs -> Classifier_ o (WrappedTuple xs)
+    => Classifiers_ o xs -> Classifier_ o (WrappedTuple xs)
+
+-- | Distinguish lists of characters from other lists
+--
+-- This ensures that we print strings as strings, rather than lists of chars.
+data ClassifyListElem (a :: Type) where
+  C_List_Deferred :: ClassifyListElem Deferred
+  C_List_Char     :: ClassifyListElem Char
 
 -- | Classifier for primitive types
 data PrimClassifier (a :: Type) where
@@ -144,7 +157,6 @@ data PrimClassifier (a :: Type) where
   -- as a list of characters). Of course, empty strings will be inferred as
   -- empty lists instead.
 
-  C_String      :: PrimClassifier String
   C_BS_Strict   :: PrimClassifier BS.Strict.ByteString
   C_BS_Lazy     :: PrimClassifier BS.Lazy.ByteString
   C_Text_Strict :: PrimClassifier Text.Strict.Text
@@ -183,31 +195,23 @@ data PrimClassifier (a :: Type) where
   C_ByteArray         :: PrimClassifier Prim.ByteArray
   C_MutableByteArray  :: PrimClassifier SomeMutableByteArray
 
-{-------------------------------------------------------------------------------
-  Nested classification
--------------------------------------------------------------------------------}
-
-data Elem o a where
-  Elem   :: Classifier_ o a -> Elem o a
-  NoElem :: Elem o Void
-
-newtype Elems o xs = Elems (NP (Elem o) xs)
+newtype Classifiers_ o xs = Classifiers_ (NP (Classifier_ o) xs)
 
 {-------------------------------------------------------------------------------
   Show
 -------------------------------------------------------------------------------}
 
-deriving instance Show (PrimClassifier a)
+deriving instance Show (PrimClassifier   a)
+deriving instance Show (ClassifyListElem a)
 
 deriving instance (forall x. Show (o x)) => Show (Classifier_ o a)
-deriving instance (forall x. Show (o x)) => Show (Elem o a)
 
-instance (forall a. Show (o a), SListI xs) => Show (Elems o xs) where
-  showsPrec p (Elems xs) =
+instance (forall a. Show (o a), SListI xs) => Show (Classifiers_ o xs) where
+  showsPrec p (Classifiers_ xs) =
       case all_NP allShow of
         Dict -> showsPrec p xs
     where
-      allShow :: NP (Dict (Compose Show (Elem o))) xs
+      allShow :: NP (Dict (Compose Show (Classifier_ o))) xs
       allShow = hpure Dict
 
 {-------------------------------------------------------------------------------
@@ -221,32 +225,31 @@ mapClassifier :: forall m o o'.
 mapClassifier other = go
   where
     go :: forall a. Classifier_ o a -> m (Classifier_ o' a)
-    -- Primitive and user-defined types
 
+    -- Primitive and user-defined types
     go (C_Prim  c) = pure (C_Prim c)
     go (C_Other c) = C_Other <$> other c
 
-    -- Compound
+    -- Compound types with unclassified elements
+    go C_HashSet          = pure C_HashSet
+    go C_IntMap           = pure C_IntMap
+    go C_Maybe            = pure C_Maybe
+    go C_Ratio            = pure C_Ratio
+    go C_Set              = pure C_Set
+    go C_Tree             = pure C_Tree
 
-    go (C_Maybe        c) = C_Maybe        <$> goElems c
-    go (C_Either       c) = C_Either       <$> goElems c
-    go (C_List         c) = C_List         <$> goElems c
-    go (C_Ratio        c) = C_Ratio        <$> goElems c
-    go (C_Set          c) = C_Set          <$> goElems c
-    go (C_Map          c) = C_Map          <$> goElems c
-    go (C_IntMap       c) = C_IntMap       <$> goElems c
-    go (C_Sequence     c) = C_Sequence     <$> goElems c
-    go (C_Tree         c) = C_Tree         <$> goElems c
-    go (C_HashSet      c) = C_HashSet      <$> goElems c
-    go (C_HashMap      c) = C_HashMap      <$> goElems c
-    go (C_HM_Array     c) = C_HM_Array     <$> goElems c
-    go (C_Prim_Array   c) = C_Prim_Array   <$> goElems c
-    go (C_Vector_Boxed c) = C_Vector_Boxed <$> goElems c
-    go (C_Tuple        c) = C_Tuple        <$> goElems c
+    go (C_HM_Array     c) = pure (C_HM_Array     c)
+    go (C_List         c) = pure (C_List         c)
+    go (C_Prim_Array   c) = pure (C_Prim_Array   c)
+    go (C_Sequence     c) = pure (C_Sequence     c)
+    go (C_Vector_Boxed c) = pure (C_Vector_Boxed c)
 
-    goElems :: SListI xs => Elems o xs -> m (Elems o' xs)
-    goElems (Elems cs) = Elems <$> htraverse' goElem cs
+    go C_Either           = pure C_Either
+    go C_HashMap          = pure C_HashMap
+    go C_Map              = pure C_Map
 
-    goElem :: Elem o a -> m (Elem o' a)
-    goElem (Elem c) = Elem <$> go c
-    goElem NoElem   = pure NoElem
+    -- Compound types with classified elements
+    go (C_Tuple cs) = C_Tuple <$> goNP cs
+
+    goNP :: SListI xs => Classifiers_ o xs -> m (Classifiers_ o' xs)
+    goNP (Classifiers_ cs) = Classifiers_ <$> htraverse' go cs

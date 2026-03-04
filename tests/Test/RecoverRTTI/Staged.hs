@@ -17,25 +17,27 @@
 -- In this module we do staged inference for the user-defined types used in the
 -- test suite. The primary purpose of this is to provide evidence that
 -- 'classify' gives us enough information to do so.
-module Test.RecoverRTTI.Staged (classifyConcrete, reclassify) where
+module Test.RecoverRTTI.Staged (
+    UserClassifier
+  , classifyConcrete
+  , reclassify
+  ) where
 
 import Control.Monad.Except
 import Data.SOP hiding (NS(..))
-import Data.Void
-import Unsafe.Coerce (unsafeCoerce)
 
 import Debug.RecoverRTTI
-import Debug.RecoverRTTI.Classify
 
-import Test.RecoverRTTI.ConcreteClassifier
 import Test.RecoverRTTI.UserDefined
 
 {-------------------------------------------------------------------------------
   Reclassified values
 -------------------------------------------------------------------------------}
 
+type UserClassifier = Classifier_ ClassifyUser
+
 -- | Classify, then reclassify
-classifyConcrete :: a -> Except String (Reclassified ConcreteClassifier a)
+classifyConcrete :: a -> Except String (Reclassified UserClassifier a)
 classifyConcrete x =
     case classify x of
       Left closure ->
@@ -46,15 +48,15 @@ classifyConcrete x =
 -- | Reclassify values
 --
 -- See detailed description in 'Reclassified'.
-reclassify :: Classifier a -> Except String (Reclassified ConcreteClassifier a)
+reclassify :: Classifier a -> Except String (Reclassified UserClassifier a)
 reclassify = fmap distribReclassified . reclassify_ go
   where
     go :: IsUserDefined a -> Except String (Reclassified ClassifyUser a)
     go (IsUserDefined x) =
         firstMatch ("Unknown constructor: " ++ constr) [
             goSimple      C_Simple    constr
-          , goTraversable C_NonRec   (constr, x)
-          , goTraversable C_Rec      (constr, x)
+          , goTraversable C_NonRec    constr
+          , goTraversable C_Rec       constr
           , goSimple      C_Unlifted  constr
           ]
       where
@@ -72,26 +74,14 @@ reclassify = fmap distribReclassified . reclassify_ go
           else return . Just $ Reclassified c FromUsr
 
     goTraversable ::
-         forall f. (Traversable f, ConstrsOf f)
-      => (forall a. Elems ClassifyUser '[a] -> ClassifyUser (f a))
-      -> (String, UserDefined)
+         forall f. ConstrsOf f
+      => ClassifyUser (f Deferred)
+      -> String
       -> Except String (Maybe (Reclassified ClassifyUser UserDefined))
-    goTraversable cc = \(constr, x) ->
-        if constr `notElem` constrsOf (Proxy @f) then
-          return Nothing
-        else
-          case checkEmptyTraversable (coerceToF x) of
-            Right _ -> return . Just $ Reclassified (cc ElemU) FromUsr
-            Left x' -> Just . aux <$> classifyConcrete x'
-      where
-        coerceToF :: forall a. UserDefined -> f a
-        coerceToF = unsafeCoerce
-
-        aux ::
-             Reclassified ConcreteClassifier a
-          -> Reclassified ClassifyUser UserDefined
-        aux (Reclassified c pf) =
-            Reclassified (cc (ElemK c)) (F1 pf `Compose` FromUsr)
+    goTraversable c constr =
+         if constr `notElem` constrsOf (Proxy @f)
+           then return Nothing
+           else return . Just $ Reclassified c FromUsr
 
 {-------------------------------------------------------------------------------
   Auxiliary
@@ -103,10 +93,3 @@ firstMatch err = go
     go :: [Except e (Maybe a)] -> Except e a
     go []     = throwError err
     go (x:xs) = x >>= maybe (go xs) return
-
--- | Check if a traversable data structure is empty
---
--- Returns evidence: an element of the data-structure if it's non-empty,
--- or evidence that it is empty otherwise.
-checkEmptyTraversable :: Traversable t => t a -> Either a (t Void)
-checkEmptyTraversable = traverse Left

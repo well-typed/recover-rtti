@@ -1,20 +1,32 @@
 -- | Verify that 'anythingToString' produces same result as 'show'
 module Test.RecoverRTTI.Show (tests) where
 
-import Test.Tasty
-import Test.Tasty.QuickCheck (testProperty)
 import Test.QuickCheck (Property, (===))
 import Test.QuickCheck qualified as QC
+import Test.Tasty
+import Test.Tasty.HUnit
+import Test.Tasty.QuickCheck (testProperty)
 
 import Debug.RecoverRTTI
 
-import Test.RecoverRTTI.ConcreteClassifier
+import Test.RecoverRTTI.ConcreteClassifier.Value
+
+{-------------------------------------------------------------------------------
+  List of all tests
+-------------------------------------------------------------------------------}
 
 tests :: TestTree
 tests = testGroup "Test.RecoverRTTI.Show" [
       testProperty "showGenerated"    prop_showGenerated
     , testProperty "anythingToString" prop_anythingToString
+    , testGroup "Regression" [
+          testCase "issue51" test_issue51
+        ]
     ]
+
+{-------------------------------------------------------------------------------
+  Property tests
+-------------------------------------------------------------------------------}
 
 -- | Check that the generated value is showable
 --
@@ -30,3 +42,16 @@ prop_anythingToString (Some (Value _cc x)) =
       QC.counterexample ("inferred: " ++ show (classify x))
     $ QC.within 2_000_000
     $ show x === anythingToString x
+
+{-------------------------------------------------------------------------------
+  Regression tests
+-------------------------------------------------------------------------------}
+
+test_issue51 :: Assertion
+test_issue51 =
+    assertEqual "" (show value) (anythingToString value)
+  where
+    value :: [Maybe Bool]
+    value = [Nothing, Just True]
+
+

@@ -2,13 +2,13 @@
 module Debug.RecoverRTTI (
     -- * Take advantage of the recovered type information
     anythingToString
+  , anythingToShowS
     -- * Debugging support
     -- ** Tracing
   , traceAnything
   , traceAnythingId
     -- ** Deriving-via
   , AnythingToString(..)
-  , BoxAnything(..)
     -- * Recover type information
   , classify
   , Classifier
@@ -16,9 +16,10 @@ module Debug.RecoverRTTI (
   , IsUserDefined(..)
     -- ** Generalizations
   , Classifier_(..)
-    -- ** Unknown or partially known type arguments
-  , Elem(..)
-  , Elems(..)
+  , Classifiers_(..)
+  , ClassifyListElem(..)
+    -- ** Deferred classification
+  , Deferred(..)
     -- ** Newtype wrappers for unshowable types
   , SomeSTRef(..)
   , SomeTVar(..)
@@ -37,8 +38,7 @@ module Debug.RecoverRTTI (
     -- ** Equality
   , samePrim
   , sameClassifier_
-  , sameElem
-  , sameElems
+  , sameClassifiers_
     -- * User-defined types
   , UserDefined -- opaque
     -- ** Classify constructor arguments

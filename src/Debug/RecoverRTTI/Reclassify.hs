@@ -36,7 +36,7 @@ data Reclassified o a where
 data ReclassifiedElems o as where
   RElems ::
        (SListI bs, Length bs ~ Length as)
-    => Elems o bs -> PairWise FromUsr as bs -> ReclassifiedElems o as
+    => Classifiers_ o bs -> PairWise FromUsr as bs -> ReclassifiedElems o as
 
 reclassify_ :: forall m o o'. Applicative m
   => (forall a. o a -> m (Reclassified o' a))
@@ -48,75 +48,62 @@ reclassify_ = mapClassifier
 -- Given a classifier with user-defined classifiers at the levels, along with
 -- coercion functions, leave the user-defined classifiers in place but lift the
 -- coercion function to the top-level.
-distribReclassified :: forall o.
-     (forall a. Classifier_ (Reclassified o) a -> Reclassified (Classifier_ o) a)
+distribReclassified :: forall o a.
+     Classifier_ (Reclassified o) a
+  -> Reclassified (Classifier_ o) a
 distribReclassified = go
   where
-    go :: forall a. Classifier_ (Reclassified o) a -> Reclassified (Classifier_ o) a
-    -- Primitive and user-defined
+    go :: forall x. Classifier_ (Reclassified o) x -> Reclassified (Classifier_ o) x
+
+    -- Primitive and user-defined types
+
     go (C_Prim  c) = Reclassified (C_Prim c) Id
     go (C_Other c) = case c of Reclassified c' f -> Reclassified (C_Other c') f
 
-    -- Compound
-    go (C_Maybe        c) = go1 C_Maybe        c
-    go (C_Either       c) = go2 C_Either       c
-    go (C_List         c) = go1 C_List         c
-    go (C_Ratio        c) = go1 C_Ratio        c
-    go (C_Set          c) = go1 C_Set          c
-    go (C_Map          c) = go2 C_Map          c
-    go (C_IntMap       c) = go1 C_IntMap       c
-    go (C_Sequence     c) = go1 C_Sequence     c
-    go (C_Tree         c) = go1 C_Tree         c
-    go (C_HashSet      c) = go1 C_HashSet      c
-    go (C_HashMap      c) = go2 C_HashMap      c
-    go (C_HM_Array     c) = go1 C_HM_Array     c
-    go (C_Prim_Array   c) = go1 C_Prim_Array   c
-    go (C_Vector_Boxed c) = go1 C_Vector_Boxed c
-    go (C_Tuple        c) = goN C_Tuple        c
+    -- Compound types with unclassified elements
+    go C_HashSet          = Reclassified C_HashSet          Id
+    go C_IntMap           = Reclassified C_IntMap           Id
+    go C_Maybe            = Reclassified C_Maybe            Id
+    go C_Ratio            = Reclassified C_Ratio            Id
+    go C_Set              = Reclassified C_Set              Id
+    go C_Tree             = Reclassified C_Tree             Id
 
-    go1 :: forall f a.
-         (forall a'. Elems o '[a'] -> Classifier_ o (f a'))
-      -> Elems (Reclassified o) '[a]
-      -> Reclassified (Classifier_ o) (f a)
-    go1 cf c =
-        case distribElems c of
-          RElems c' (PCons f PNil) -> Reclassified (cf c') (F1 f)
+    go (C_HM_Array     c) = Reclassified (C_HM_Array     c) Id
+    go (C_List         c) = Reclassified (C_List         c) Id
+    go (C_Prim_Array   c) = Reclassified (C_Prim_Array   c) Id
+    go (C_Sequence     c) = Reclassified (C_Sequence     c) Id
+    go (C_Vector_Boxed c) = Reclassified (C_Vector_Boxed c) Id
 
-    go2 :: forall f a b.
-         (forall a' b'. Elems o '[a', b'] -> Classifier_ o (f a' b'))
-      -> Elems (Reclassified o) '[a, b]
-      -> Reclassified (Classifier_ o) (f a b)
-    go2 cf c =
-        case distribElems c of
-          RElems c' (PCons f (PCons f' PNil)) -> Reclassified (cf c') (F2 f f')
+    go C_Either           = Reclassified C_Either           Id
+    go C_HashMap          = Reclassified C_HashMap          Id
+    go C_Map              = Reclassified C_Map              Id
 
-    goN :: forall f as.
-         SListI as
-      => (forall as'.
-               (SListI as', Length as' ~ Length as)
-            => Elems o as' -> Classifier_ o (f as'))
-      -> Elems (Reclassified o) as
-      -> Reclassified (Classifier_ o) (f as)
+    -- Compound types with classified elements
+    go (C_Tuple cs) = goN C_Tuple cs
+
+    goN :: forall f xs.
+         SListI xs
+      => (forall xs'.
+               (SListI xs', Length xs' ~ Length xs)
+            => Classifiers_ o xs' -> Classifier_ o (f xs'))
+      -> Classifiers_ (Reclassified o) xs
+      -> Reclassified (Classifier_ o) (f xs)
     goN cf c =
         case distribElems c of
           RElems c' fs -> Reclassified (cf c') (FN fs)
 
-distribElem :: Elem (Reclassified o) a -> Reclassified (Elem o) a
-distribElem = \case
-    NoElem -> Reclassified NoElem Absurd
-    Elem c -> case distribReclassified c of
-                Reclassified c' f -> Reclassified (Elem c') f
-
 distribElems ::
      SListI xs
-  => Elems (Reclassified o) xs -> ReclassifiedElems o xs
-distribElems = \(Elems cs) -> go $ hmap distribElem cs
+  => Classifiers_ (Reclassified o) xs -> ReclassifiedElems o xs
+distribElems = \(Classifiers_ cs) -> go $ hmap distribReclassified cs
   where
-    go :: NP (Reclassified (Elem o)) xs -> ReclassifiedElems o xs
-    go Nil                      = RElems (Elems Nil) PNil
-    go (Reclassified c f :* cs) = case go cs of
-                                    RElems (Elems cs') fs' ->
-                                      RElems (Elems (c :* cs')) (PCons f fs')
+    go :: NP (Reclassified (Classifier_ o)) xs -> ReclassifiedElems o xs
+    go Nil                      = RElems (Classifiers_ Nil) PNil
+    go (Reclassified c f :* cs) =
+        case go cs of
+          RElems (Classifiers_ cs') fs' ->
+            RElems (Classifiers_ (c :* cs')) (PCons f fs')
+
 
 {-------------------------------------------------------------------------------
   Evidence that we are only doing conversions from Any

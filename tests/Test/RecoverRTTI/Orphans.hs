@@ -1,7 +1,7 @@
 {-# OPTIONS_GHC -Wno-orphans #-}
 
 -- | Equality orphan instances
-module Test.RecoverRTTI.Classifier.Equality () where
+module Test.RecoverRTTI.Orphans () where
 
 import Data.Function (on)
 import Data.HashMap.Internal.Array qualified as HashMap (Array)

@@ -1,5 +1,40 @@
 # Revision history for recover-rtti
 
+## 0.6.0 -- 2026-03-05
+
+THIS IS AN IMPORTANT BUGFIX RELEASE; PLEASE UPGRADE.
+Previous versions of recover-rtti may result in segfaults. Details below.
+
+This release changes how we classify containers. In versions prior to 0.6, we
+would classify a list such as `[True, False]` as `C_List (C_Prim C_Bool)`. We
+did this by looking at the first element of the list, if one existed; if the
+list was empty, we'd classify it as `C_List C_Void`. This is however not always
+correct. Suppose we have a list of lists, and the first inner list happens to be
+empty. We'd then classify the list of lists as `C_List (C_List C_Void)`, but
+that is of course wrong: the next inner list might not be empty, and classifying
+it as `[Void]` (and then attempting to print it) could result in segfaults.
+
+Starting in version 0.6 we defer classification of type arguments, merely
+classifying a list as `C_List`, implying that its type is `[Deferred]`. Specific
+applications, such as `anythingToString`, will then recursively classify each
+element prior to printing it.
+
+We do make two exceptions to this rule:
+
+- For lists and list-like structures, we do check if the elements are (_all_) of
+  type `Char`, so that the overlapping instance `Show` for `[String]` (versus
+  `[a]`) can be used. Not doing this would result in significantly less useful
+  output from `anythingToString`.
+- To distinguish `HashMap` from `HashSet` we look at the first element only. At
+  least for printing this cannot result in segfaults (it would just mean that
+  the values of the `HashMap` are omitted), and it's anyway exceedingly unlikely
+  to happen in the first place.
+
+Since each element is individually classified, there is no need for the
+`BoxAnything` workaround anymore, which has therefore been deleted.
+
+With thanks to Brandon Chinn for the report and the minimal reproducer (#51).
+
 ## 0.5.3 -- 2026-01-07
 
 * Support `ghc-9.14` (Brandon Chinn, #48)
