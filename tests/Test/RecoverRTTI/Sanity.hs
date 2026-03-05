@@ -1,18 +1,20 @@
 module Test.RecoverRTTI.Sanity (tests) where
 
+import Data.HashMap.Lazy (HashMap)
+import Data.HashMap.Lazy qualified as HashMap
 import Data.SOP.BasicFunctors
 import GHC.Exts (Any)
+import Test.QuickCheck (Property)
+import Test.QuickCheck qualified as QC
+import Test.Tasty
+import Test.Tasty.HUnit
+import Test.Tasty.QuickCheck (testProperty)
 import Unsafe.Coerce (unsafeCoerce)
 
 import Debug.RecoverRTTI
 
-import Test.Tasty
-import Test.Tasty.HUnit
-import Test.Tasty.QuickCheck (testProperty)
-import Test.QuickCheck (Property)
-import Test.QuickCheck qualified as QC
-
-import Test.RecoverRTTI.ConcreteClassifier
+import Test.RecoverRTTI.ConcreteClassifier.Arbitrary
+import Test.RecoverRTTI.ConcreteClassifier.Size
 import Test.RecoverRTTI.QuickCheck.DepGen
 import Test.RecoverRTTI.QuickCheck.Sized qualified as SG
 
@@ -20,7 +22,13 @@ tests :: TestTree
 tests = testGroup "Test.RecoverRTTI.Sanity" [
      testProperty "typeSize"            prop_typeSize
    , testCase     "derivingVia"         test_derivingVia
-   , testCase     "BoxAnythingToString" test_BoxAnythingToString
+
+   , testGroup "Any" [
+         testCase "listSimple"    test_Any_listSimple
+       , testCase "listChar"      test_Any_listChar
+       , testCase "hashMapSimple" test_Any_hashMapSimple
+       , testCase "hashMapUnit"   test_Any_hashMapUnit
+       ]
    ]
 
 prop_typeSize :: Property
@@ -44,24 +52,52 @@ test_derivingVia :: Assertion
 test_derivingVia = assertEqual "" "T2 (T1 1 True)" $ show (T2 (T1 1 True))
 
 {-------------------------------------------------------------------------------
-  BoxAnythingToString
+  Unsafe heterogenous datastructures
 -------------------------------------------------------------------------------}
 
-data T3 f = T3 [f Any]
+-- | Simple hererogeneous lists (without 'Char')
+test_Any_listSimple :: Assertion
+test_Any_listSimple =
+    assertEqual "" "[1,False]" $ anythingToString testValue
+  where
+    testValue :: [I Any]
+    testValue = [
+          unsafeCoerce (1 :: Int)
+        , unsafeCoerce False
+        ]
 
-deriving instance Show a => Show (T3 (K a))
+-- | Hererogeneous lists that start with a 'Char'
+--
+-- This is particularly unpleasant, as these might be mistaken for 'String's.
+test_Any_listChar :: Assertion
+test_Any_listChar =
+    assertEqual "" "['a',1,False]" $ anythingToString testValue
+  where
+    testValue :: [I Any]
+    testValue = [
+          unsafeCoerce 'a'
+        , unsafeCoerce (1 :: Int)
+        , unsafeCoerce False
+        ]
 
-t3BadExample :: T3 I
-t3BadExample = T3 [unsafeCoerce (1 :: Int), unsafeCoerce False]
+test_Any_hashMapSimple :: Assertion
+test_Any_hashMapSimple =
+    assertEqual "" "fromList [(1,'a'),(2,False)]" $ anythingToString testValue
+  where
+    testValue :: HashMap Int Any
+    testValue = HashMap.fromList [
+          (1, unsafeCoerce 'a')
+        , (2, unsafeCoerce False)
+        ]
 
-t3GoodExample :: T3 (K BoxAnything)
-t3GoodExample = T3 [K $ BoxAnything (1 :: Int), K $ BoxAnything False]
-
-test_BoxAnythingToString :: Assertion
-test_BoxAnythingToString = do
-    assertBool "bad" $
-      anythingToString t3BadExample /= "T3 [1,False]"
-    assertEqual "good - show" "T3 [K 1,K False]" $
-      show t3GoodExample
-    assertEqual "good - anythingToString" "T3 [BoxAnything 1,BoxAnything False]" $
-      anythingToString t3GoodExample
+-- | HashMap with () as the first value will be mistaken for a HashSet
+test_Any_hashMapUnit :: Assertion
+test_Any_hashMapUnit =
+    assertEqual "" "fromList [0,1,2]" $ anythingToString testValue
+  where
+    testValue :: HashMap Int Any
+    testValue = HashMap.fromList [
+          (0, unsafeCoerce ())
+        , (1, unsafeCoerce 'a')
+        , (2, unsafeCoerce False)
+        ]

@@ -12,8 +12,9 @@
 -- nonetheless stil useful, as it means that we can show /everything/, which is
 -- kind of the point.
 module Debug.RecoverRTTI.Wrappers (
-    -- * User-defined types
-    UserDefined(..)
+    -- * Deferred classification and user-defined types
+    Deferred(..)
+  , UserDefined(..)
     -- * Functions
   , SomeFun(..)
     -- * Reference cells
@@ -37,14 +38,22 @@ import Data.STRef (STRef)
 import GHC.Exts
 
 {-------------------------------------------------------------------------------
-  User-defined types
+  Deferred classification and user-defined types
 -------------------------------------------------------------------------------}
+
+-- | As-yet-unknown type
+--
+-- See t'Debug.RecoverRTTI.Classifier' for detailed discussion.
+newtype Deferred = Deferred Any
 
 -- | User-defined type
 --
--- We defer classification of the arguments to the constructor (the type might
--- be recursive, so if we tried to classify all arguments, we might end up
--- unrolling the recursion at the type level).
+-- We tried to infer a type, but it's a type that is not explicitly recognized
+-- by @recover-rtti@. Such values will be printed using a generic "constructor
+-- with arguments" approach.
+--
+-- If desired, domain specific type inference can be done; see
+-- 'Debug.RecoverRTTI.reclassify_'.
 newtype UserDefined = UserDefined Any
 
 {-------------------------------------------------------------------------------

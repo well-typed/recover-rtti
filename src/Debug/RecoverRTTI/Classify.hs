@@ -12,16 +12,10 @@ module Debug.RecoverRTTI.Classify (
   , fromUserDefined
     -- * Showing values
   , anythingToString
+  , anythingToShowS
   , canShowPrim
   , canShowClassified
   , canShowClassified_
-    -- * Patterns for common shapes of 'Elems' (exported for the tests)
-  , pattern ElemK
-  , pattern ElemU
-  , pattern ElemKK
-  , pattern ElemUU
-  , pattern ElemKU
-  , pattern ElemUK
   ) where
 
 import Control.Monad
@@ -32,21 +26,12 @@ import Data.HashMap.Internal.Array qualified as HashMap (Array)
 import Data.HashMap.Internal.Array qualified as HashMap.Array
 import Data.HashMap.Lazy (HashMap)
 import Data.HashMap.Lazy qualified as HashMap
-import Data.IntMap (IntMap)
-import Data.Map (Map)
-import Data.Map qualified as Map
 import Data.Primitive.Array qualified as Prim (Array)
-import Data.Primitive.Array qualified as Prim.Array
 import Data.Sequence (Seq)
-import Data.Set (Set)
 import Data.SOP
 import Data.SOP.Dict
-import Data.Tree (Tree)
-import Data.Tree qualified as Tree
 import Data.Vector qualified as Vector.Boxed
-import Data.Void
 import GHC.Exts.Heap (Closure)
-import GHC.Real
 import System.IO.Unsafe (unsafePerformIO)
 import Unsafe.Coerce (unsafeCoerce)
 
@@ -140,15 +125,15 @@ classifyIO x = do
 
       -- Maybe
       (inKnownModule GhcMaybe -> Just "Nothing") ->
-        mustBe <$> classifyMaybe (unsafeCoerce x)
+        return $ mustBe C_Maybe
       (inKnownModule GhcMaybe -> Just "Just") ->
-        mustBe <$> classifyMaybe (unsafeCoerce x)
+        return $ mustBe C_Maybe
 
       -- Either
       (inKnownModule DataEither -> Just "Left") ->
-        mustBe <$> classifyEither (unsafeCoerce x)
+        return $ mustBe C_Either
       (inKnownModule DataEither -> Just "Right") ->
-        mustBe <$> classifyEither (unsafeCoerce x)
+        return $ mustBe C_Either
 
       -- Lists (this includes the 'String' case)
       (inKnownModule GhcTypes -> Just "[]") ->
@@ -158,19 +143,19 @@ classifyIO x = do
 
       -- Ratio
       (inKnownModule GhcReal -> Just ":%") ->
-        mustBe <$> classifyRatio (unsafeCoerce x)
+        return $ mustBe C_Ratio
 
       -- Set
       (inKnownModule DataSetInternal -> Just "Tip") ->
-        mustBe <$> classifySet (unsafeCoerce x)
+        return $ mustBe C_Set
       (inKnownModule DataSetInternal -> Just "Bin") ->
-        mustBe <$> classifySet (unsafeCoerce x)
+        return $ mustBe C_Set
 
       -- Map
       (inKnownModule DataMapInternal -> Just "Tip") ->
-        mustBe <$> classifyMap (unsafeCoerce x)
+        return $ mustBe C_Map
       (inKnownModule DataMapInternal -> Just "Bin") ->
-        mustBe <$> classifyMap (unsafeCoerce x)
+        return $ mustBe C_Map
 
       -- IntSet
       (inKnownModule DataIntSetInternal -> Just "Bin") ->
@@ -182,11 +167,11 @@ classifyIO x = do
 
       -- IntMap
       (inKnownModule DataIntMapInternal -> Just "Nil") ->
-        mustBe <$> classifyIntMap (unsafeCoerce x)
+        return $ mustBe C_IntMap
       (inKnownModule DataIntMapInternal -> Just "Tip") ->
-        mustBe <$> classifyIntMap (unsafeCoerce x)
+        return $ mustBe C_IntMap
       (inKnownModule DataIntMapInternal -> Just "Bin") ->
-        mustBe <$> classifyIntMap (unsafeCoerce x)
+        return $ mustBe C_IntMap
 
       -- Sequence
       (inKnownModule DataSequenceInternal -> Just "EmptyT") ->
@@ -198,7 +183,7 @@ classifyIO x = do
 
       -- Tree
       (inKnownModule DataTree -> Just "Node") ->
-        mustBe <$> classifyTree (unsafeCoerce x)
+        return $ mustBe C_Tree
 
       -- Tuples (of size 2..62)
       (inKnownModuleNested GhcTuple -> Just (
@@ -247,7 +232,7 @@ classifyIO x = do
 
       -- Boxed vectors
       (inKnownModule DataVector -> Just "Vector") ->
-        mustBe <$> classifyVectorBoxed (unsafeCoerce x)
+        mustBe <$> classifyBoxedVector (unsafeCoerce x)
 
       -- Storable vectors
       (inKnownModule DataVectorStorable -> Just "Vector") ->
@@ -304,161 +289,98 @@ classify :: a -> Either Closure (Classifier a)
 classify = unsafePerformIO . runExceptT . classifyIO
 
 {-------------------------------------------------------------------------------
-  Classification for compound types
+  List elements
+
+  We add a special case for @[Char]@, so that that @show@ will use the
+  (overlapped) instance for @String@ instead of the general instance for @[a]@.
+  We cannot recognize this for empty lists, but printing those as @[]@ is OK. We
+  must do this not only for lists proper, but also for datatypes where the
+  'Show' instance piggy-backs on the instance for lists.
+
+  We must however be careful with list(-like)s of 'Any', where the first
+  character happens tob be a 'Char'. We therefore check /all/ elements.
 -------------------------------------------------------------------------------}
 
-classifyMaybe :: Maybe a -> ExceptT Closure IO (Classifier (Maybe a))
-classifyMaybe = classifyFoldable C_Maybe
+type ClassifyListLike f = forall a. f a -> ExceptT Closure IO (Classifier (f a))
 
-classifyEither ::
-     Either a b
-  -> ExceptT Closure IO (Classifier (Either a b))
-classifyEither x =
-    case x of
-      Left  x' -> (mustBe . C_Either . ElemKU)  <$> classifyIO x'
-      Right y' -> (mustBe . C_Either . ElemUK) <$> classifyIO y'
-
-classifyList :: [a] -> ExceptT Closure IO (Classifier [a])
-classifyList = classifyFoldable c_list
+classifyListLike :: forall f.
+     (forall a. ClassifyListElem a -> Classifier_ IsUserDefined (f a))
+  -> (forall a. f a -> [a])
+  -> ClassifyListLike f
+classifyListLike cf toList = \xs ->
+    -- If the container is empty, we have a choice. It is however /probably/
+    -- more confusing to display a non-string as a string (albeit empty) than
+    -- the other way around.
+    case toList xs of
+      []    -> return $ mustBe $ cf C_List_Deferred
+      x:xs' -> go (x:xs')
   where
-    -- We special case for @String@, so that @show@ will use the (overlapped)
-    -- instance for @String@ instead of the general instance for @[a]@
-    c_list :: Elems o '[x] -> Classifier_ o [x]
-    c_list (ElemK (C_Prim C_Char)) = C_Prim C_String
-    c_list c = C_List c
+    -- Check every element
+    --
+    -- Precondition: all elements /already/ considered must all be 'Char'.
+    go :: [a] -> ExceptT Closure IO (Classifier (f a))
+    go []     = return $ mustBe $ cf C_List_Char
+    go (x:xs) = do
+        cx <- classifyIO x
+        case cx of
+          C_Prim C_Char -> go xs
+          _otherwise    -> return $ mustBe $ cf C_List_Deferred
 
-classifyRatio :: Ratio a -> ExceptT Closure IO (Classifier (Ratio a))
-classifyRatio (x' :% _) = mustBe . C_Ratio . ElemK <$> classifyIO x'
+classifyBoxedVector :: ClassifyListLike Vector.Boxed.Vector
+classifyHMArray     :: ClassifyListLike HashMap.Array
+classifyPrimArray   :: ClassifyListLike Prim.Array
+classifyList        :: ClassifyListLike []
+classifySequence    :: ClassifyListLike Seq
 
-classifySet :: Set a -> ExceptT Closure IO (Classifier (Set a))
-classifySet = classifyFoldable C_Set
+classifyBoxedVector = classifyListLike C_Vector_Boxed Foldable.toList
+classifyHMArray     = classifyListLike C_HM_Array     HashMap.Array.toList
+classifyPrimArray   = classifyListLike C_Prim_Array   Foldable.toList
+classifyList        = classifyListLike C_List         id
+classifySequence    = classifyListLike C_Sequence     Foldable.toList
 
-classifyMap :: Map a b -> ExceptT Closure IO (Classifier (Map a b))
-classifyMap = classifyFoldablePair C_Map Map.toList
+{-------------------------------------------------------------------------------
+  HashMap
 
-classifyIntMap :: IntMap a -> ExceptT Closure IO (Classifier (IntMap a))
-classifyIntMap = classifyFoldable C_IntMap
+  'HashSet' and 'HashMap' cannot be distinguished from just looking at the heap
+  , because 'HashSet' is a newtype around 'HashMap'. Instead, we classify a
+  'HashMap' with value type @()@ as a 'HashSet'.
 
-classifySequence :: Seq a -> ExceptT Closure IO (Classifier (Seq a))
-classifySequence = classifyFoldable C_Sequence
+  In princple we /should/ look at all elements (like we do for list-like
+  containers). However, it is extremely unlikely that we will a HashMap of
+  'Any', where the first value happens to be of type @()@. Moreover, if it
+  /does/ happen, the only consequence is that we omit the values (printing the
+  keys as a set); no segfault can happen (and we test this). We therefore look
+  simply at the first element only.
+-------------------------------------------------------------------------------}
 
-classifyTree :: Tree a -> ExceptT Closure IO (Classifier (Tree a))
-classifyTree (Tree.Node x' _) = mustBe . C_Tree . ElemK <$> classifyIO x'
-
-classifyHashMap :: HashMap a b -> ExceptT Closure IO (Classifier (HashMap a b))
-classifyHashMap = classifyFoldablePair c_hashmap HashMap.toList
+-- | Classify 'HashMap'
+--
+-- We try to recognize 'HashSet', if we can.
+classifyHashMap ::
+     HashMap a b
+  -> ExceptT Closure IO (Classifier (HashMap a b))
+classifyHashMap xs =
+    case HashMap.elems xs of
+      []  -> return $ mustBe C_HashMap
+      x:_ -> aux <$> classifyIO x
   where
-    -- HashSet is a newtype around HashMap
-    c_hashmap :: Elems o '[x, y] -> Classifier_ o (HashMap x y)
-    c_hashmap (ElemKK c (C_Prim C_Unit)) = mustBe $ C_HashSet (ElemK c)
-    c_hashmap c = C_HashMap c
+    aux :: Classifier b -> Classifier (HashMap a b)
+    aux (C_Prim C_Unit) = mustBe C_HashSet
+    aux _otherwise      = mustBe C_HashMap
 
-classifyHMArray ::
-     HashMap.Array a
-  -> ExceptT Closure IO (Classifier (HashMap.Array a))
-classifyHMArray =
-    classifyArrayLike
-      C_HM_Array
-      HashMap.Array.length
-      hmHead
-  where
-    hmHead a = case HashMap.Array.index# a 0 of (# x #) -> x
-
-classifyPrimArray ::
-     Prim.Array a
-  -> ExceptT Closure IO (Classifier (Prim.Array a))
-classifyPrimArray =
-    classifyArrayLike
-      C_Prim_Array
-      Prim.Array.sizeofArray
-      (`Prim.Array.indexArray` 0)
-
-classifyVectorBoxed ::
-     Vector.Boxed.Vector a
-  -> ExceptT Closure IO (Classifier (Vector.Boxed.Vector a))
-classifyVectorBoxed =
-    classifyArrayLike
-      C_Vector_Boxed
-      Vector.Boxed.length
-      Vector.Boxed.head
+{-------------------------------------------------------------------------------
+  Classifying tuples
+-------------------------------------------------------------------------------}
 
 classifyTuple ::
      (SListI xs, IsValidSize (Length xs))
   => NP (K Box) xs
   -> ExceptT Closure IO (Classifier (WrappedTuple xs))
 classifyTuple ptrs = do
-    cs <- hsequence' (hmap aux ptrs)
-    return $ C_Tuple (Elems (hmap Elem cs))
+    C_Tuple . Classifiers_ <$> hsequence' (hmap aux ptrs)
   where
     aux :: K Box a -> (ExceptT Closure IO :.: Classifier) a
     aux (K (Box x)) = Comp $ classifyIO (unsafeCoerce x)
-
-{-------------------------------------------------------------------------------
-  Helper functions for defining classifiers
--------------------------------------------------------------------------------}
-
-classifyFoldable ::
-     Foldable f
-  => (forall o x. Elems o '[x] -> Classifier_ o (f x))
-  -> f a -> ExceptT Closure IO (Classifier (f a))
-classifyFoldable cc x =
-    case Foldable.toList x of
-      []   -> return $ mustBe $ cc ElemU
-      x':_ -> mustBe . cc . ElemK <$> classifyIO x'
-
-classifyFoldablePair ::
-     (forall o x y. Elems o '[x, y] -> Classifier_ o (f x y))
-  -> (f a b -> [(a, b)])
-  -> f a b -> ExceptT Closure IO (Classifier (f a b))
-classifyFoldablePair cc toList x =
-    case toList x of
-      []         -> return $ mustBe $ cc ElemUU
-      (x', y'):_ -> (\ca cb -> mustBe $ cc (ElemKK ca cb))
-                       <$> classifyIO x'
-                       <*> classifyIO y'
-
-classifyArrayLike ::
-     (forall o x. Elems o '[x] -> Classifier_ o (f x))
-  -> (f a -> Int)  -- ^ Get the length of the array
-  -> (f a -> a)    -- ^ Get the first element (provided the array is not empty)
-  -> f a -> ExceptT Closure IO (Classifier (f a))
-classifyArrayLike cc getLen getFirst x =
-    if getLen x == 0
-      then return $ mustBe $ cc ElemU
-      else do
-        let x' = getFirst x
-        mustBe . cc . ElemK <$> classifyIO x'
-
-{-------------------------------------------------------------------------------
-  Patterns for common shapes of 'Elems'
-
-  This is mostly useful internally; we export these only for the benefit of the
-  QuickCheck generator. Most other code can treat the all types uniformly.
-
-  We distinguish between which elements are (K)nown and which (U)nknown
--------------------------------------------------------------------------------}
-
-pattern ElemK :: Classifier_ o a -> Elems o '[a]
-pattern ElemK c = Elems (Elem c :* Nil)
-
-pattern ElemU :: Elems o '[Void]
-pattern ElemU = Elems (NoElem :* Nil)
-
-pattern ElemKK :: Classifier_ o a -> Classifier_ o b -> Elems o '[a, b]
-pattern ElemKK ca cb = Elems (Elem ca :* Elem cb :* Nil)
-
-pattern ElemUU :: Elems o '[Void, Void]
-pattern ElemUU = Elems (NoElem :* NoElem :* Nil)
-
-pattern ElemKU :: Classifier_ o a -> Elems o '[a, Void]
-pattern ElemKU c = Elems (Elem c :* NoElem :* Nil)
-
-pattern ElemUK :: Classifier_ o b -> Elems o '[Void, b]
-pattern ElemUK c = Elems (NoElem :* Elem c :* Nil)
-
-{-------------------------------------------------------------------------------
-  Recognizing tuples
--------------------------------------------------------------------------------}
 
 isTuple :: String -> Maybe (Some ValidSize)
 isTuple typ = do
@@ -519,11 +441,16 @@ fromUserDefined = \(UserDefined x) -> unsafePerformIO $ go x
 --
 -- If classification fails, we show the actual closure.
 anythingToString :: forall a. a -> String
-anythingToString x =
+anythingToString x = anythingToShowS 0 x ""
+
+-- | Generalization of 'anythingToString' with user-specified precedence
+anythingToShowS :: forall a. Int -> a -> ShowS
+anythingToShowS p x =
     case classify x of
-      Left  closure    -> show closure
+      Left  closure    -> showsPrec p closure
       Right classifier -> case canShowClassified classifier of
-                            Dict -> show x
+                            Dict -> showsPrec p x
+
 
 deriving instance Show (Some Classified)
 
@@ -567,3 +494,6 @@ instance Show UserDefined where
             $ xs
     where
       (constrName, args) = fromUserDefined x
+
+instance Show Deferred where
+  showsPrec = anythingToShowS

@@ -5,7 +5,6 @@ module Test.RecoverRTTI.QuickCheck.DepGen (
   , depGen
     -- * Creation
   , arbitraryDepGen
-  , primDepGen
     -- * Bundle a dependent generator with a lifting function
   , GenK(..)
   , GenKU(..)
@@ -22,13 +21,8 @@ module Test.RecoverRTTI.QuickCheck.DepGen (
 import Data.Kind
 import Data.SOP
 import Data.SOP.Dict
-import Data.Void
-
-import Debug.RecoverRTTI
-
 import Test.QuickCheck
 
-import Test.RecoverRTTI.Prim
 import Test.RecoverRTTI.QuickCheck.Sized (SizedGen)
 import Test.RecoverRTTI.QuickCheck.Sized qualified as SG
 
@@ -53,13 +47,6 @@ depGen (DepGen _ gen) = gen
 arbitraryDepGen :: (Arbitrary a, Show a, Eq a) => c a -> DepGen c a
 arbitraryDepGen cc = DepGen cc $ SG.arbitrary
 
-primDepGen :: PrimClassifier a -> DepGen (Classifier_ o) a
-primDepGen C_String = DepGen (C_Prim C_String) $ SG.lift $
-    arbitrary `suchThat` (not . null) -- empty string classified as @[Void]@
-primDepGen c =
-    case (primSatisfiesArbitrary c, canShowPrim c, canComparePrim c) of
-      (Dict, Dict, Dict) -> DepGen (C_Prim c) $ unwrap <$> SG.arbitrary
-
 {-------------------------------------------------------------------------------
   Bundle a dependent generator with a lifting function
 
@@ -72,12 +59,12 @@ data GenK c (f :: Type -> Type) a = GenK {
     }
 
 data GenKU c (f :: Type -> Type -> Type) a = GenKU {
-      leftGen  :: SizedGen a -> SizedGen (f a Void)
+      leftGen  :: forall b. SizedGen a -> SizedGen (f a b)
     , leftElem :: DepGen c a
     }
 
 data GenUK c (f :: Type -> Type -> Type) b = GenUK {
-      rightGen  :: SizedGen b -> SizedGen (f Void b)
+      rightGen  :: forall a. SizedGen b -> SizedGen (f a b)
     , rightElem :: DepGen c b
     }
 
@@ -105,16 +92,18 @@ genJust cf (GenK gen (DepGen cx gx)) =
 genLeft ::
      ( forall x y. (Show x, Show y) => Show (f x y)
      , forall x y. (Eq   x, Eq   y) => Eq   (f x y)
+     , Show b, Eq b
      )
-  => (c a -> c' (f a Void)) -> GenKU c f a -> DepGen c' (f a Void)
+  => (c a -> c' (f a b)) -> GenKU c f a -> DepGen c' (f a b)
 genLeft cf (GenKU gen (DepGen cx gx)) =
     DepGen (cf cx) (gen gx)
 
 genRight ::
      ( forall x y. (Show x, Show y) => Show (f x y)
      , forall x y. (Eq   x, Eq   y) => Eq   (f x y)
+     , Show a, Eq a
      )
-  => (c b -> c' (f Void b)) -> GenUK c f b -> DepGen c' (f Void b)
+  => (c b -> c' (f a b)) -> GenUK c f b -> DepGen c' (f a b)
 genRight cf (GenUK gen (DepGen cy gy)) =
     DepGen (cf cy) (gen gy)
 

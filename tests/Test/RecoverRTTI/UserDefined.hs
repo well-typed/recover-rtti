@@ -10,15 +10,18 @@ module Test.RecoverRTTI.UserDefined (
   , ContainsUnlifted -- opaque
   , exampleContainsUnlifted
   , ConstrsOf(..)
+  , ClassifyUser(..)
   ) where
 
+import Data.Kind
 import Data.Proxy
 import GHC.Exts (RealWorld, MutableArray#, newArray#)
 import GHC.Generics
 import GHC.IO (IO(..))
 import System.IO.Unsafe (unsafePerformIO)
-
 import Test.QuickCheck
+
+import Debug.RecoverRTTI
 
 {-------------------------------------------------------------------------------
   User-defined datatypes
@@ -88,3 +91,15 @@ instance Arbitrary SimpleType where
 
 instance Arbitrary ContainsUnlifted where
   arbitrary = return exampleContainsUnlifted
+
+{-------------------------------------------------------------------------------
+  Classifier
+-------------------------------------------------------------------------------}
+
+data ClassifyUser (a :: Type) where
+  C_Simple   :: ClassifyUser SimpleType
+  C_NonRec   :: ClassifyUser (NonRecursive Deferred)
+  C_Rec      :: ClassifyUser (Recursive    Deferred)
+  C_Unlifted :: ClassifyUser ContainsUnlifted
+
+deriving stock instance Show (ClassifyUser a)

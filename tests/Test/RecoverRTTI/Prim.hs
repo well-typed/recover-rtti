@@ -42,8 +42,8 @@ import Debug.RecoverRTTI
 import Test.QuickCheck (Arbitrary(..), Gen)
 import Test.QuickCheck qualified as QC
 
-import Test.RecoverRTTI.Classifier.Equality ()
 import Test.RecoverRTTI.Globals
+import Test.RecoverRTTI.Orphans ()
 
 {-------------------------------------------------------------------------------
   Equality
@@ -83,7 +83,6 @@ arbitraryPrimClassifier = QC.elements [
 
     -- String types
 
-    , Some C_String
     , Some C_BS_Strict
     , Some C_BS_Lazy
     , Some C_Text_Strict
@@ -143,7 +142,6 @@ arbitraryPrimClassifier = QC.elements [
 
         -- String types
 
-        C_String      -> ()
         C_BS_Strict   -> ()
         C_BS_Lazy     -> ()
         C_Text_Strict -> ()
@@ -319,5 +317,3 @@ instance Arbitrary (Wrap SomePrimitiveVectorM) where
 
 instance Arbitrary (Wrap SomeMutableByteArray) where
   arbitrary = return $ Wrap exampleMutableByteArray
-
-

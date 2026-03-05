@@ -4,8 +4,7 @@ module Debug.RecoverRTTI.CheckSame (
     -- * Check if two classifiers are the same
     samePrim
   , sameClassifier_
-  , sameElem
-  , sameElems
+  , sameClassifiers_
   ) where
 
 import Data.SOP
@@ -43,7 +42,6 @@ samePrim = go
 
     -- String types
 
-    go C_String      C_String      = Just Refl
     go C_BS_Strict   C_BS_Strict   = Just Refl
     go C_BS_Lazy     C_BS_Lazy     = Just Refl
     go C_Text_Strict C_Text_Strict = Just Refl
@@ -105,7 +103,6 @@ samePrim = go
 
         -- String types
 
-        C_String      -> ()
         C_BS_Strict   -> ()
         C_BS_Lazy     -> ()
         C_Text_Strict -> ()
@@ -161,22 +158,26 @@ sameClassifier_ sameOther = go
     go (C_Prim  c) (C_Prim  c') = samePrim  c c'
     go (C_Other c) (C_Other c') = sameOther c c'
 
-    -- Compound
-    go (C_Maybe        c) (C_Maybe        c') = sameElems sameOther c c' $ Refl
-    go (C_Either       c) (C_Either       c') = sameElems sameOther c c' $ Refl
-    go (C_List         c) (C_List         c') = sameElems sameOther c c' $ Refl
-    go (C_Ratio        c) (C_Ratio        c') = sameElems sameOther c c' $ Refl
-    go (C_Set          c) (C_Set          c') = sameElems sameOther c c' $ Refl
-    go (C_Map          c) (C_Map          c') = sameElems sameOther c c' $ Refl
-    go (C_IntMap       c) (C_IntMap       c') = sameElems sameOther c c' $ Refl
-    go (C_Sequence     c) (C_Sequence     c') = sameElems sameOther c c' $ Refl
-    go (C_Tree         c) (C_Tree         c') = sameElems sameOther c c' $ Refl
-    go (C_HashSet      c) (C_HashSet      c') = sameElems sameOther c c' $ Refl
-    go (C_HashMap      c) (C_HashMap      c') = sameElems sameOther c c' $ Refl
-    go (C_HM_Array     c) (C_HM_Array     c') = sameElems sameOther c c' $ Refl
-    go (C_Prim_Array   c) (C_Prim_Array   c') = sameElems sameOther c c' $ Refl
-    go (C_Vector_Boxed c) (C_Vector_Boxed c') = sameElems sameOther c c' $ Refl
-    go (C_Tuple        c) (C_Tuple        c') = sameElems sameOther c c' $ Refl
+    -- Compound types with unclassified elements
+    go C_Maybe            C_Maybe             = Just Refl
+    go C_Ratio            C_Ratio             = Just Refl
+    go C_Set              C_Set               = Just Refl
+    go C_IntMap           C_IntMap            = Just Refl
+    go C_Tree             C_Tree              = Just Refl
+    go C_HashSet          C_HashSet           = Just Refl
+
+    go (C_List         c) (C_List         c') = listElem c c'
+    go (C_Sequence     c) (C_Sequence     c') = listElem c c'
+    go (C_HM_Array     c) (C_HM_Array     c') = listElem c c'
+    go (C_Prim_Array   c) (C_Prim_Array   c') = listElem c c'
+    go (C_Vector_Boxed c) (C_Vector_Boxed c') = listElem c c'
+
+    go C_Either           C_Either            = Just Refl
+    go C_Map              C_Map               = Just Refl
+    go C_HashMap          C_HashMap           = Just Refl
+
+    -- Compound types with classified elements
+    go (C_Tuple cs) (C_Tuple cs') = sameClassifiers_ sameOther cs cs' $ Refl
 
     -- No match
     go _ _ = Nothing
@@ -188,42 +189,46 @@ sameClassifier_ sameOther = go
            C_Other{} -> ()
 
            -- Compound
-           C_Maybe{}        -> ()
            C_Either{}       -> ()
-           C_List{}         -> ()
-           C_Ratio{}        -> ()
-           C_Set{}          -> ()
-           C_Map{}          -> ()
-           C_IntMap{}       -> ()
-           C_Sequence{}     -> ()
-           C_Tree{}         -> ()
-           C_HashSet{}      -> ()
            C_HashMap{}      -> ()
+           C_HashSet{}      -> ()
            C_HM_Array{}     -> ()
+           C_IntMap{}       -> ()
+           C_List{}         -> ()
+           C_Map{}          -> ()
+           C_Maybe{}        -> ()
            C_Prim_Array{}   -> ()
-           C_Vector_Boxed{} -> ()
+           C_Ratio{}        -> ()
+           C_Sequence{}     -> ()
+           C_Set{}          -> ()
+           C_Tree{}         -> ()
            C_Tuple{}        -> ()
+           C_Vector_Boxed{} -> ()
 
-sameElem :: forall o.
-     (forall a b. o a -> o b -> Maybe (a :~: b))
-  -> (forall a b. Elem o a -> Elem o b -> Maybe (a :~: b))
-sameElem sameOther = go
-  where
-    go :: Elem o a -> Elem o b -> Maybe (a :~: b)
-    go NoElem     NoElem   = Just Refl
-    go NoElem    (Elem _)  = Nothing
-    go (Elem _)   NoElem   = Nothing
-    go (Elem ca) (Elem cb) = sameClassifier_ sameOther ca cb
+    listElem :: ClassifyListElem a -> ClassifyListElem b -> Maybe (f a :~: f b)
+    listElem C_List_Deferred C_List_Deferred = Just Refl
+    listElem C_List_Char     C_List_Char     = Just Refl
+    listElem _               _               = Nothing
 
-sameElems :: forall o r.
-     (forall a b. o a -> o b -> Maybe (a :~: b))
-  -> (forall as bs. Elems o as -> Elems o bs -> (as ~ bs => r) -> Maybe r)
-sameElems sameOther = go
+sameClassifiers_ :: forall o r.
+     ( forall a b. o a -> o b -> Maybe (a :~: b) )
+  -> ( forall as bs.
+            Classifiers_ o as
+         -> Classifiers_ o bs
+         -> (as ~ bs => r)
+         -> Maybe r
+     )
+sameClassifiers_ sameOther = \(Classifiers_ cs) (Classifiers_ cs') ->
+    go cs cs'
   where
-    go :: Elems o as -> Elems o bs -> (as ~ bs => r) -> Maybe r
-    go (Elems Nil)       (Elems Nil)         k = Just k
-    go (Elems Nil)       (Elems (_  :* _))   _ = Nothing
-    go (Elems (_ :* _))  (Elems Nil)         _ = Nothing
-    go (Elems (c :* cs)) (Elems (c' :* cs')) k = do
-        Refl <- sameElem sameOther c c'
-        go (Elems cs) (Elems cs') k
+    go ::
+         NP (Classifier_ o) as
+      -> NP (Classifier_ o) bs
+      -> (as ~ bs => r)
+      -> Maybe r
+    go Nil       Nil         k = Just k
+    go Nil       (_  :* _)   _ = Nothing
+    go (_ :* _)  Nil         _ = Nothing
+    go (c :* cs) (c' :* cs') k = do
+        Refl <- sameClassifier_ sameOther c c'
+        go cs cs' k
