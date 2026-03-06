@@ -22,7 +22,7 @@ element prior to printing it.
 We do make two exceptions to this rule:
 
 - For lists and list-like structures, we do check if the elements are (_all_) of
-  type `Char`, so that the overlapping instance `Show` for `[String]` (versus
+  type `Char`, so that the overlapping instance `Show` for `String` (versus
   `[a]`) can be used. Not doing this would result in significantly less useful
   output from `anythingToString`.
 - To distinguish `HashMap` from `HashSet` we look at the first element only. At
