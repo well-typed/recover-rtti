@@ -47,13 +47,20 @@ tests = testGroup "Test.RecoverRTTI.Classify" [
     , testProperty "arbitrary" prop_arbitrary
     ]
 
+withNumTests :: QC.Testable prop => Int -> prop -> Property
+#if MIN_VERSION_QuickCheck(2,18,0)
+withNumTests = QC.withNumTests
+#else
+withNumTests = QC.withMaxSuccess
+#endif
+
 -- | Test using manually specified examples
 --
 -- For " normal " code it doesn't matter if something is generated or not,
 -- but their on-heap representation may be different, and this may effect the
 -- RTTI recovery.
 prop_constants :: Property
-prop_constants = QC.withMaxSuccess 1 $ QC.conjoin [
+prop_constants = withNumTests 1 $ QC.conjoin [
       -- Primitive types
 
       compareClassifier $ Value (CC_Prim C_Bool)     True
