@@ -1,5 +1,9 @@
 # Revision history for recover-rtti
 
+## 0.6.1 -- 2026-05-05
+
+* Relax bounds on `QuickCheck` (Brandon Chinn, #55)
+
 ## 0.6.0 -- 2026-03-05
 
 THIS IS AN IMPORTANT BUGFIX RELEASE; PLEASE UPGRADE.
