@@ -127,6 +127,9 @@ data instance KnownModule 'PkgGhcInternal =
   | GhcTuple -- Moved from ghc-prim
   | GhcNumInteger -- Moved from ghc-internal
 #endif
+#if MIN_VERSION_base(4,22,1)
+  | GhcSTM -- TVar moved from GHC.Internal.Conc.Sync
+#endif
 
 {-------------------------------------------------------------------------------
   Modules in @base@
@@ -335,6 +338,9 @@ inKnownModuleNested = go singPkg
           GhcTypes    -> "GHC.Internal.Types"
           GhcTuple    -> "GHC.Internal.Tuple"
           GhcNumInteger -> "GHC.Internal.Bignum.Integer"
+#endif
+#if MIN_VERSION_base(4,22,1)
+          GhcSTM      -> "GHC.Internal.STM"
 #endif
 
         SBase -> \case
