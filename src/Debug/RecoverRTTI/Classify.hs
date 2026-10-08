@@ -252,7 +252,11 @@ classifyIO x = do
 
       (inKnownModule GhcSTRef    -> Just "STRef") -> return $ mustBe $ C_Prim C_STRef
       (inKnownModule GhcMVar     -> Just "MVar")  -> return $ mustBe $ C_Prim C_MVar
+#if MIN_VERSION_base(4,22,1)
+      (inKnownModule GhcSTM      -> Just "TVar")  -> return $ mustBe $ C_Prim C_TVar
+#else
       (inKnownModule GhcConcSync -> Just "TVar")  -> return $ mustBe $ C_Prim C_TVar
+#endif
 
       --
       -- Functions
