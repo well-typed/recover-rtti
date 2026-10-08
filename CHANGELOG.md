@@ -1,5 +1,10 @@
 # Revision history for recover-rtti
 
+## 0.6.2 -- 2026-10-08
+
+* Support for GHC 9.14.2 (İlkecan Bozdoğan, #58)
+* Relax bounds on `aeson`  (Brandon Chinn, #57)
+
 ## 0.6.1 -- 2026-05-05
 
 * Relax bounds on `QuickCheck` (Brandon Chinn, #55)
